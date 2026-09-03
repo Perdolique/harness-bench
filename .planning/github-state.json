@@ -1,0 +1,185 @@
+{
+  "repository": "Perdolique/harness-bench",
+  "issues": {
+    "1": {
+      "number": 1,
+      "url": "https://github.com/Perdolique/harness-bench/issues/1",
+      "body_sha256": "4d9ef3c3aa29cca94902f84a751bc59d609ce91d470515129aee76a3a012544e"
+    },
+    "2": {
+      "number": 2,
+      "url": "https://github.com/Perdolique/harness-bench/issues/2",
+      "body_sha256": "f3ccba0b1cf1570e99efc7ce1e52a69f19ac7f763ea37e93e3f7bb8c1f84eafe"
+    },
+    "3": {
+      "number": 3,
+      "url": "https://github.com/Perdolique/harness-bench/issues/3",
+      "body_sha256": "73c550217e2da32b71ecfecf85e135a395219bdeb73173f72c5f604e7be82c80"
+    },
+    "4": {
+      "number": 4,
+      "url": "https://github.com/Perdolique/harness-bench/issues/4",
+      "body_sha256": "18cdcc12361619b0e3470b33f86ff5ee72e47cffae34cfe4a8df9119d309708f"
+    },
+    "5": {
+      "number": 5,
+      "url": "https://github.com/Perdolique/harness-bench/issues/5",
+      "body_sha256": "785bed183a719d917c8cc2d484ee692332a0c2f0ccd1d8b23dcfbbe33ba4aaaa"
+    },
+    "6": {
+      "number": 6,
+      "url": "https://github.com/Perdolique/harness-bench/issues/6",
+      "body_sha256": "a7b0416e422ab1e08809e141ab57072dacf014e3c5579b7a2c011bc632e21b68"
+    },
+    "7": {
+      "number": 7,
+      "url": "https://github.com/Perdolique/harness-bench/issues/7",
+      "body_sha256": "aa7f977a976a009a8405a49287d2545543add75b09a11e761074fb20ac6a95c4"
+    },
+    "8": {
+      "number": 8,
+      "url": "https://github.com/Perdolique/harness-bench/issues/8",
+      "body_sha256": "985450e06ca672d09399263b63a89e0c9638ec56ee53c6ad99715932418ad522"
+    },
+    "9": {
+      "number": 9,
+      "url": "https://github.com/Perdolique/harness-bench/issues/9",
+      "body_sha256": "7c4d6378ba2e16d3f59255a741e8036de3f21ca83ad795627f11e0a8023295fc"
+    },
+    "10": {
+      "number": 10,
+      "url": "https://github.com/Perdolique/harness-bench/issues/10",
+      "body_sha256": "53c3559f4cdbcc3afece32fc96a02bb7531f41f100788fa61fabe1e5024d4c03"
+    },
+    "11": {
+      "number": 11,
+      "url": "https://github.com/Perdolique/harness-bench/issues/11",
+      "body_sha256": "1052468a9c372dcb6a2115aa8aa1e53446f4f336e83984588f8bbf053f0c48ab"
+    },
+    "12": {
+      "number": 12,
+      "url": "https://github.com/Perdolique/harness-bench/issues/12",
+      "body_sha256": "710daca1b8332786c52ab3f98c8e0dd0b9130fe1b09d5c651c8ccc529ede7ab3"
+    },
+    "13": {
+      "number": 13,
+      "url": "https://github.com/Perdolique/harness-bench/issues/13",
+      "body_sha256": "c734bc3fd4ac90221df44d258b5f711b9f5553ee27699f46bf5657518076ddd3"
+    },
+    "14": {
+      "number": 14,
+      "url": "https://github.com/Perdolique/harness-bench/issues/14",
+      "body_sha256": "b8be28a2ddb2d05be191d5eb976d0e1c387062930ee9497447d8df3789434c43"
+    },
+    "15": {
+      "number": 15,
+      "url": "https://github.com/Perdolique/harness-bench/issues/15",
+      "body_sha256": "9adc462b6525f9a13cf8056cd34d1307d31d5b4f67e290ee3149d0b644d846c0"
+    },
+    "16": {
+      "number": 16,
+      "url": "https://github.com/Perdolique/harness-bench/issues/16",
+      "body_sha256": "d706b11d9f98911ce5c9667143398df46c475d63fd4e3ffa1b29337e78fe57d0"
+    },
+    "17": {
+      "number": 17,
+      "url": "https://github.com/Perdolique/harness-bench/issues/17",
+      "body_sha256": "1d6886e8a3aa17628350d6d289b2aa67695f13b025fb31117e281d79fc4e26d1"
+    },
+    "18": {
+      "number": 18,
+      "url": "https://github.com/Perdolique/harness-bench/issues/18",
+      "body_sha256": "741290f4069a20d18de4bb86e720d5ecfce05dacf73e85067bd474810fcc2392"
+    },
+    "19": {
+      "number": 19,
+      "url": "https://github.com/Perdolique/harness-bench/issues/19",
+      "body_sha256": "41e185cfca53a1f3bfecf894971b6350a7f79a6e9b06176039012c62bc6e1a6c"
+    },
+    "20": {
+      "number": 20,
+      "url": "https://github.com/Perdolique/harness-bench/issues/20",
+      "body_sha256": "7ddbe51d946d068c1c169fc9ff13521fd3a02d8979c075a8dbcf12067962c1c3"
+    },
+    "21": {
+      "number": 21,
+      "url": "https://github.com/Perdolique/harness-bench/issues/21",
+      "body_sha256": "6d39f4dbee0c1b03f63c8258e5077fde834d69de488ac09ec809c40cc91e8ebf"
+    },
+    "22": {
+      "number": 22,
+      "url": "https://github.com/Perdolique/harness-bench/issues/22",
+      "body_sha256": "af7d3818bbd46021de9864919de51f961d4363c2d6e2254bb00d3723d989abd0"
+    },
+    "23": {
+      "number": 23,
+      "url": "https://github.com/Perdolique/harness-bench/issues/23",
+      "body_sha256": "27105126134b2e7662451799365ed86230bd628dc46e6022f109dcfcd46986af"
+    },
+    "24": {
+      "number": 24,
+      "url": "https://github.com/Perdolique/harness-bench/issues/24",
+      "body_sha256": "8d69a6a8e071bd7aa32f587dc9e108244b033d9a45bf40c1731ec9b2a22462a6"
+    },
+    "25": {
+      "number": 25,
+      "url": "https://github.com/Perdolique/harness-bench/issues/25",
+      "body_sha256": "82ca16c54af23650aa870244ccb9008a9171b36f13e52e71a2fc0c0bae87f4d0"
+    },
+    "26": {
+      "number": 26,
+      "url": "https://github.com/Perdolique/harness-bench/issues/26",
+      "body_sha256": "0047a97d7949d41473cc919acb39338346071e70c2d99692eecf6d7a5623be83"
+    },
+    "27": {
+      "number": 27,
+      "url": "https://github.com/Perdolique/harness-bench/issues/27",
+      "body_sha256": "9fa2638dd6e58930b276e9020f58e4bc07e2f01e025016e5698b0bc69eb9fc04"
+    }
+  },
+  "milestones": {
+    "M0 Feasibility": {
+      "number": 1,
+      "url": "https://github.com/Perdolique/harness-bench/milestone/1"
+    },
+    "M1 Vertical-slice MVP": {
+      "number": 2,
+      "url": "https://github.com/Perdolique/harness-bench/milestone/2"
+    },
+    "M2 Controlled experiments": {
+      "number": 3,
+      "url": "https://github.com/Perdolique/harness-bench/milestone/3"
+    },
+    "M3 Pilot benchmark": {
+      "number": 4,
+      "url": "https://github.com/Perdolique/harness-bench/milestone/4"
+    },
+    "M4 Hardening and expansion": {
+      "number": 5,
+      "url": "https://github.com/Perdolique/harness-bench/milestone/5"
+    }
+  },
+  "labels": [
+    "type:spike",
+    "type:feature",
+    "type:docs",
+    "type:content",
+    "type:research",
+    "type:chore",
+    "type:experiment",
+    "area:runner",
+    "area:codex",
+    "area:harness",
+    "area:tasks",
+    "area:verifier",
+    "area:results",
+    "area:statistics",
+    "area:reporting",
+    "area:security",
+    "area:ci",
+    "priority:critical",
+    "blocked",
+    "decision-required",
+    "no-provider-call-in-ci"
+  ]
+}

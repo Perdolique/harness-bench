@@ -1,0 +1,621 @@
+{
+  "repository": "Perdolique/harness-bench",
+  "planning_source": "BOOTSTRAP_PLAN.md",
+  "milestones": [
+    {
+      "title": "M0 Feasibility",
+      "description": "Issues 1\u20133: pinned development skeleton, end-to-end subscription feasibility, then evidence-based decisions. Owner gate after issue 2."
+    },
+    {
+      "title": "M1 Vertical-slice MVP",
+      "description": "Issues 4\u20139: schemas, immutable harness, canonical task, one-run execution, normalization and terminal evidence. Owner calibration gate after issue 6."
+    },
+    {
+      "title": "M2 Controlled experiments",
+      "description": "Issues 10\u201313: blocked/repeated execution, paired uncertainty, integrity checks and verifier-only regrade. Owner dry-run/canary gate after issue 13."
+    },
+    {
+      "title": "M3 Pilot benchmark",
+      "description": "Issues 14\u201317: import/freeze real tasks, evidence rubric, five calibrated tasks and first skill comparison. Freeze gate after 16; evidence review after 17."
+    },
+    {
+      "title": "M4 Hardening and expansion",
+      "description": "Issues 18\u201327: optional evidence-justified work after the pilot, outside the v1 critical path. Metered schedules are a separate opt-in issue."
+    }
+  ],
+  "labels": [
+    {
+      "name": "type:spike",
+      "color": "7057ff",
+      "description": "Disposable feasibility work with an explicit go/no-go gate"
+    },
+    {
+      "name": "type:feature",
+      "color": "7057ff",
+      "description": "A bounded product or tooling capability"
+    },
+    {
+      "name": "type:docs",
+      "color": "7057ff",
+      "description": "Documentation, architecture decisions or threat-model work"
+    },
+    {
+      "name": "type:content",
+      "color": "7057ff",
+      "description": "Task authoring and calibration using existing tooling"
+    },
+    {
+      "name": "type:research",
+      "color": "7057ff",
+      "description": "Evidence gathering with a documented decision"
+    },
+    {
+      "name": "type:chore",
+      "color": "7057ff",
+      "description": "Repository and development-tooling setup"
+    },
+    {
+      "name": "type:experiment",
+      "color": "7057ff",
+      "description": "An explicitly authorized controlled benchmark experiment"
+    },
+    {
+      "name": "area:runner",
+      "color": "1d76db",
+      "description": "Harbor lifecycle, adapters and control-plane invocation"
+    },
+    {
+      "name": "area:codex",
+      "color": "1d76db",
+      "description": "Native Codex configuration, authentication and fidelity"
+    },
+    {
+      "name": "area:harness",
+      "color": "1d76db",
+      "description": "Immutable harness inputs, materialization and comparison"
+    },
+    {
+      "name": "area:tasks",
+      "color": "1d76db",
+      "description": "Task packages, provenance, evidence and suite authoring"
+    },
+    {
+      "name": "area:verifier",
+      "color": "1d76db",
+      "description": "Separate deterministic verification and artifact trust"
+    },
+    {
+      "name": "area:results",
+      "color": "1d76db",
+      "description": "Raw records, normalization, revisions and provenance"
+    },
+    {
+      "name": "area:statistics",
+      "color": "1d76db",
+      "description": "Paired comparison, uncertainty and reliability"
+    },
+    {
+      "name": "area:reporting",
+      "color": "1d76db",
+      "description": "Terminal and static evidence presentation"
+    },
+    {
+      "name": "area:security",
+      "color": "1d76db",
+      "description": "Credentials, isolation, source privacy and redaction"
+    },
+    {
+      "name": "area:ci",
+      "color": "1d76db",
+      "description": "Provider-free checks and explicitly isolated opt-in automation"
+    },
+    {
+      "name": "priority:critical",
+      "color": "b60205",
+      "description": "Blocks the feasibility or integrity of the v1 path"
+    },
+    {
+      "name": "blocked",
+      "color": "fbca04",
+      "description": "Waiting on linked dependencies or a required owner gate"
+    },
+    {
+      "name": "decision-required",
+      "color": "d93f0b",
+      "description": "An explicit owner decision or review gate is required"
+    },
+    {
+      "name": "no-provider-call-in-ci",
+      "color": "0e8a16",
+      "description": "Ordinary tests and CI must not invoke a model provider"
+    }
+  ],
+  "splits": [
+    {
+      "source_item": 18,
+      "planning_items": [
+        18,
+        27
+      ],
+      "reason": "Provider-free CI validation and metered scheduling are independently reviewable outcomes; schedules require a separate explicit opt-in."
+    }
+  ],
+  "issues": [
+    {
+      "id": 1,
+      "title": "chore: initialize repository, pinned toolchains, and project governance",
+      "file": ".planning/issues/01-repository-skeleton.md",
+      "milestone": "M0 Feasibility",
+      "labels": [
+        "type:chore",
+        "area:ci",
+        "area:runner",
+        "no-provider-call-in-ci",
+        "priority:critical"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": 2,
+      "title": "spike: prove Harbor + native Codex subscription + separate verifier end to end",
+      "file": ".planning/issues/02-feasibility-spike.md",
+      "milestone": "M0 Feasibility",
+      "labels": [
+        "type:spike",
+        "area:runner",
+        "area:codex",
+        "area:verifier",
+        "area:security",
+        "no-provider-call-in-ci",
+        "blocked",
+        "priority:critical",
+        "decision-required"
+      ],
+      "dependencies": [
+        1
+      ]
+    },
+    {
+      "id": 3,
+      "title": "docs: finalize architecture ADRs and threat model from feasibility evidence",
+      "file": ".planning/issues/03-evidence-based-decisions.md",
+      "milestone": "M0 Feasibility",
+      "labels": [
+        "type:docs",
+        "area:runner",
+        "area:security",
+        "no-provider-call-in-ci",
+        "blocked",
+        "priority:critical",
+        "decision-required"
+      ],
+      "dependencies": [
+        2
+      ]
+    },
+    {
+      "id": 4,
+      "title": "feat: define versioned stack, harness, suite, experiment, task, run, and score schemas",
+      "file": ".planning/issues/04-versioned-schemas.md",
+      "milestone": "M1 Vertical-slice MVP",
+      "labels": [
+        "type:feature",
+        "area:harness",
+        "area:results",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        3
+      ]
+    },
+    {
+      "id": 5,
+      "title": "feat: capture, validate, hash, and materialize immutable harness bundles",
+      "file": ".planning/issues/05-immutable-harnesses.md",
+      "milestone": "M1 Vertical-slice MVP",
+      "labels": [
+        "type:feature",
+        "area:harness",
+        "area:security",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 6,
+      "title": "feat: add canonical frontend blast-radius task with separate deterministic verifier",
+      "file": ".planning/issues/06-canonical-frontend-task.md",
+      "milestone": "M1 Vertical-slice MVP",
+      "labels": [
+        "type:feature",
+        "area:tasks",
+        "area:verifier",
+        "no-provider-call-in-ci",
+        "blocked",
+        "priority:critical",
+        "decision-required"
+      ],
+      "dependencies": [
+        3
+      ]
+    },
+    {
+      "id": 7,
+      "title": "feat: implement benchctl run over pinned Harbor",
+      "file": ".planning/issues/07-run-orchestration.md",
+      "milestone": "M1 Vertical-slice MVP",
+      "labels": [
+        "type:feature",
+        "area:runner",
+        "area:codex",
+        "no-provider-call-in-ci",
+        "blocked",
+        "priority:critical"
+      ],
+      "dependencies": [
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "id": 8,
+      "title": "feat: normalize Harbor outputs while preserving immutable raw records",
+      "file": ".planning/issues/08-normalize-results.md",
+      "milestone": "M1 Vertical-slice MVP",
+      "labels": [
+        "type:feature",
+        "area:results",
+        "area:security",
+        "no-provider-call-in-ci",
+        "blocked",
+        "priority:critical"
+      ],
+      "dependencies": [
+        7
+      ]
+    },
+    {
+      "id": 9,
+      "title": "feat: render a terminal report for one run",
+      "file": ".planning/issues/09-single-run-report.md",
+      "milestone": "M1 Vertical-slice MVP",
+      "labels": [
+        "type:feature",
+        "area:reporting",
+        "area:results",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        8
+      ]
+    },
+    {
+      "id": 10,
+      "title": "feat: execute versioned experiment matrices with A/B arms, repeats, and blocked interleaving",
+      "file": ".planning/issues/10-experiment-matrices.md",
+      "milestone": "M2 Controlled experiments",
+      "labels": [
+        "type:feature",
+        "area:runner",
+        "area:harness",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        9
+      ]
+    },
+    {
+      "id": 11,
+      "title": "feat: produce paired experiment comparisons and uncertainty estimates",
+      "file": ".planning/issues/11-paired-comparison.md",
+      "milestone": "M2 Controlled experiments",
+      "labels": [
+        "type:feature",
+        "area:statistics",
+        "area:reporting",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        10
+      ]
+    },
+    {
+      "id": 12,
+      "title": "feat: add benchctl doctor for task, verifier, environment, and harness integrity",
+      "file": ".planning/issues/12-integrity-doctor.md",
+      "milestone": "M2 Controlled experiments",
+      "labels": [
+        "type:feature",
+        "area:tasks",
+        "area:verifier",
+        "area:security",
+        "no-provider-call-in-ci",
+        "blocked",
+        "priority:critical"
+      ],
+      "dependencies": [
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "id": 13,
+      "title": "feat: support verifier-only regrade and scoring revision migration",
+      "file": ".planning/issues/13-verifier-regrade.md",
+      "milestone": "M2 Controlled experiments",
+      "labels": [
+        "type:feature",
+        "area:verifier",
+        "area:results",
+        "no-provider-call-in-ci",
+        "blocked",
+        "priority:critical",
+        "decision-required"
+      ],
+      "dependencies": [
+        8,
+        11,
+        12
+      ]
+    },
+    {
+      "id": 14,
+      "title": "feat: import and freeze a task from a real repository commit or merged PR",
+      "file": ".planning/issues/14-real-task-import.md",
+      "milestone": "M3 Pilot benchmark",
+      "labels": [
+        "type:feature",
+        "area:tasks",
+        "area:security",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        13
+      ]
+    },
+    {
+      "id": 15,
+      "title": "feat: define blast-radius rubric and repository-contract evidence format",
+      "file": ".planning/issues/15-contract-rubric.md",
+      "milestone": "M3 Pilot benchmark",
+      "labels": [
+        "type:feature",
+        "area:tasks",
+        "area:verifier",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        14
+      ]
+    },
+    {
+      "id": 16,
+      "title": "content: author and calibrate the first five real benchmark tasks",
+      "file": ".planning/issues/16-pilot-task-suite.md",
+      "milestone": "M3 Pilot benchmark",
+      "labels": [
+        "type:content",
+        "area:tasks",
+        "area:verifier",
+        "no-provider-call-in-ci",
+        "blocked",
+        "decision-required"
+      ],
+      "dependencies": [
+        14,
+        15
+      ]
+    },
+    {
+      "id": 17,
+      "title": "experiment: compare skill disabled vs v1 vs v2 on the pilot suite",
+      "file": ".planning/issues/17-first-skill-experiment.md",
+      "milestone": "M3 Pilot benchmark",
+      "labels": [
+        "type:experiment",
+        "area:harness",
+        "area:statistics",
+        "area:reporting",
+        "no-provider-call-in-ci",
+        "blocked",
+        "decision-required"
+      ],
+      "dependencies": [
+        16
+      ]
+    },
+    {
+      "id": 18,
+      "title": "feat: add provider-free CI integrity and redaction validation",
+      "file": ".planning/issues/18-ci-integrity.md",
+      "milestone": "M4 Hardening and expansion",
+      "labels": [
+        "type:feature",
+        "area:ci",
+        "area:security",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        12,
+        13,
+        17
+      ]
+    },
+    {
+      "id": 19,
+      "title": "feat: static HTML/web dashboard over normalized experiment data",
+      "file": ".planning/issues/19-static-dashboard.md",
+      "milestone": "M4 Hardening and expansion",
+      "labels": [
+        "type:feature",
+        "area:reporting",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        11,
+        13,
+        17
+      ]
+    },
+    {
+      "id": 20,
+      "title": "feat: add a second native agent/provider as a complete stack",
+      "file": ".planning/issues/20-second-native-agent.md",
+      "milestone": "M4 Hardening and expansion",
+      "labels": [
+        "type:feature",
+        "area:runner",
+        "area:harness",
+        "no-provider-call-in-ci",
+        "blocked",
+        "decision-required"
+      ],
+      "dependencies": [
+        13,
+        17
+      ]
+    },
+    {
+      "id": 21,
+      "title": "feat: add API-auth and billing-aware experiment mode",
+      "file": ".planning/issues/21-api-billing-mode.md",
+      "milestone": "M4 Hardening and expansion",
+      "labels": [
+        "type:feature",
+        "area:codex",
+        "area:results",
+        "area:security",
+        "no-provider-call-in-ci",
+        "blocked",
+        "decision-required"
+      ],
+      "dependencies": [
+        13,
+        17
+      ]
+    },
+    {
+      "id": 22,
+      "title": "feat: add code-review benchmark task type and finding matcher",
+      "file": ".planning/issues/22-review-task-type.md",
+      "milestone": "M4 Hardening and expansion",
+      "labels": [
+        "type:feature",
+        "area:tasks",
+        "area:verifier",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        15,
+        17
+      ]
+    },
+    {
+      "id": 23,
+      "title": "feat: add holdout/sealed-suite workflow",
+      "file": ".planning/issues/23-sealed-suite.md",
+      "milestone": "M4 Hardening and expansion",
+      "labels": [
+        "type:feature",
+        "area:tasks",
+        "area:results",
+        "no-provider-call-in-ci",
+        "blocked",
+        "decision-required"
+      ],
+      "dependencies": [
+        13,
+        16,
+        17
+      ]
+    },
+    {
+      "id": 24,
+      "title": "feat: add selective mutation probes for agent-authored tests",
+      "file": ".planning/issues/24-selective-mutation-probes.md",
+      "milestone": "M4 Hardening and expansion",
+      "labels": [
+        "type:feature",
+        "area:tasks",
+        "area:verifier",
+        "no-provider-call-in-ci",
+        "blocked"
+      ],
+      "dependencies": [
+        12,
+        15,
+        17
+      ]
+    },
+    {
+      "id": 25,
+      "title": "feat: evaluate remote sandbox/executor backends",
+      "file": ".planning/issues/25-remote-executor-evaluation.md",
+      "milestone": "M4 Hardening and expansion",
+      "labels": [
+        "type:research",
+        "area:runner",
+        "area:security",
+        "no-provider-call-in-ci",
+        "blocked",
+        "decision-required"
+      ],
+      "dependencies": [
+        13,
+        17
+      ]
+    },
+    {
+      "id": 26,
+      "title": "research: evaluate Pier trajectory fidelity against current Harbor",
+      "file": ".planning/issues/26-pier-fidelity-research.md",
+      "milestone": "M4 Hardening and expansion",
+      "labels": [
+        "type:research",
+        "area:runner",
+        "area:results",
+        "no-provider-call-in-ci",
+        "blocked",
+        "decision-required"
+      ],
+      "dependencies": [
+        2,
+        3,
+        17
+      ]
+    },
+    {
+      "id": 27,
+      "title": "feat: add explicitly opted-in metered experiment schedules",
+      "file": ".planning/issues/27-optional-metered-schedules.md",
+      "milestone": "M4 Hardening and expansion",
+      "labels": [
+        "type:feature",
+        "area:ci",
+        "area:security",
+        "no-provider-call-in-ci",
+        "blocked",
+        "decision-required"
+      ],
+      "dependencies": [
+        18,
+        21
+      ]
+    }
+  ]
+}
