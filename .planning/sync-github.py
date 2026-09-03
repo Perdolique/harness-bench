@@ -121,13 +121,18 @@ def main():
             problems.append(f"Existing milestone differs; preserve it: {item['title']}")
     for item in catalog["issues"]:
         matches = [x for x in issues if MARKER.format(item["id"]) in (x.get("body") or "")]
+        saved = state["issues"].get(str(item["id"]))
         if len(matches) > 1:
             problems.append(f"Duplicate planning markers for item {item['id']}")
         elif matches:
             issue_map[item["id"]] = matches[0]
-            saved = state["issues"].get(str(item["id"]))
             if saved and saved["number"] != matches[0]["number"]:
                 problems.append(f"Issue mapping changed for item {item['id']}")
+        elif saved:
+            problems.append(
+                f"Saved issue #{saved['number']} is missing or lost its planning marker: "
+                f"item {item['id']}; reconcile the mapping before publication."
+            )
         elif any(x["title"] == item["title"] for x in issues):
             problems.append(f"Unrelated issue has the expected title: {item['title']}")
     # Refuse to overwrite manual edits before creating any new objects.

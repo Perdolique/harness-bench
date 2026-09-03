@@ -68,8 +68,12 @@ must not fail merely because it edits a different justified file.
    delete/disable tests, and edit a forbidden path. Expected checks must fail.
 5. Repeat verification with no network or credentials and identical artifacts;
    verify deterministic outcomes and absence of hidden material from agent access.
-6. Run future `benchctl doctor` and retain its evidence. Obtain the issue 6 owner
-   review before downstream orchestration uses the canonical task.
+6. Obtain the issue 6 owner review using the evidence from steps 1–5 before
+   downstream orchestration uses the canonical task.
+
+After issue 12 implements `benchctl doctor`, run it and retain its evidence for
+subsequent task calibration. Doctor is not a prerequisite for the initial issue 6
+owner review.
 
 Real import (issue 14) keeps private data in external owner-controlled storage,
 records sanitized provenance, and leaves hidden-test authoring manual. Issue 15

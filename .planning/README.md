@@ -18,12 +18,16 @@ fixtures, Harbor integration, or issue 1's development skeleton.
 
 ```sh
 python3 .planning/validate.py
+python3 .planning/test_sync_github.py
 ```
 
 Checks include local links/anchors, Markdown structure, required deliverables,
 issue sections, original acceptance criteria, milestone placement, acyclic
 dependency order, label references and recorded publication hashes. It never runs
 Harbor, Codex inference, package installation, or benchmark tests.
+
+The publication regression checks simulate renamed or missing saved issues and an
+unchanged repeat publication. GitHub requests and local writes are mocked.
 
 ## Publish or recover an interrupted bootstrap
 
@@ -44,8 +48,10 @@ immediately so interruptions can be resumed. A second unchanged apply creates
 nothing and rewrites no issue bodies.
 
 Issues are identified by an exact hidden planning marker, including closed issues;
-milestones by exact title and labels by exact name. Existing unrelated objects are
-never deleted or modified. Conflicting names, duplicate markers, manual body
+saved issue numbers must still match that marker. A missing saved issue or removed
+marker stops publication before any writes instead of creating a replacement.
+Milestones are identified by exact title and labels by exact name. Existing unrelated
+objects are never deleted or modified. Conflicting names, duplicate markers, manual body
 changes, changed labels/titles/milestones, or a different origin stop publication
 for reconciliation. The script never reopens closed issues, resets labels, assigns
 people, comments, enables workflows, purchases credits, or pushes Git commits.
