@@ -8,10 +8,17 @@ prompt, allowed repository snapshot, explicit harness, tools, and budgets. Hidde
 checks, the reference patch, future history, and credentials remain outside its
 filesystem. No runtime clone from a moving branch is permitted.
 
+Materialize those frozen bytes as a new local repository with exactly one base
+commit. Do not copy the source object database, refs, remotes, hooks, credentials,
+alternates, or later commits; retain only objects reachable from the new commit.
+Record source provenance separately. The trusted collector compares against its
+own immutable baseline and ignores the agent-visible `.git` directory.
+
 The first task is a small synthetic TypeScript/Vue repository: a secondary UI
 action with established analytics, localization, accessibility, and test precedents.
 The prompt requests behavior without listing those obligations. Issue 6 authors
-this task only after feasibility; bootstrap creates no fixture or hidden tests.
+this task after the accepted feasibility review and proves that ordinary Git
+commands work without exposing future history.
 
 ## Harbor package and visibility
 

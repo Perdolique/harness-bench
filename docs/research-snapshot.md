@@ -80,17 +80,26 @@ versions. Harbor declares Python `>=3.12`.
 - C7: [Codex configuration layers](https://github.com/openai/codex/blob/657a993cbee87acf52d14b758ce49dbd46d1b8eb/codex-rs/config/src/loader/mod.rs).
 - C8: [Codex release version](https://github.com/openai/codex/blob/657a993cbee87acf52d14b758ce49dbd46d1b8eb/codex-rs/Cargo.toml).
 
-## Unresolved feasibility register
+## Feasibility risk register
 
-| ID | Unknown / risk | Required resolution |
-| --- | --- | --- |
-| R1 | Minimum dedicated auth files, read-only access, refresh persistence and cleanup | Issue 2 observed login/refresh evidence; owner security gate |
-| R2 | Public agent internet and offline verifier on Docker Desktop/LinuxKit | Issue 2 provider-free Harbor lifecycle and native public-network records |
-| R3 | Independent complete patch capture despite mutable Git, leftover processes, stop/collection failure | Issue 2 positive/adversarial controls, trusted collector evidence |
-| R4 | Native daily-stack fidelity, config/skills/MCP loading, sandbox flags, merged logs and current CLI event coverage | Issue 2 effective-config and trajectory comparison; adapter fallback if needed |
-| R5 | Safe artifact replay, secret exclusion before durable retention, hidden-test isolation | Issue 2 boundary checks; issue 3 threat review; issue 12 recurring integrity checks |
-| R6 | Provider-hidden model identity, quota and nondeterminism | Record unknowns and available usage; contemporaneous paired runs, no invented cost |
+Issue 3 reviewed the original risks against the
+[retained spike evidence](spikes/harbor-codex-subscription.md). The provider-free
+preflight SHA-256 is
+`a2ba6b8bc21dc4023d1b25f8c30bafc7a974186d0d3f2eb540dceaf1dea7d9da`;
+the public-01, public-02, and public-03 manifest SHA-256 values are
+`62b9c15290b12185c3f45a767e475ebb6d4a54c81a27729a086f0627741b81eb`,
+`88b7d0c00e500fed64627330e6ee19235fbb1612f68c80a62d98e32bfd2ceb50`,
+and `6f5cf36cc589ed908db0d0173220b94bf83466aef598de1e0dc17bd69c9242f6`.
 
-There is no green feasibility conclusion yet. Required decisions remain proposed.
-The main implementation stops if the spike fails; source support alone cannot
-waive any owner gate.
+| ID | Accepted evidence | Residual limitation | Follow-up |
+| --- | --- | --- | --- |
+| R1 | Explicit dedicated file login worked in three public runs; temporary state was cleaned, the external file hash did not change, and scans found no secret | Token expiry, refresh persistence, and read-only refresh compatibility were not exercised; stop and require owner login on failure | Issues 5, 12, and the issue 13 owner gate |
+| R2 | Public agent HTTPS and a fresh Docker-none verifier passed through the actual Harbor lifecycle on the recorded Mac/LinuxKit host | Public networking permits remote and host-service access; no Intel, WSL2, or arbitrary-host claim | Issues 7 and 12 |
+| R3 | Positive and adversarial controls plus three native runs proved trusted-baseline capture after successful stop | Production runs must fail closed on stop, stability, collection, manifest, or hash error | Issues 7, 8, and 12 |
+| R4 | Native evidence recorded config, one canary skill, empty MCP registry, model/effort, `danger-full-access`, approval policy, JSONL, ATIF, and merged output | Issue 2 was Git-free; future tasks use a one-base-commit repository. stdout/stderr cannot be reconstructed. Other harness or MCP shapes need their own evidence | Issues 5, 6, and 14 |
+| R5 | Artifact collision, traversal, link, special-file, secret, hidden-test, and offline-verifier controls passed | Scanning is incomplete and cannot stop live exfiltration; every revised boundary needs recurring checks | Issues 6, 12, and 18 |
+| R6 | Requested model and effort plus available usage were retained for each run | Provider-hidden identity, quota, nondeterminism, and subscription money remain `unknown`; compare contemporaneously and never infer charges from API prices | Issues 10, 11, and 13 |
+
+The owner accepted qualified go on 2026-09-05, and the five initial ADRs are
+Accepted. Source support alone still cannot waive later task, integrity, or owner
+gates.

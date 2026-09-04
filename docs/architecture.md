@@ -2,12 +2,13 @@
 
 ## Status
 
-This is a proposed design grounded in the
-[2026-09-04 research snapshot](research-snapshot.md), issue 2 provider-free controls,
-and two successful native subscription samples. Harbor 0.22.0 and Codex 0.153.2
-passed the synthetic spike on macOS Apple Silicon with Docker Desktop Linux/arm64
-containers. The owner accepted qualified go; issue 3 reviews the retained evidence
-and finalizes ADRs. This is not production validation.
+The five initial architecture decisions are accepted from the
+[2026-09-04 research snapshot](research-snapshot.md), issue 2 provider-free
+controls, and three successful native subscription samples. Harbor 0.22.0 and
+Codex 0.153.2 passed the synthetic spike on macOS Apple Silicon with Docker Desktop
+Linux/arm64 containers. The owner accepted qualified go on 2026-09-05, and issue 3
+records the evidence boundaries. This remains feasibility evidence rather than
+production validation.
 
 ## Ownership
 
@@ -19,9 +20,10 @@ and finalizes ADRs. This is not production validation.
 | Verifier | Fresh base reconstruction, safe patch application, deterministic checks and structured evidence | A reused agent workspace |
 
 The planned package boundaries are `apps/benchctl` and `packages/{schemas,core,
-results,statistics,reporting}`. Configurations live under `benchmark/{tasks,suites,
-stacks,experiments,harnesses}`; only synthetic repositories belong in `fixtures/`.
-These directories and runtime packages are intentionally not created by bootstrap.
+results,statistics,reporting}`. Their manifests exist, but production schemas and
+runtime implementations do not. Configurations will live under
+`benchmark/{tasks,suites,stacks,experiments,harnesses}`; only synthetic
+repositories belong in `fixtures/`.
 
 ## Execution and trust boundaries
 
@@ -42,16 +44,18 @@ flowchart LR
 
 The credential edge terminates at the native client. It is not permission for
 credentials to appear in workspace exports, logs, harnesses, or verifier inputs.
-Native CLI credentials may be readable by agent-executed commands under the
-upstream adapter; this is a residual threat to evaluate, not a claimed secret
-broker. The host owns immutable task definitions and collector/verifier tooling.
+Native CLI credentials are readable by agent-executed commands under the upstream
+adapter. This is an accepted residual threat under unrestricted internet, not a
+claimed secret broker. The host owns immutable task definitions and
+collector/verifier tooling.
 
 Harbor supports explicit separate verifier environments, configured artifact
 transfer, and network baselines. Its defaults are shared verification and public
 networking. Planned tasks must explicitly select separate mode and a verifier
-`no-network` baseline. Agent setup and execution explicitly use Harbor `public` networking: ordinary
-Docker bridge access without an agent egress sidecar, hostname allowlist, or traffic
-observer. The separate verifier additionally sets Docker `network_mode: none`.
+`no-network` baseline. Agent setup and execution explicitly use Harbor `public`
+networking: ordinary Docker bridge access without an agent egress sidecar, hostname
+allowlist, or traffic observer. The separate verifier additionally sets Docker
+`network_mode: none`.
 Harbor may create its pinned no-network sidecar for that verifier; the verifier
 itself does not share its namespace.
 See [Harbor task configuration](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/docs/content/docs/tasks/index.mdx).
@@ -59,15 +63,16 @@ See [Harbor task configuration](https://github.com/harbor-framework/harbor/blob/
 The v1 host identity records the macOS version, Apple Silicon architecture, Docker
 Desktop and Engine versions, LinuxKit kernel, and container architecture. The
 network gate exercises public HTTPS from the actual agent container and checks
-loopback-only networking in the fresh verifier through Harbor's complete lifecycle. Passing on this target is not evidence for Intel Mac, WSL2, or an arbitrary
-remote Docker daemon.
+loopback-only networking in the fresh verifier through Harbor's complete
+lifecycle. Passing on this target is not evidence for Intel Mac, WSL2, or an
+arbitrary remote Docker daemon.
 
 ## Collection proof and remaining scope
 
 Do not ask Codex to export a patch and trust the result. Issue 2 demonstrated an
 independent snapshot/patch collector using Harbor's lifecycle: a trusted sidecar
 reads the stopped workspace with its own immutable baseline and collector, emitting
-a binary-capable patch plus metadata. Its deterministic controls and two native
+a binary-capable patch plus metadata. Its deterministic controls and three native
 samples support the synthetic task only, not a general collector framework.
 
 The upstream collection path runs main hooks before stopping the main service;
@@ -77,6 +82,20 @@ of successful quiescence, successful collection, complete inputs, and verified
 hashes. Missing or conflicted entries must fail closed. Agent-controlled `.git`,
 hooks, Git config, symlinks, and leftover processes cannot define the baseline or
 trusted diff. [Collection implementation](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/src/harbor/trial/trial.py).
+
+## Agent-visible Git snapshot
+
+Future task environments contain a newly initialized local repository with exactly
+one base commit. That commit gives the native agent working `git status`,
+`git diff`, and related daily commands. Materialization does not copy the source
+object database, refs, remotes, hooks, credentials, or future history, and retains
+only objects reachable from the new commit. The task records source provenance
+outside the agent-visible repository. The trusted collector still computes
+changes from its own immutable baseline and ignores agent-controlled `.git` data.
+
+The completed issue 2 runs remain Git-free evidence. Issue 6 implements and tests
+the synthetic one-commit snapshot; issue 14 applies the same rule to imported real
+tasks and proves future-history removal.
 
 Harbor implicitly transfers `/logs/artifacts` as well as configured inputs. The
 artifact contract must account for that directory, reject undeclared contents and
@@ -93,6 +112,11 @@ results. Keep raw Harbor files, native JSONL/session evidence, the adapter's mer
 configurable ignored local run root. Each completed run is immutable and has its
 own ID.
 
+Secret scanning happens inside the restricted staging root before finalization. A
+suspected secret quarantines the record and blocks retention or publication.
+Scanning does not prove that all secrets are absent and does not prevent
+exfiltration while the public-network agent is running.
+
 Normalization preserves authoritative facets, absent values, statuses, available
 usage, and upstream provenance. Harbor `reward.json` contains numeric metrics;
 non-numeric applicability, evidence, gates, and failure details need a separate
@@ -108,10 +132,11 @@ call or rewriting the original run. See [methodology](methodology.md).
 
 ## Fallback sequence
 
-If issue 2 is not green, stop downstream implementation and open a narrow fallback
+If Harbor later loses trustworthy collection, separate verification, or required
+native-agent behavior, stop dependent implementation and open a narrow fallback
 issue and ADR: first a supported `codex exec --json` Harbor adapter; next
 host-managed Codex against an ephemeral Docker workspace retaining separate Harbor
 verification; then evaluate Pier. Host execution increases host exposure and must
-re-prove the same boundaries. Only build the missing adapter. No competing kernels
-or custom sandbox/verifier platform are planned. [ADRs](adr/README.md) record the
-five initial decisions as proposed pending evidence.
+re-prove the same boundaries. Accepted Git, auth-refresh, merged-stream, and public
+network limitations do not trigger fallback by themselves. Only build the missing
+adapter; no competing kernels or custom sandbox/verifier platform are planned.

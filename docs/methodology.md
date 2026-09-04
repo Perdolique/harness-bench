@@ -15,6 +15,12 @@ A known-good reference patch and a structurally different valid implementation
 must pass the canonical task. Never grade source/diff similarity. Every implicit
 contract has a path in the pristine snapshot and observable expected behavior.
 
+Materialize the agent-visible source as a new local Git repository with exactly one
+base commit. Do not copy the source object database, refs, remotes, hooks,
+credentials, or later history; retain only objects reachable from the new commit.
+Record source provenance outside that repository, and capture the result
+independently of agent-controlled Git metadata.
+
 ## Score vector and applicability
 
 | Dimension | Meaning | Gate |

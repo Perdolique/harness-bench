@@ -5,13 +5,13 @@ stack includes the native agent and version, model and effort, authentication
 mode, harness, tools, permissions, repository snapshot, prompt, budget, and runner.
 A result is evidence about that stack on those tasks, never a bare-model score.
 
-**Status: issue 2 received owner go with qualifications.** The repository has pinned
-development toolchains, provider-free CI, and an isolated disposable spike. The
-retired restricted-network protocol received an owner no-go. Three public-network
-native runs now pass: one medium and two matching-input low runs, including a
-separately authorized confirmation. The missing-repeat qualification is resolved;
-issue 3 reviews remaining Git-workspace/auth/evidence limitations after this PR
-merges. No production benchmark CLI or runtime schemas exist.
+**Status: the M0 feasibility decisions are accepted.** The repository has pinned
+development toolchains, provider-free CI, an isolated disposable spike, and five
+accepted ADRs. The retired restricted-network protocol remains a preserved no-go.
+Three public-network native runs passed: one medium and two matching-input low
+runs. Issue 3 accepts Harbor with explicit Git-workspace, auth-refresh,
+merged-stream, public-network, and platform limitations. No production benchmark
+CLI or runtime schemas exist.
 
 The first useful question is whether a changed harness improves the owner's
 subscription-backed native Codex workflow without increasing regressions or
@@ -23,15 +23,17 @@ visible separately; subscription runs have no invented monetary per-task cost.
 - Local macOS on Apple Silicon with Docker Desktop Linux/arm64 containers.
 - Pinned Harbor execution kernel; a thin TypeScript control plane, `benchctl`.
 - Pinned native Codex using a dedicated, external ChatGPT login.
-- Immutable harnesses and task snapshots, unrestricted agent internet, and fresh,
-  credential-free, network-disabled deterministic verifiers.
+- Immutable harnesses and one-base-commit task snapshots, unrestricted agent
+  internet, and fresh, credential-free, network-disabled deterministic verifiers.
 - One synthetic frontend task, then five real tasks, repeated interleaved
   comparisons, raw evidence retention, and terminal reports.
 
 Harbor 0.22.0, Codex 0.153.2, and `gpt-5.6-luna` passed the synthetic spike at
-`medium` and owner-requested `low` effort. [Issue 2](.planning/issues/02-feasibility-spike.md)
-records the qualified owner go; issue 3 must review that evidence before production
-abstractions begin.
+`medium` and owner-requested `low` effort.
+[Issue 2](.planning/issues/02-feasibility-spike.md) records the qualified owner go;
+[issue 3](.planning/issues/03-evidence-based-decisions.md) and the
+[accepted ADRs](docs/adr/README.md) record what that evidence does and does not
+support.
 
 ## Non-goals
 

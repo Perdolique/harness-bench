@@ -2,11 +2,11 @@
 
 ## Current phase and issue boundary
 
-This repository currently contains planning artifacts only. Do not treat the
-presence of governance documents as completion of the repository skeleton.
+This repository contains the pinned development skeleton, an isolated issue 2
+feasibility spike, and accepted architecture decisions. Production schemas,
+`benchctl` behavior, and benchmark task packages are not implemented yet.
 Implement exactly one selected GitHub issue per session and PR. Do not start the
-next issue after completing it. Bootstrap work stops after committing its
-planning artifacts; it does not implement issue 1.
+next issue after completing it.
 
 Before implementation, read the selected issue and linked dependencies, then
 `docs/product-spec.md`, `docs/architecture.md`, `docs/methodology.md`,
@@ -20,11 +20,13 @@ produce. Source inspection is not a successful runtime experiment.
 - Harbor owns environments, agent adaptation, network enforcement, artifact
   collection, trajectories, and separate verification. `benchctl` is a thin
   TypeScript control plane. Python is limited to pinned Harbor/tooling needs.
-- No production abstractions before the issue 2 feasibility gate and issue 3
-  evidence review. Keep a failed spike isolated; create a narrow fallback issue
-  and ADR. Prefer a small Harbor adapter, then host-managed Codex with an ephemeral
-  Docker workspace and Harbor verification, then an evaluated Pier replacement.
-  Never build a custom sandbox platform or install competing kernels by default.
+- The issue 2 feasibility gate and issue 3 evidence review are accepted with the
+  documented Git, auth-refresh, merged-stream, public-network, and platform
+  limitations. Keep the spike isolated. If a required Harbor property is later
+  lost, create a narrow fallback issue and ADR: prefer a small Harbor adapter, then
+  host-managed Codex with an ephemeral Docker workspace and Harbor verification,
+  then an evaluated Pier replacement. Never build a custom sandbox platform or
+  install competing kernels by default.
 - Pin tool versions, OCI digests, task bases, and available stable model IDs.
   Record unavailable/provider-hidden identities as `unknown`.
 - Revise task, suite, verifier, scoring, environment, runner, and harness identities
@@ -39,10 +41,15 @@ produce. Source inspection is not a successful runtime experiment.
 
 - Agent environments never receive hidden tests, reference solutions, future git
   history, host home directories, Docker sockets, or undeclared secrets.
+- Materialize task source as a new local repository with one base commit. Do not
+  copy the source object database, refs, remotes, hooks, credentials, or later
+  history; retain only objects reachable from the new commit. Collector truth
+  never depends on agent-controlled Git metadata.
 - Codex authentication uses a dedicated external credential directory. A fresh
   non-auth `CODEX_HOME` and explicit harness are materialized for every run.
   Credentials never enter source control, harnesses, run artifacts, logs, or the
-  verifier. Read-only materialization is preferred; refresh behavior needs proof.
+  verifier. Refresh and read-only refresh compatibility remain unproved; stop and
+  require owner login on authentication failure.
 - The verifier starts from the immutable base in a fresh separate container, with
   no network and no credentials, and consumes only declared validated artifacts.
 - Capture the repository change independently of an agent's voluntary export,

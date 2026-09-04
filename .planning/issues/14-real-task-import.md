@@ -27,6 +27,7 @@ Import and freeze one explicit local repository base into an authorable task art
 ## Technical constraints
 
 - No private remote credentials in metadata and no private source in the benchmark source repository.
+- Materialize imported bytes as a new local repository with exactly one base commit; do not copy the source object database, refs, remotes, hooks, credentials, alternates or later history, and retain no unreachable objects.
 - Import starts only after the issue 13 dry-run/canary owner gate.
 - Follow AGENTS.md and the accepted architecture; no custom sandbox/runner.
 - Keep verifier execution separate, network-disabled and credential-free; never expose hidden tests, reference solutions or future history to the agent.
@@ -37,6 +38,7 @@ Import and freeze one explicit local repository base into an authorable task art
 
 - [ ] Accepts a local repository and explicit base commit.
 - [ ] Removes future history from the agent-visible snapshot.
+- [ ] Agent-visible Git contains exactly one base commit and no source refs, remotes, hooks, credentials, alternates or unreachable objects.
 - [ ] Builds an immutable local task/environment artifact; no runtime clone from a moving branch.
 - [ ] Detects obvious secrets before snapshotting.
 - [ ] Records provenance without embedding private remote credentials.
@@ -45,7 +47,7 @@ Import and freeze one explicit local repository base into an authorable task art
 
 ## Test/evidence plan
 
-- Import a local fixture with future commits and sensitive sentinels; verify history absence and safe rejection.
+- Import a local fixture with future commits, remotes, hooks, alternates and sensitive sentinels; verify a functional one-commit repository, history absence and safe rejection.
 - Check reproducible snapshot digest, fixed-base provenance and no runtime fetch.
 - Inspect private output paths and confirm no provider call.
 
