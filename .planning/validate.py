@@ -65,6 +65,30 @@ ORIGINAL_DEPENDENCIES = {
     16: [14, 15],
     17: [16],
 }
+ORIGINAL_CRITERION_REPLACEMENTS = {
+    2: {
+        "`docs/spikes/harbor-codex-subscription.md` records exact commands, "
+        "observed required hosts, security caveats, failures, and a go/no-go conclusion.": (
+            "`docs/spikes/harbor-codex-subscription.md` records exact commands, "
+            "public/offline network evidence, security caveats, failures, and a go/no-go conclusion."
+        ),
+        "Agent network access is measured and reduced to a documented allowlist, "
+        "or the unresolved blocker is proven with logs.": (
+            "Agent internet access is unrestricted during setup and execution, "
+            "with no allowlist, egress proxy, or packet observer."
+        ),
+        "At least two repeated agent runs are retained.": (
+            "Two identical public-network agent runs are retained "
+            "without automatic retry under revision public-1."
+        ),
+        "Trajectory, stdout/stderr, patch/artifacts, timings, termination reason, "
+        "and available usage data are saved.": (
+            "Native JSONL, ATIF, Harbor merged `codex.txt`, trial log, patch/artifacts, "
+            "timings, termination reason, and available usage data are saved; irreversible "
+            "stdout/stderr merging is reported as a limitation rather than reconstructed."
+        ),
+    }
+}
 
 
 def prose(text, name, errors):
@@ -153,8 +177,14 @@ def main():
             or "no-provider-call-in-ci" not in item["labels"]
         ):
             errors.append(f"Item {number}: invalid/missing labels")
-        if item["dependencies"] and "blocked" not in item["labels"]:
+        resolved_dependencies = set(item.get("resolved_dependencies", []))
+        if not resolved_dependencies <= set(item["dependencies"]):
+            errors.append(f"Item {number}: resolved dependency is not a dependency")
+        unresolved_dependencies = set(item["dependencies"]) - resolved_dependencies
+        if unresolved_dependencies and "blocked" not in item["labels"]:
             errors.append(f"Item {number}: missing initial blocked label")
+        if not unresolved_dependencies and "blocked" in item["labels"]:
+            errors.append(f"Item {number}: stale blocked label")
         if number <= 3:
             expected_milestone = 0
         elif number <= 9:
@@ -193,9 +223,13 @@ def main():
             if item["title"] != original[number][0]:
                 errors.append(f"Item {number}: original title changed")
             for criterion in original[number][1]:
-                if criterion not in criteria:
+                expected = ORIGINAL_CRITERION_REPLACEMENTS.get(number, {}).get(
+                    criterion, criterion
+                )
+                if expected not in criteria:
                     errors.append(
-                        f"Item {number}: original criterion missing: {criterion}"
+                        f"Item {number}: original criterion or explicit replacement missing: "
+                        f"{criterion}"
                     )
             if item["dependencies"] != ORIGINAL_DEPENDENCIES[number]:
                 errors.append(f"Item {number}: original dependencies changed")
@@ -254,7 +288,8 @@ def main():
     print(
         f"PASS: {len(markdown_files)} Markdown files; {link_count} local links; "
         f"27 complete issues; {criteria_count} acceptance checkboxes; "
-        f"5 milestones; {len(labels)} labels; original criteria/dependencies preserved; "
+        f"5 milestones; {len(labels)} labels; original criteria preserved or explicitly "
+        "replaced; dependencies preserved; "
         "acyclic order; Python syntax; publication hashes when present."
     )
     return 0

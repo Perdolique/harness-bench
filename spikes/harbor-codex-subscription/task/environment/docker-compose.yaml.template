@@ -1,0 +1,22 @@
+services:
+  main:
+    volumes:
+      - workspace:/app
+      - codex-home:/tmp/codex-home
+      - codex-secrets:/tmp/codex-secrets
+      - harness-canary:/tmp/harness-canary
+  collector:
+    image: __COLLECTOR_IMAGE__
+    command: ["tail", "-f", "/dev/null"]
+    network_mode: none
+    volumes:
+      - workspace:/workspace:ro
+      - codex-home:/observed/codex-home:ro
+      - codex-secrets:/observed/codex-secrets:ro
+      - harness-canary:/observed/harness-canary:ro
+
+volumes:
+  workspace:
+  codex-home:
+  codex-secrets:
+  harness-canary:

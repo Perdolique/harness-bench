@@ -91,14 +91,18 @@ the owner gates below. No implementation is part of the bootstrap session.
 
 | Gate | Evidence required before downstream work |
 | --- | --- |
-| After 2 | Accept subscription auth safety, native workflow fidelity, measured allowlist, traces/usage, independent patch collection and separate offline verifier. If not green, stop issues 4–13 and open a narrow fallback issue/ADR. |
+| After 2 | Accept subscription auth safety, native workflow fidelity, unrestricted agent internet and offline verifier, traces/usage, independent patch collection and separate offline verifier. If not green, stop issues 4–13 and open a narrow fallback issue/ADR. |
 | After 6 | Accept prompt realism, inferable evidence-backed obligations, alternate implementations and fair scope grading before issue 7. |
 | After 13 | Review a complete local dry run and one explicitly authorized subscription canary before importing private real tasks in 14. |
 | After 16 | Approve calibration and freeze task/suite/verifier/scoring revisions before comparative experiment 17. |
 | After 17 | Inspect per-task trajectories and patches; decide whether measured behavior is useful before activating M4. |
 
-All gates are pending. Closing a dependency is necessary but does not silently
-satisfy its owner gate. The `blocked` label marks unmet direct dependencies or
+The issue 2 owner gate was accepted on 2026-09-05 with explicit qualifications:
+the public-network medium and low runs passed, but are not identical repeats;
+Git-free workspace behavior, auth refresh, and native stream-merging limitations
+carry into issue 3. See the [evidence report](spikes/harbor-codex-subscription.md).
+All later gates remain pending. Closing a dependency is necessary but does not
+silently satisfy its owner gate. The `blocked` label marks unmet direct dependencies or
 gates; an implementing agent verifies closure/merge and recorded acceptance before
 starting, then removes blockers only when justified. The `decision-required` label
 identifies owner decisions, including deferred M4 candidate/budget choices.
@@ -121,7 +125,8 @@ fallback issue at that time; the post-pilot Pier research issue cannot unblock i
 
 ## Next issue
 
-Start [planning issue 1](../.planning/issues/01-repository-skeleton.md): initialize
-the pinned repository/toolchain/governance skeleton. The existing planning docs
-are inputs to reuse, not evidence that the skeleton or any benchmark behavior has
-been implemented. Finish it and stop before starting issue 2.
+Finish and merge the focused [issue 2](../.planning/issues/02-feasibility-spike.md)
+PR, then select [issue 3](../.planning/issues/03-evidence-based-decisions.md) in a
+separate task for evidence-based architecture review. The owner accepted the spike
+with qualifications; issue 3 has not been implemented. Do not start downstream
+production work before that review.

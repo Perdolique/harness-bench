@@ -37,7 +37,11 @@ const expectedScripts = {
   "format:check":
     'prettier --check "**/*.{ts,json,yaml,yml}" --ignore-path .prettierignore && uv run ruff format --check .planning/*.py',
   lint: "oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning/*.py",
-  test: "vitest run",
+  "spike:issue-2":
+    "node --experimental-strip-types spikes/harbor-codex-subscription/run.ts",
+  "spike:issue-2:check":
+    "vitest run spikes/harbor-codex-subscription/__tests__ && node --experimental-strip-types spikes/harbor-codex-subscription/check.ts",
+  test: 'vitest run --exclude "spikes/harbor-codex-subscription/fixture/**"',
   "test:planning": "python3 .planning/test_sync_github.py",
   typecheck: "tsc --noEmit",
   "validate:planning": "python3 .planning/validate.py",

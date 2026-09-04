@@ -52,15 +52,41 @@ providers. The second reads GitHub and checks publication state without mutation
 Publication uses `python3 .planning/sync-github.py --apply`; see
 [planning maintenance](../.planning/README.md). No `benchctl` command exists yet.
 
+Issue 2 has an isolated spike surface outside `benchctl`:
+
+```sh
+BENCH_RUN_ROOT=/absolute/external/issue-2-root pnpm spike:issue-2:check
+CODEX_AUTH_JSON_PATH=/absolute/external/codex-home/auth.json \
+  BENCH_RUN_ROOT=/absolute/external/issue-2-root \
+  pnpm spike:issue-2 -- --phase public --run-id public-01
+```
+
+The check command builds pinned arm64 images and runs unit, fake-agent collector,
+public-agent/offline-verifier lifecycle, config, secret-scanner, and offline-verifier controls without a
+provider invocation. The run command executes exactly one selected subscription
+invocation; it does not choose another phase, retry, or fallback model. It requires
+both explicit paths and rejects an existing run ID.
+
+An explicit `--effort low` override is available for the owner's temporary spike;
+the default remains `medium`. The selected value is recorded in the intent and
+checked against Harbor/native evidence. Changing effort does not reset the run
+budget or make mixed-effort samples an identical repeated pair.
+
+The authorized issue 2 budget is now exhausted: one historical restricted-network
+failure and two successful public-network runs. The owner accepted qualified go;
+these command examples do not authorize another run or resetting the budget with
+a new run root. See the [evidence report](spikes/harbor-codex-subscription.md).
+
 The exact release evidence is recorded in [research](research-snapshot.md). Use
 the project lockfiles rather than an unversioned global Harbor or Codex installation.
-Issue 2 must pin all relevant OCI images, including verifier and any
-collector/egress sidecars.
+Issue 2 pins all relevant OCI images, including agent, verifier, collector, and
+verifier-only no-network sidecar images. Agent execution has no egress sidecar.
 
-The execution target is Windows/WSL2 with Docker Linux containers. Record Docker,
-WSL, kernel, and image identity. The planning host is macOS; no Windows/WSL runtime
-result has been produced here. Issue 2 must verify the actual target runtime's
-network capabilities rather than extrapolate from this host.
+The v1 execution target is macOS on Apple Silicon with Docker Desktop Linux/arm64
+containers. Record the macOS version, Apple Silicon model/architecture, Docker
+Desktop and Engine versions, LinuxKit kernel, and container architecture. The
+network check must exercise public agent HTTPS and an offline separate verifier
+through the actual Harbor lifecycle on Docker Desktop. Intel Mac, WSL2, and arbitrary Docker hosts are not supported claims.
 
 ## Provider-free CI
 
@@ -86,26 +112,49 @@ so logs must remain free of credentials and other sensitive data.
 
 ## Authentication and first execution
 
-Issue 2 discovers the exact one-time login command, minimum credential layout,
-refresh behavior, and measured host allowlist from official docs and local evidence.
-The [official Codex CLI guide](https://learn.chatgpt.com/docs/codex/cli) treats
-installation and sign-in as separate steps; issue 1 installs the pinned package
-but performs no sign-in.
-Use a dedicated external directory such as
-`~/.agent-stack-bench/credentials/codex/`. The researched Harbor selector
-`CODEX_AUTH_JSON_PATH` accepts a specific file; do not use the ambient-home fallback.
-This is a researched interface, not a validated setup recipe.
+The owner performs login separately from the revised two-invocation budget. Use a
+dedicated external `CODEX_HOME`, never the ambient Codex home or a repository path:
 
-Create a fresh non-auth Codex home for every run. Preserve only the explicitly
-captured harness and minimum auth material. Do not reuse history, sessions, caches,
-or plugin state across trials. Retain native rollout evidence separately after
-safe capture; an ephemeral home does not mean suppressing all session logs with
-`codex exec --ephemeral`. Validate any produced config with the pinned CLI.
+```sh
+install -d -m 700 /absolute/external/codex-home
+install -m 600 spikes/harbor-codex-subscription/harness/config.toml \
+  /absolute/external/codex-home/config.toml
+CODEX_HOME=/absolute/external/codex-home pnpm exec codex login
+chmod 600 /absolute/external/codex-home/auth.json
+```
 
-Before a real invocation, show the resolved stack, identity digests, budgets,
-concurrency, and planned invocation count. Provider-backed runs are explicit local
-operations, never automatic CI. Fail if requested identity, auth mode, required
-tooling, or enforced network policy cannot be established.
+The spike harness pins `forced_login_method = "chatgpt"` and
+`cli_auth_credentials_store = "file"`. The runner accepts only the absolute
+`CODEX_AUTH_JSON_PATH`, rejects group/other-readable or symlinked files and private
+parent-directory violations, and records only path/source hashes, modes, size,
+timestamps, and before/after metadata. It never copies the auth file into the run
+root. This follows the official
+[Codex authentication flow](https://learn.chatgpt.com/docs/auth); refresh behavior
+still requires native-run evidence.
+
+Harbor creates fresh `/tmp/codex-home` and `/tmp/codex-secrets` volumes for every
+trial. The native session is copied to agent logs before best-effort cleanup, while
+the collector records only safe cleanup booleans. Do not use `codex exec --ephemeral`
+because the spike requires native JSONL evidence. The pinned config is checked with
+`codex doctor --json`, a positive `codex --strict-config doctor --json`, and a
+negative unknown-field case.
+
+In pinned CLI 0.153.2, require `checks["config.load"].status=ok` in both doctor
+reports, not overall exit zero: the provider-free container deliberately has no
+auth or network, so those unrelated checks fail. Doctor does not reject an unknown
+top-level key even with `--strict-config`. The negative control therefore uses
+`codex exec --strict-config --skip-git-repo-check --json` against a copied config
+with an unknown field, inside Docker with no network or credentials. It must exit
+before any `thread.started` event and explicitly report the unknown configuration
+field. This proves parser rejection without making a provider request.
+
+Before the first revised inference, present one redacted run card covering two
+identical public-network invocations; model `gpt-5.6-luna`; effort
+`medium`; ChatGPT file auth; exact image IDs; network policy; concurrency `1`;
+retries `0`; agent/verifier/build timeouts `600`/`120`/`900` seconds; CPU `2`; and
+RAM `2 GiB`. Obtain one explicit owner authorization for those two invocations. The earlier restricted-network approval does not
+reset or authorize a different protocol.
+Provider-backed runs are local only and never automatic CI.
 
 ## Telemetry, artifacts, and quota
 
@@ -114,8 +163,9 @@ spike and regrade commands. Record the effective setting and owner-authorized
 exceptions. Upstream enables usage telemetry by default.
 [Pinned telemetry documentation](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/docs/content/docs/usage-stats.mdx).
 
-The configurable run root defaults to `.agent-stack-bench/runs/<run-id>/` and must
-be ignored by issue 1. For private tasks prefer an external restricted directory.
+The issue 2 run root is a required absolute external `BENCH_RUN_ROOT` with mode
+`0700`; each run is staged there, secret-scanned, hashed, and made read-only. A
+suspected secret leaves the record quarantined and blocks commit/publication.
 Immutable raw records contain source-sensitive data; only explicitly sanitized
 derived exports can be considered for sharing. Credentials never enter that root.
 
@@ -124,6 +174,17 @@ otherwise `unknown`; do not estimate subscription money using API rates. On quot
 or authentication failure, retain safe diagnostics and stop/resume under a declared
 policy. Do not purchase credits, redeem resets, switch billing modes, or retry
 indefinitely. Estimated invocation count is not a quota guarantee.
+
+Issue 2 revision `public-1` permits at most two identical public-network invocations,
+sequentially. There is no discovery phase, hostname allowlist, packet observer, or
+agent egress proxy. Built-in Codex web search remains disabled in this fixed
+harness; that tool setting is distinct from internet access available to shell
+commands. Any timeout or infrastructure failure is retained without automatic retry.
+
+Use a fresh external run root for this revision. Image locks, preflight reports,
+intents, and completions carry `protocolRevision: public-1`; the runner rejects
+old records, changed images, duplicate IDs, and a third invocation. Preserve the
+earlier restricted-network run and no-go without editing or merging its results.
 
 ## Recovery and regrade
 
@@ -135,7 +196,7 @@ require a new explicitly authorized run, not invented reconstruction.
 
 ## Required owner reviews
 
-After issue 2: auth safety, daily-stack fidelity, network enforcement, collection,
+After issue 2: auth safety, daily-stack fidelity, public-agent/offline-verifier boundaries, collection,
 and trace/usage quality. After issue 6: task realism and fair latent contracts.
 After issue 13: full dry run plus one explicitly authorized subscription canary
 before private import. After issue 16: freeze tasks. After issue 17: inspect raw

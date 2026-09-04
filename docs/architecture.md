@@ -3,9 +3,11 @@
 ## Status
 
 This is a proposed design grounded in the
-[2026-09-04 research snapshot](research-snapshot.md), not runtime validation.
-Harbor 0.22.0 and Codex 0.153.2 are exact candidate pins. Issue 2 must validate the
-pair on Windows/WSL2 and Docker Linux containers; issue 3 finalizes the ADRs.
+[2026-09-04 research snapshot](research-snapshot.md), issue 2 provider-free controls,
+and two successful native subscription samples. Harbor 0.22.0 and Codex 0.153.2
+passed the synthetic spike on macOS Apple Silicon with Docker Desktop Linux/arm64
+containers. The owner accepted qualified go; issue 3 reviews the retained evidence
+and finalizes ADRs. This is not production validation.
 
 ## Ownership
 
@@ -47,17 +49,26 @@ broker. The host owns immutable task definitions and collector/verifier tooling.
 Harbor supports explicit separate verifier environments, configured artifact
 transfer, and network baselines. Its defaults are shared verification and public
 networking. Planned tasks must explicitly select separate mode and a verifier
-`no-network` baseline. Agent egress uses a measured allowlist from issue 2, including
-setup behavior; the upstream provider must enforce it on the chosen runtime.
+`no-network` baseline. Agent setup and execution explicitly use Harbor `public` networking: ordinary
+Docker bridge access without an agent egress sidecar, hostname allowlist, or traffic
+observer. The separate verifier additionally sets Docker `network_mode: none`.
+Harbor may create its pinned no-network sidecar for that verifier; the verifier
+itself does not share its namespace.
 See [Harbor task configuration](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/docs/content/docs/tasks/index.mdx).
 
-## Collection is the critical missing proof
+The v1 host identity records the macOS version, Apple Silicon architecture, Docker
+Desktop and Engine versions, LinuxKit kernel, and container architecture. The
+network gate exercises public HTTPS from the actual agent container and checks
+loopback-only networking in the fresh verifier through Harbor's complete lifecycle. Passing on this target is not evidence for Intel Mac, WSL2, or an arbitrary
+remote Docker daemon.
 
-Do not ask Codex to export a patch and trust the result. The spike must establish
-an independent snapshot/patch collector using Harbor's lifecycle. A candidate is
-a trusted sidecar reading the stopped workspace with its own immutable baseline
-and collector, emitting only a binary-capable patch plus metadata. This candidate
-is unproven and is not an instruction to build a general collector framework.
+## Collection proof and remaining scope
+
+Do not ask Codex to export a patch and trust the result. Issue 2 demonstrated an
+independent snapshot/patch collector using Harbor's lifecycle: a trusted sidecar
+reads the stopped workspace with its own immutable baseline and collector, emitting
+a binary-capable patch plus metadata. Its deterministic controls and two native
+samples support the synthetic task only, not a general collector framework.
 
 The upstream collection path runs main hooks before stopping the main service;
 sidecar collection follows a stop attempt, but stop failures are only warnings.
@@ -77,9 +88,10 @@ absolute replay paths. The verifier validates input before applying it.
 
 Write an immutable initial manifest before the agent starts. Append completion
 and derived-result records referencing it; do not mutate the initial record to add
-results. Keep raw Harbor files, native JSONL/session evidence, logs, collected
-patches, hashes, verifier outputs, and provenance in a configurable ignored local
-run root. Each completed run is immutable and has its own ID.
+results. Keep raw Harbor files, native JSONL/session evidence, the adapter's merged
+`codex.txt`, logs, collected patches, hashes, verifier outputs, and provenance in a
+configurable ignored local run root. Each completed run is immutable and has its
+own ID.
 
 Normalization preserves authoritative facets, absent values, statuses, available
 usage, and upstream provenance. Harbor `reward.json` contains numeric metrics;
