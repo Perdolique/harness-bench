@@ -37,7 +37,9 @@ def gh(*args, payload=None):
 
 
 def pages(endpoint):
-    return [entry for page in gh("api", endpoint, "--paginate", "--slurp") for entry in page]
+    return [
+        entry for page in gh("api", endpoint, "--paginate", "--slurp") for entry in page
+    ]
 
 
 def mutate(method, endpoint, payload):
@@ -68,37 +70,63 @@ def dependency_body(item, body, issue_map):
         )
     for line in match.group().splitlines():
         if line.startswith("- Required gate:") or line.startswith("- Outside the v1"):
+
             def link_gate(found):
                 number = int(found[1])
                 return f"[planning issue {number}]({issue_map[number]['html_url']})"
+
             lines.append(re.sub(r"(?<!planning )issue (\d+)", link_gate, line))
     lines.append("<!-- dependencies:end -->")
-    return body[:match.start()] + "\n".join(lines) + body[match.end():]
+    return body[: match.start()] + "\n".join(lines) + body[match.end() :]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--check", action="store_true", help="Read-only remote verification")
-    mode.add_argument("--apply", action="store_true", help="Create missing planning objects and resolve links")
+    mode.add_argument(
+        "--check", action="store_true", help="Read-only remote verification"
+    )
+    mode.add_argument(
+        "--apply",
+        action="store_true",
+        help="Create missing planning objects and resolve links",
+    )
     args = parser.parse_args()
     catalog = json.loads(CATALOG.read_text())
     repo = catalog["repository"]
-    auth = subprocess.run(["gh", "auth", "status"], capture_output=True, text=True, check=False)
+    auth = subprocess.run(
+        ["gh", "auth", "status"], capture_output=True, text=True, check=False
+    )
     if auth.returncode:
-        raise RuntimeError("GitHub CLI authentication is unavailable; complete local drafts remain intact.")
+        raise RuntimeError(
+            "GitHub CLI authentication is unavailable; complete local drafts remain intact."
+        )
     remote = subprocess.run(
-        ["git", "remote", "get-url", "origin"], cwd=ROOT, capture_output=True, text=True, check=True
+        ["git", "remote", "get-url", "origin"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
-    if remote not in (f"git@github.com:{repo}.git", f"https://github.com/{repo}.git", f"https://github.com/{repo}"):
-        raise RuntimeError("Origin does not match the explicit planning repository; refusing publication.")
+    if remote not in (
+        f"git@github.com:{repo}.git",
+        f"https://github.com/{repo}.git",
+        f"https://github.com/{repo}",
+    ):
+        raise RuntimeError(
+            "Origin does not match the explicit planning repository; refusing publication."
+        )
     endpoint = f"repos/{repo}"
     repo_info = gh("api", endpoint)
     if not repo_info["has_issues"]:
-        raise RuntimeError("Repository issues are disabled; no repository settings were changed.")
-    state = json.loads(STATE.read_text()) if STATE.exists() else {
-        "repository": repo, "issues": {}, "milestones": {}, "labels": []
-    }
+        raise RuntimeError(
+            "Repository issues are disabled; no repository settings were changed."
+        )
+    state = (
+        json.loads(STATE.read_text())
+        if STATE.exists()
+        else {"repository": repo, "issues": {}, "milestones": {}, "labels": []}
+    )
     if state["repository"] != repo:
         raise RuntimeError("Publication state belongs to another repository.")
     labels = {x["name"]: x for x in pages(f"{endpoint}/labels?per_page=100")}
@@ -108,19 +136,27 @@ def main():
         if item["title"] in milestones:
             raise RuntimeError(f"Ambiguous milestone title: {item['title']}")
         milestones[item["title"]] = item
-    issues = [x for x in pages(f"{endpoint}/issues?state=all&per_page=100") if "pull_request" not in x]
+    issues = [
+        x
+        for x in pages(f"{endpoint}/issues?state=all&per_page=100")
+        if "pull_request" not in x
+    ]
     issue_map = {}
     problems = []
     for item in catalog["labels"]:
         existing = labels.get(item["name"])
-        if existing and any(existing.get(key) != item[key] for key in ("color", "description")):
+        if existing and any(
+            existing.get(key) != item[key] for key in ("color", "description")
+        ):
             problems.append(f"Existing label differs; preserve it: {item['name']}")
     for item in catalog["milestones"]:
         existing = milestones.get(item["title"])
         if existing and existing.get("description") != item["description"]:
             problems.append(f"Existing milestone differs; preserve it: {item['title']}")
     for item in catalog["issues"]:
-        matches = [x for x in issues if MARKER.format(item["id"]) in (x.get("body") or "")]
+        matches = [
+            x for x in issues if MARKER.format(item["id"]) in (x.get("body") or "")
+        ]
         saved = state["issues"].get(str(item["id"]))
         if len(matches) > 1:
             problems.append(f"Duplicate planning markers for item {item['id']}")
@@ -151,13 +187,18 @@ def main():
             problems.append(f"Remote title changed: planning item {item['id']}")
         if {x["name"] for x in existing["labels"]} != set(item["labels"]):
             problems.append(f"Remote labels changed: planning item {item['id']}")
-        if not existing["milestone"] or existing["milestone"]["title"] != item["milestone"]:
+        if (
+            not existing["milestone"]
+            or existing["milestone"]["title"] != item["milestone"]
+        ):
             problems.append(f"Remote milestone changed: planning item {item['id']}")
     if problems:
         raise RuntimeError("\n".join(problems))
     missing = {
         "labels": [x["name"] for x in catalog["labels"] if x["name"] not in labels],
-        "milestones": [x["title"] for x in catalog["milestones"] if x["title"] not in milestones],
+        "milestones": [
+            x["title"] for x in catalog["milestones"] if x["title"] not in milestones
+        ],
         "issues": [x["id"] for x in catalog["issues"] if x["id"] not in issue_map],
     }
     if args.check and any(missing.values()):
@@ -174,7 +215,9 @@ def main():
         state["labels"] = [x["name"] for x in catalog["labels"]]
         for item in catalog["milestones"]:
             if item["title"] not in milestones:
-                milestones[item["title"]] = mutate("POST", f"{endpoint}/milestones", item)
+                milestones[item["title"]] = mutate(
+                    "POST", f"{endpoint}/milestones", item
+                )
                 created["milestones"] += 1
                 print(f"Created milestone: {item['title']}", flush=True)
             state["milestones"][item["title"]] = {
@@ -193,10 +236,14 @@ def main():
                 }
                 issue_map[item["id"]] = mutate("POST", f"{endpoint}/issues", payload)
                 created["issues"] += 1
-                print(f"Created planning item {item['id']}: {issue_map[item['id']]['html_url']}", flush=True)
+                print(
+                    f"Created planning item {item['id']}: {issue_map[item['id']]['html_url']}",
+                    flush=True,
+                )
             existing = issue_map[item["id"]]
             state["issues"][str(item["id"])] = {
-                "number": existing["number"], "url": existing["html_url"],
+                "number": existing["number"],
+                "url": existing["html_url"],
                 "body_sha256": digest(existing.get("body") or ""),
             }
             save_state(state)
@@ -210,31 +257,50 @@ def main():
                 problems.append(f"Body/link mismatch for planning item {item['id']}")
             saved = state["issues"].get(str(item["id"]), {})
             if saved.get("body_sha256") != digest(existing["body"]):
-                problems.append(f"Saved body hash mismatch for planning item {item['id']}")
+                problems.append(
+                    f"Saved body hash mismatch for planning item {item['id']}"
+                )
         else:
             if body != existing["body"]:
-                mutate("PATCH", f"{endpoint}/issues/{existing['number']}", {"body": body})
+                mutate(
+                    "PATCH", f"{endpoint}/issues/{existing['number']}", {"body": body}
+                )
                 updated += 1
                 print(f"Resolved dependencies: {existing['html_url']}", flush=True)
             if body != local_path.read_text():
                 local_path.write_text(body)
             state["issues"][str(item["id"])] = {
-                "number": existing["number"], "url": existing["html_url"],
+                "number": existing["number"],
+                "url": existing["html_url"],
                 "body_sha256": digest(body),
             }
             save_state(state)
     if problems:
         raise RuntimeError("\n".join(problems))
-    print(json.dumps({
-        "mode": "apply" if args.apply else "check", "created": created,
-        "updated_bodies": updated, "verified_issues": len(issue_map),
-        "planning_labels": len(catalog["labels"]), "milestones": len(catalog["milestones"]),
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "mode": "apply" if args.apply else "check",
+                "created": created,
+                "updated_bodies": updated,
+                "verified_issues": len(issue_map),
+                "planning_labels": len(catalog["labels"]),
+                "milestones": len(catalog["milestones"]),
+            },
+            indent=2,
+        )
+    )
     return 0
 
 
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (RuntimeError, ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
+    except (
+        RuntimeError,
+        ValueError,
+        KeyError,
+        OSError,
+        subprocess.CalledProcessError,
+    ) as error:
         raise SystemExit(str(error)) from error

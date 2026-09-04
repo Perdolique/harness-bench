@@ -25,20 +25,26 @@ class PublicationIdentityTests(unittest.TestCase):
         self.issues = []
         for item in self.catalog["issues"]:
             saved = self.state["issues"][str(item["id"])]
-            self.issues.append({
-                "number": saved["number"],
-                "html_url": saved["url"],
-                "title": item["title"],
-                "body": (self.sync.ROOT / item["file"]).read_text(),
-                "labels": [{"name": name} for name in item["labels"]],
-                "milestone": {"title": item["milestone"]},
-            })
+            self.issues.append(
+                {
+                    "number": saved["number"],
+                    "html_url": saved["url"],
+                    "title": item["title"],
+                    "body": (self.sync.ROOT / item["file"]).read_text(),
+                    "labels": [{"name": name} for name in item["labels"]],
+                    "milestone": {"title": item["milestone"]},
+                }
+            )
         milestones = []
         for item in self.catalog["milestones"]:
             saved = self.state["milestones"][item["title"]]
-            milestones.append({**item, "number": saved["number"], "html_url": saved["url"]})
+            milestones.append(
+                {**item, "number": saved["number"], "html_url": saved["url"]}
+            )
         self.responses = {
-            f"repos/{self.repo}/labels?per_page=100": copy.deepcopy(self.catalog["labels"]),
+            f"repos/{self.repo}/labels?per_page=100": copy.deepcopy(
+                self.catalog["labels"]
+            ),
             f"repos/{self.repo}/milestones?state=all&per_page=100": milestones,
             f"repos/{self.repo}/issues?state=all&per_page=100": self.issues,
         }
@@ -49,16 +55,30 @@ class PublicationIdentityTests(unittest.TestCase):
         )
         with contextlib.ExitStack() as stack:
             stack.enter_context(patch("sys.argv", ["sync-github.py", "--apply"]))
-            stack.enter_context(patch.object(self.sync.subprocess, "run", return_value=success))
-            stack.enter_context(patch.object(self.sync, "gh", return_value={"has_issues": True}))
-            stack.enter_context(patch.object(self.sync, "pages", side_effect=self.responses.__getitem__))
-            mutation = stack.enter_context(patch.object(
-                self.sync, "mutate", side_effect=AssertionError("Unexpected GitHub mutation")
-            ))
+            stack.enter_context(
+                patch.object(self.sync.subprocess, "run", return_value=success)
+            )
+            stack.enter_context(
+                patch.object(self.sync, "gh", return_value={"has_issues": True})
+            )
+            stack.enter_context(
+                patch.object(self.sync, "pages", side_effect=self.responses.__getitem__)
+            )
+            mutation = stack.enter_context(
+                patch.object(
+                    self.sync,
+                    "mutate",
+                    side_effect=AssertionError("Unexpected GitHub mutation"),
+                )
+            )
             save = stack.enter_context(patch.object(self.sync, "save_state"))
-            stack.enter_context(patch.object(
-                Path, "write_text", side_effect=AssertionError("Unexpected local file mutation")
-            ))
+            stack.enter_context(
+                patch.object(
+                    Path,
+                    "write_text",
+                    side_effect=AssertionError("Unexpected local file mutation"),
+                )
+            )
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
             if expected_error:
                 with self.assertRaisesRegex(RuntimeError, re.escape(expected_error)):

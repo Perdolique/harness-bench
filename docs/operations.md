@@ -1,8 +1,46 @@
 # Operations
 
+## Development installation
+
+The development skeleton requires exact versions of Node.js `26.8.1`, pnpm
+`11.25.0`, Python `3.14.7`, and uv `0.12.9`. Node `26.8.1` is intentionally the
+current stable release rather than an LTS release. Locked project dependencies
+provide Harbor `0.22.0`, Codex CLI `0.153.2`, TypeScript `7.0.2`, Vitest `5.0.0`,
+Oxlint `1.81.0`, Prettier `3.9.6`, and Ruff `0.16.6`.
+
+Install the locked environments without authenticating either provider tool:
+
+```sh
+pnpm install --frozen-lockfile
+uv sync --locked
+```
+
 ## Current runnable surface
 
-Only planning maintenance exists:
+The aggregate development check is:
+
+```sh
+pnpm check
+```
+
+It runs the following read-only checks in order:
+
+```sh
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:planning
+pnpm validate:planning
+pnpm verify:toolchain
+```
+
+`pnpm verify:toolchain` compares every actual version with its exact pin. It invokes
+Harbor only as `harbor --version` through uv with `HARBOR_TELEMETRY=off`, and invokes
+Codex only as `codex --version` through pnpm. Neither command logs in or contacts a
+model provider. The corresponding write-mode formatter is `pnpm format`.
+
+Planning publication remains separate:
 
 ```sh
 python3 .planning/validate.py
@@ -14,24 +52,45 @@ providers. The second reads GitHub and checks publication state without mutation
 Publication uses `python3 .planning/sync-github.py --apply`; see
 [planning maintenance](../.planning/README.md). No `benchctl` command exists yet.
 
-## Planned installation
-
-Issue 1 selects exact Node, pnpm, Python, and uv versions and locks the environments.
-Research candidates are `harbor==0.22.0` and `@openai/codex@0.153.0`, with release
-SHAs in [research](research-snapshot.md). Python must satisfy Harbor's declared
-minimum 3.12, but the project will pin a specific supported patch version. Use
-project-local uv locking; do not rely on an unversioned global Harbor installation.
-Pin all relevant OCI images, including verifier and any collector/egress sidecars.
+The exact release evidence is recorded in [research](research-snapshot.md). Use
+the project lockfiles rather than an unversioned global Harbor or Codex installation.
+Issue 2 must pin all relevant OCI images, including verifier and any
+collector/egress sidecars.
 
 The execution target is Windows/WSL2 with Docker Linux containers. Record Docker,
 WSL, kernel, and image identity. The planning host is macOS; no Windows/WSL runtime
 result has been produced here. Issue 2 must verify the actual target runtime's
 network capabilities rather than extrapolate from this host.
 
+## Provider-free CI
+
+The `Check` workflow runs for pull requests and pushes to `master` on the standard
+`ubuntu-24.04` GitHub-hosted runner with a 15-minute timeout. It installs only from
+the committed pnpm and uv lockfiles and runs `pnpm check`. Repository permissions
+are read-only, checkout credentials are not persisted, Harbor telemetry is off,
+dependency caches are disabled, and no artifacts are uploaded. The workflow has no
+configured repository or provider secrets, provider credentials, Harbor execution,
+Codex execution, login, scheduled job, Windows/WSL2 claim, or benchmark behavior.
+GitHub still creates an ephemeral `GITHUB_TOKEN` for the job; it is limited to
+`contents: read`, and checkout does not persist it. Actions can access this token
+through the [`github.token` context](https://docs.github.com/en/actions/concepts/security/github_token),
+so it remains part of the CI trust boundary.
+
+Because this repository is public, its standard GitHub-hosted runner usage is
+free under [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
+Larger runners are excluded. Disabling caches and artifact uploads avoids those
+storage categories and their incremental charges. GitHub still retains public
+workflow logs according to the repository's
+[Actions retention setting](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository),
+so logs must remain free of credentials and other sensitive data.
+
 ## Authentication and first execution
 
 Issue 2 discovers the exact one-time login command, minimum credential layout,
 refresh behavior, and measured host allowlist from official docs and local evidence.
+The [official Codex CLI guide](https://learn.chatgpt.com/docs/codex/cli) treats
+installation and sign-in as separate steps; issue 1 installs the pinned package
+but performs no sign-in.
 Use a dedicated external directory such as
 `~/.agent-stack-bench/credentials/codex/`. The researched Harbor selector
 `CODEX_AUTH_JSON_PATH` accepts a specific file; do not use the ambient-home fallback.

@@ -29,7 +29,33 @@ follow-up rather than expanding the PR. Do not silently change accepted contract
 - [ ] Required owner gates are satisfied and implementation stops after this issue.
 
 Use the [PR template](.github/pull_request_template.md) and
-[ADR format](docs/adr/README.md). During bootstrap, the only runnable repository
-checks are planning validation and publication tooling documented in
-[.planning/README.md](.planning/README.md). The implementation check command and
-CI belong to issue 1.
+[ADR format](docs/adr/README.md).
+
+## Development prerequisites
+
+Install these exact versions before working in the repository:
+
+- Node.js `26.8.1`
+- pnpm `11.25.0`
+- Python `3.14.7`
+- uv `0.12.9`
+
+Node `26.8.1` is a current, non-LTS release selected deliberately for the newest
+stable toolchain. The project installs Harbor `0.22.0`, Codex CLI `0.153.2`, and
+all formatting, linting, type-checking, and test tools from committed lockfiles.
+Installation does not sign in to Codex.
+
+```sh
+pnpm install --frozen-lockfile
+uv sync --locked
+pnpm check
+```
+
+`pnpm check` is read-only and runs formatting checks, linting, TypeScript checks,
+Vitest, planning tests and validation, and exact toolchain verification. Individual
+commands are documented in [Operations](docs/operations.md).
+
+The `Check` workflow repeats only those locked installation and read-only check
+steps on the standard `ubuntu-24.04` GitHub-hosted runner. It has read-only contents
+permission, does not persist checkout credentials, disables dependency caches,
+uploads no artifacts, and never runs Harbor jobs or Codex provider commands.

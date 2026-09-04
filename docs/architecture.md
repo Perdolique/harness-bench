@@ -3,8 +3,8 @@
 ## Status
 
 This is a proposed design grounded in the
-[2026-09-03 research snapshot](research-snapshot.md), not runtime validation.
-Harbor 0.22.0 and Codex 0.153.0 are exact candidate pins. Issue 2 must validate the
+[2026-09-04 research snapshot](research-snapshot.md), not runtime validation.
+Harbor 0.22.0 and Codex 0.153.2 are exact candidate pins. Issue 2 must validate the
 pair on Windows/WSL2 and Docker Linux containers; issue 3 finalizes the ADRs.
 
 ## Ownership

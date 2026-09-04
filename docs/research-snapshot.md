@@ -1,6 +1,6 @@
 # Official-source research snapshot
 
-Researched on **2026-09-03**. Only official Harbor and OpenAI documentation and
+Researched on **2026-09-04**. Only official Harbor and OpenAI documentation and
 repositories support the external capability claims below. These are source
 observations, not a completed feasibility spike. No login, provider invocation,
 container run, or private-repository import occurred in this planning run.
@@ -10,21 +10,24 @@ container run, or private-repository import occurred in this planning run.
 | Component | Release consulted | Resolved release commit | Interpretation |
 | --- | --- | --- | --- |
 | Harbor | [v0.22.0](https://github.com/harbor-framework/harbor/releases/tag/v0.22.0), published 2026-08-22 | `4407eb5227a2ff4f0d3f16b2eb48849382fdf276` | Candidate pin `harbor==0.22.0` |
-| Native Codex | [rust-v0.153.0](https://github.com/openai/codex/releases/tag/rust-v0.153.0), published 2026-09-03 | `41e22fee981a63b3698df7ed36bad393cda24715` | Candidate pin `@openai/codex@0.153.0` |
+| Native Codex | [rust-v0.153.2](https://github.com/openai/codex/releases/tag/rust-v0.153.2), published 2026-09-03 | `657a993cbee87acf52d14b758ce49dbd46d1b8eb` | Candidate pin `@openai/codex@0.153.2` |
 
 The annotated tag object IDs are Harbor
 `41a50d62d7f35677cc34ba3a0c36f042a4fef68c` and Codex
-`6bc50f104dcc0192e696cdeae721dfc19b507391`; use the resolved commits above for source
+`79016fcca2c514d9c38643d8b7970a021e829b3b`; use the resolved commits above for source
 permalinks. Release metadata was read with GitHub CLI and tags resolved with
 `git ls-remote`. Public source archives at those commits were extracted outside the
 repository and inspected. The installed CLI independently reported
-`codex-cli 0.153.0`; this does not demonstrate Harbor compatibility.
+`codex-cli 0.153.2`; this does not demonstrate Harbor compatibility. The source
+blobs referenced as C4-C7 are unchanged from `0.153.0`; the two intervening patch
+releases changed the model catalog and display text rather than those interfaces.
 
 Current official website pages were also fetched on this date. They are mutable;
 the source permalinks below anchor version-dependent Harbor/Codex behavior. No
 floating release, branch, image tag, or unspecified model is a planned runtime pin.
-Node, pnpm, Python patch, uv, images, and model/effort selection remain issue 1/2
-decisions rather than invented versions. Harbor declares Python `>=3.12`.
+Issue 1 pins Node `26.8.1`, pnpm `11.25.0`, Python `3.14.7`, and uv `0.12.9`.
+Images and model/effort selection remain issue 2 decisions rather than invented
+versions. Harbor declares Python `>=3.12`.
 
 ## Harbor findings
 
@@ -54,7 +57,7 @@ decisions rather than invented versions. Harbor declares Python `>=3.12`.
 | Ephemeral execution | `--ephemeral` suppresses session persistence [C2, C5] | A fresh disposable home must still allow collection of required native rollout evidence |
 | Home/state | `CODEX_HOME` selects config/auth/log/session/skill state and must exist; state can have separate environment/config overrides [C3, C6] | Create and inspect a fresh explicit home, do not equate it with total process isolation |
 | Config/permissions | Config includes package, system/managed, user, project, and runtime layers [C7]; non-interactive permission settings are explicit [C2] | Record the effective stack and CLI flags; account for Harbor's sandbox bypass and config merging |
-| Version | Release Cargo metadata declares 0.153.0 [C8] | Pin native binary/package and record observed version; provider-hidden model revision stays `unknown` |
+| Version | Release Cargo metadata declares 0.153.2 [C8] | Pin native binary/package and record observed version; provider-hidden model revision stays `unknown` |
 
 ## Primary source register
 
@@ -71,11 +74,11 @@ decisions rather than invented versions. Harbor declares Python `>=3.12`.
 - C1: [Official Codex authentication](https://learn.chatgpt.com/docs/auth).
 - C2: [Official Codex non-interactive execution](https://learn.chatgpt.com/docs/non-interactive-mode).
 - C3: [Official Codex environment variables](https://learn.chatgpt.com/docs/config-file/environment-variables).
-- C4: [Codex authentication storage](https://github.com/openai/codex/blob/41e22fee981a63b3698df7ed36bad393cda24715/codex-rs/login/src/auth/storage.rs).
-- C5: [Codex exec CLI options](https://github.com/openai/codex/blob/41e22fee981a63b3698df7ed36bad393cda24715/codex-rs/exec/src/cli.rs).
-- C6: [Codex home resolution](https://github.com/openai/codex/blob/41e22fee981a63b3698df7ed36bad393cda24715/codex-rs/utils/home-dir/src/lib.rs).
-- C7: [Codex configuration layers](https://github.com/openai/codex/blob/41e22fee981a63b3698df7ed36bad393cda24715/codex-rs/config/src/loader/mod.rs).
-- C8: [Codex release version](https://github.com/openai/codex/blob/41e22fee981a63b3698df7ed36bad393cda24715/codex-rs/Cargo.toml).
+- C4: [Codex authentication storage](https://github.com/openai/codex/blob/657a993cbee87acf52d14b758ce49dbd46d1b8eb/codex-rs/login/src/auth/storage.rs).
+- C5: [Codex exec CLI options](https://github.com/openai/codex/blob/657a993cbee87acf52d14b758ce49dbd46d1b8eb/codex-rs/exec/src/cli.rs).
+- C6: [Codex home resolution](https://github.com/openai/codex/blob/657a993cbee87acf52d14b758ce49dbd46d1b8eb/codex-rs/utils/home-dir/src/lib.rs).
+- C7: [Codex configuration layers](https://github.com/openai/codex/blob/657a993cbee87acf52d14b758ce49dbd46d1b8eb/codex-rs/config/src/loader/mod.rs).
+- C8: [Codex release version](https://github.com/openai/codex/blob/657a993cbee87acf52d14b758ce49dbd46d1b8eb/codex-rs/Cargo.toml).
 
 ## Unresolved feasibility register
 
