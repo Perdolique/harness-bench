@@ -16,7 +16,7 @@ Prove the complete Harbor/native Codex/subscription/independent-artifact/offline
 
 ## In scope
 
-- Use one fixed synthetic task and pinned Harbor 0.22.0 / Codex 0.153.0 candidates, recording any justified pin change.
+- Use one fixed synthetic task and pinned Harbor 0.22.0 / Codex 0.153.2 candidates, recording any justified pin change.
 - Discover login files, refresh behavior, and required hosts from current official behavior with a dedicated external login.
 - Exercise non-cooperative output collection, a separate verifier, and two repeated native runs.
 - Keep experimental code under spikes/ unless deliberately promoted; write a go/no-go evidence report.

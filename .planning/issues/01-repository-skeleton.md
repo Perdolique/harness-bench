@@ -27,7 +27,7 @@ Establish a deterministic development skeleton without benchmark behavior.
 
 ## Technical constraints
 
-- No floating versions; research candidates are Harbor 0.22.0 and Codex 0.153.0.
+- No floating versions; research candidates are Harbor 0.22.0 and Codex 0.153.2.
 - The planned run root is configurable and ignored; local benchmark commands must default Harbor telemetry off when introduced.
 - Follow AGENTS.md and the accepted architecture; no custom sandbox/runner.
 - Keep verifier execution separate, network-disabled and credential-free; never expose hidden tests, reference solutions or future history to the agent.

@@ -5,9 +5,9 @@ stack includes the native agent and version, model and effort, authentication
 mode, harness, tools, permissions, repository snapshot, prompt, budget, and runner.
 A result is evidence about that stack on those tasks, never a bare-model score.
 
-**Status: planning only.** No benchmark CLI, schemas, fixtures, integrations, or
-experiments exist yet. Start with [planning issue 1](.planning/issues/01-repository-skeleton.md)
-in a new implementation session. This bootstrap does not complete that issue.
+**Status: development skeleton only.** The repository has pinned development
+toolchains, manifest-only workspaces, deterministic checks, and provider-free CI.
+No benchmark CLI, runtime schemas, fixtures, integrations, or experiments exist.
 
 The first useful question is whether a changed harness improves the owner's
 subscription-backed native Codex workflow without increasing regressions or
@@ -24,7 +24,7 @@ visible separately; subscription runs have no invented monetary per-task cost.
 - One synthetic frontend task, then five real tasks, repeated interleaved
   comparisons, raw evidence retention, and terminal reports.
 
-Harbor 0.22.0 and Codex 0.153.0 are the researched candidates, not an already
+Harbor 0.22.0 and Codex 0.153.2 are the researched candidates, not an already
 validated pair. [Issue 2](.planning/issues/02-feasibility-spike.md) and owner review
 must establish feasibility before production abstractions begin.
 
@@ -48,7 +48,8 @@ dependency. Expansion work stays outside the v1 critical path.
   [backlog publication and validation](.planning/README.md).
 - [Original bootstrap plan](BOOTSTRAP_PLAN.md).
 
-Run `python3 .planning/validate.py` to check planning documents locally. This does
-not install toolchains, start Harbor, authenticate Codex, or consume provider
-quota. Future benchmark commands must set `HARBOR_TELEMETRY=off` unless the owner
-explicitly opts an experiment in.
+Install the exact prerequisites and run the locked checks documented in
+[Operations](docs/operations.md). `pnpm check` formats nothing, starts no Harbor
+job, does not authenticate Codex, and consumes no provider quota. Future benchmark
+commands must set `HARBOR_TELEMETRY=off` unless the owner explicitly opts an
+experiment in.

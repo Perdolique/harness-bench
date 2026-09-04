@@ -1,0 +1,30 @@
+{
+  "name": "@harness-bench/root",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": "26.8.1",
+    "pnpm": "11.25.0"
+  },
+  "scripts": {
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:planning && pnpm validate:planning && pnpm verify:toolchain",
+    "format": "prettier --write \"**/*.{ts,json,yaml,yml}\" --ignore-path .prettierignore && uv run ruff format .planning/*.py",
+    "format:check": "prettier --check \"**/*.{ts,json,yaml,yml}\" --ignore-path .prettierignore && uv run ruff format --check .planning/*.py",
+    "lint": "oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning/*.py",
+    "test": "vitest run",
+    "test:planning": "python3 .planning/test_sync_github.py",
+    "typecheck": "tsc --noEmit",
+    "validate:planning": "python3 .planning/validate.py",
+    "verify:toolchain": "node scripts/verify-toolchain.ts"
+  },
+  "devDependencies": {
+    "@openai/codex": "0.153.2",
+    "@types/node": "26.4.1",
+    "oxlint": "1.81.0",
+    "prettier": "3.9.6",
+    "typescript": "7.0.2",
+    "vitest": "5.0.0"
+  }
+}
