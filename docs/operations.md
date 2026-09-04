@@ -52,6 +52,12 @@ providers. The second reads GitHub and checks publication state without mutation
 Publication uses `python3 .planning/sync-github.py --apply`; see
 [planning maintenance](../.planning/README.md). No `benchctl` command exists yet.
 
+Future task materialization creates an agent-visible local Git repository with one
+base commit. It does not copy the source object database, refs, remotes, hooks,
+credentials, or future history and retains only objects reachable from the new
+commit. The completed issue 2 spike remains Git-free; issue 6 and issue 14 own
+implementation and verification of the accepted Git shape.
+
 Issue 2 has an isolated spike surface outside `benchctl`:
 
 ```sh
@@ -130,8 +136,10 @@ The spike harness pins `forced_login_method = "chatgpt"` and
 parent-directory violations, and records only path/source hashes, modes, size,
 timestamps, and before/after metadata. It never copies the auth file into the run
 root. This follows the official
-[Codex authentication flow](https://learn.chatgpt.com/docs/auth); refresh behavior
-still requires native-run evidence.
+[Codex authentication flow](https://learn.chatgpt.com/docs/auth). The spike did not
+exercise token expiry, refresh persistence, or read-only refresh compatibility.
+An authentication or refresh failure stops the run and requires owner login; it
+does not trigger an API-auth fallback or automatic retry.
 
 Harbor creates fresh `/tmp/codex-home` and `/tmp/codex-secrets` volumes for every
 trial. The native session is copied to agent logs before best-effort cleanup, while

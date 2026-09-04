@@ -6,7 +6,9 @@ Planning item: 3 | Milestone: M0 Feasibility
 
 ## Context
 
-Bootstrap ADRs are proposed decisions supported by source research; they are not accepted runtime architecture.
+Issue 2 closed and merged after three successful public-network native runs and a
+qualified owner go. This issue converts the proposed bootstrap decisions into
+accepted architecture without broadening the synthetic evidence.
 
 Source: BOOTSTRAP_PLAN.md, section 9, planning item 3; docs/research-snapshot.md and the accepted ADRs constrain implementation.
 
@@ -19,6 +21,7 @@ Finalize the five ADRs and threat model from the accepted feasibility evidence.
 - Resolve every proposed decision against actual spike evidence and owner review.
 - Document the effective auth, network, collection, verifier and logging boundaries.
 - Record accepted limitations and fallback triggers without replacing failed evidence with assumptions.
+- Require a one-base-commit agent-visible Git repository in future task implementations.
 
 ## Out of scope
 
@@ -57,13 +60,15 @@ Finalize the five ADRs and threat model from the accepted feasibility evidence.
 ## Dependencies/blockers with links
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 2 / GitHub #2](https://github.com/Perdolique/harness-bench/issues/2).
-- Required gate: [planning issue 2](https://github.com/Perdolique/harness-bench/issues/2) must be green and explicitly accepted by the owner.
+- Satisfied by closed and merged [planning issue 2 / GitHub #2](https://github.com/Perdolique/harness-bench/issues/2).
 <!-- dependencies:end -->
 
 ## Risks/open questions
 
-- Any unresolved feasibility requirement blocks acceptance rather than becoming a hidden assumption.
+- Token refresh/read-only persistence remains unproved and fails closed to owner login.
+- Public agent networking can expose temporary native credentials and reachable host services.
+- Native stdout/stderr separation cannot be reconstructed.
+- Completed issue 2 runs remain Git-free; issues 6 and 14 implement the accepted one-base-commit snapshot.
 
 ## Definition of Done
 

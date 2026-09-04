@@ -27,6 +27,7 @@ Create one canonical TypeScript/Vue frontend blast-radius task with an independe
 ## Technical constraints
 
 - Hidden tests/reference solution/future history are absent from agent-visible files and layers.
+- Agent-visible source is a new local repository with exactly one base commit; do not copy the source object database, refs, remotes, hooks, credentials or later history, and retain no unreachable objects.
 - Verifier image includes all dependencies and consumes only declared safe artifacts.
 - Only evidenced obligations may affect scoring; alternate justified file edits are permitted.
 - Follow AGENTS.md and the accepted architecture; no custom sandbox/runner.
@@ -40,6 +41,8 @@ Create one canonical TypeScript/Vue frontend blast-radius task with an independe
 - [ ] Reference implementation passes.
 - [ ] At least one structurally different valid implementation can pass.
 - [ ] Existing regression tests pass.
+- [ ] Ordinary Git status/diff commands work against the single base commit.
+- [ ] Agent-visible Git has no source refs, remote, hooks, credentials, future history or unreachable objects.
 - [ ] Hidden tests are absent from the agent environment.
 - [ ] Verifier works with network disabled.
 - [ ] Contract expectations include concrete repository evidence.
@@ -52,6 +55,7 @@ Create one canonical TypeScript/Vue frontend blast-radius task with an independe
 - Require reference and structurally different valid patches to pass.
 - Remove each required behavior/contract, delete tests or churn a forbidden dependency, and require appropriate failure.
 - Repeat verification offline and inspect agent filesystem for hidden material.
+- Inspect Git objects, refs, remotes, hooks and configuration; require exactly one base commit, no unreachable objects and no source provenance beyond its declared digest.
 
 ## Documentation changes
 

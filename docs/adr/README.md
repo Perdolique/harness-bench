@@ -1,19 +1,19 @@
 # Architecture decision records
 
-ADRs preserve a decision, its evidence, alternatives, and consequences. Initial
-records are **Proposed — pending feasibility**. Official source capability is not
-proof of compatibility or safety on the owner's stack. Issue 3 may mark decisions
-Accepted only after the issue 2 evidence and owner gate support them.
+ADRs preserve a decision, its evidence, alternatives, and consequences. The five
+initial records were accepted on 2026-09-05 after the issue 2 spike and qualified
+owner go. Acceptance applies only to the evidence and limitations recorded in each
+decision; official source capability alone remains insufficient runtime proof.
 
 ## Records
 
 | ID | Decision | Status |
 | --- | --- | --- |
-| [0001](0001-harbor-execution-kernel.md) | Harbor as the v1 execution kernel | Proposed — pending feasibility |
-| [0002](0002-typescript-control-plane.md) | Thin TypeScript control plane | Proposed — pending feasibility |
-| [0003](0003-separate-verifier-boundary.md) | Separate verifier and artifact trust boundary | Proposed — pending feasibility |
-| [0004](0004-subscription-authentication.md) | Dedicated local ChatGPT subscription authentication | Proposed — pending feasibility |
-| [0005](0005-immutable-raw-artifacts.md) | Immutable raw records as source of truth | Proposed — pending feasibility |
+| [0001](0001-harbor-execution-kernel.md) | Harbor as the v1 execution kernel | Accepted |
+| [0002](0002-typescript-control-plane.md) | Thin TypeScript control plane | Accepted |
+| [0003](0003-separate-verifier-boundary.md) | Separate verifier and artifact trust boundary | Accepted |
+| [0004](0004-subscription-authentication.md) | Dedicated local ChatGPT subscription authentication | Accepted |
+| [0005](0005-immutable-raw-artifacts.md) | Immutable raw records as source of truth | Accepted |
 
 ## Required format
 

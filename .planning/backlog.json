@@ -187,11 +187,13 @@
         "area:runner",
         "area:security",
         "no-provider-call-in-ci",
-        "blocked",
         "priority:critical",
         "decision-required"
       ],
       "dependencies": [
+        2
+      ],
+      "resolved_dependencies": [
         2
       ]
     },

@@ -100,8 +100,11 @@ the owner gates below. No implementation is part of the bootstrap session.
 The issue 2 owner gate was accepted on 2026-09-05 with explicit qualifications:
 the public-network medium and low runs passed. A separately authorized additional
 low run then passed, completing the matching-input low pair;
-Git-free workspace behavior, auth refresh, and native stream-merging limitations
-carry into issue 3. See the [evidence report](spikes/harbor-codex-subscription.md).
+issue 3 accepted the architecture with a future one-base-commit Git workspace,
+fail-closed owner login for unproved auth refresh, and native stream-merging,
+public-network, and platform limitations. See the
+[evidence report](spikes/harbor-codex-subscription.md) and
+[accepted ADRs](adr/README.md).
 All later gates remain pending. Closing a dependency is necessary but does not
 silently satisfy its owner gate. The `blocked` label marks unmet direct dependencies or
 gates; an implementing agent verifies closure/merge and recorded acceptance before
@@ -124,10 +127,8 @@ workflow, selective probes for one task, one remote-executor evaluation, and one
 Pier fidelity investigation. A pre-v1 Harbor failure requires a new focused
 fallback issue at that time; the post-pilot Pier research issue cannot unblock it.
 
-## Next issue
+## Current boundary
 
-Finish and merge the focused [issue 2](../.planning/issues/02-feasibility-spike.md)
-PR, then select [issue 3](../.planning/issues/03-evidence-based-decisions.md) in a
-separate task for evidence-based architecture review. The owner accepted the spike
-with qualifications; issue 3 has not been implemented. Do not start downstream
-production work before that review.
+Issue 3 completes M0 when its focused PR merges. Issues 4 and 6 are the first
+independently selectable M1 tasks after that merge; issue 5 additionally depends
+on issue 4. Do not implement either downstream task in the issue 3 PR.
