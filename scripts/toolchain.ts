@@ -29,14 +29,30 @@ export const TOOL_COMMANDS: readonly ToolCommand[] = [
   { tool: "codex", command: "pnpm", args: ["exec", "codex", "--version"] },
 ];
 
+const semanticVersionPattern =
+  /(?<![0-9A-Za-z])v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)(?![0-9A-Za-z.+-])/g;
+
 export function extractSemanticVersion(output: string): string {
-  const match = output.match(/\d+\.\d+\.\d+\b/);
-  if (!match) {
+  const matches = [...output.matchAll(semanticVersionPattern)];
+  if (matches.length === 0) {
     throw new Error(
       `Version output did not contain a semantic version: ${JSON.stringify(output)}`,
     );
   }
-  return match[0];
+  if (matches.length > 1) {
+    throw new Error(
+      `Version output contained multiple semantic versions: ${JSON.stringify(output)}`,
+    );
+  }
+
+  const version = matches[0]?.[1];
+  if (!version) {
+    throw new Error(
+      `Version output did not contain a semantic version: ${JSON.stringify(output)}`,
+    );
+  }
+
+  return version;
 }
 
 export function assertExactVersion(tool: ToolName, output: string): void {

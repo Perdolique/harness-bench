@@ -28,20 +28,39 @@ describe("toolchain version contract", () => {
     );
   });
 
-  it("limits Harbor and Codex verification to provider-free commands", () => {
-    const harbor = TOOL_COMMANDS.find(({ tool }) => tool === "harbor");
-    const codex = TOOL_COMMANDS.find(({ tool }) => tool === "codex");
+  it.each(["codex-cli 0.153.2-beta.1", "codex-cli 0.153.2+local.1"])(
+    "rejects a non-stable exact version in %s",
+    (output) => {
+      expect(() => assertExactVersion("codex", output)).toThrow(
+        "codex version mismatch: expected 0.153.2",
+      );
+    },
+  );
 
-    expect(harbor).toEqual({
-      tool: "harbor",
-      command: "uv",
-      args: ["run", "harbor", "--version"],
-      environment: { HARBOR_TELEMETRY: "off" },
-    });
-    expect(codex).toEqual({
-      tool: "codex",
-      command: "pnpm",
-      args: ["exec", "codex", "--version"],
-    });
+  it("rejects ambiguous output containing multiple semantic versions", () => {
+    const output = "warning: expected 0.153.2; codex-cli 0.152.0";
+
+    expect(() => extractSemanticVersion(output)).toThrow(
+      "Version output contained multiple semantic versions",
+    );
+  });
+
+  it("limits every tool verification to the pinned provider-free commands", () => {
+    expect(TOOL_COMMANDS).toEqual([
+      { tool: "pnpm", command: "pnpm", args: ["--version"] },
+      { tool: "python", command: "python3", args: ["--version"] },
+      { tool: "uv", command: "uv", args: ["--version"] },
+      {
+        tool: "harbor",
+        command: "uv",
+        args: ["run", "harbor", "--version"],
+        environment: { HARBOR_TELEMETRY: "off" },
+      },
+      {
+        tool: "codex",
+        command: "pnpm",
+        args: ["exec", "codex", "--version"],
+      },
+    ]);
   });
 });

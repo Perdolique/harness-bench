@@ -69,13 +69,20 @@ The `Check` workflow runs for pull requests and pushes to `master` on the standa
 the committed pnpm and uv lockfiles and runs `pnpm check`. Repository permissions
 are read-only, checkout credentials are not persisted, Harbor telemetry is off,
 dependency caches are disabled, and no artifacts are uploaded. The workflow has no
-secrets, provider credentials, Harbor execution, Codex execution, login, scheduled
-job, Windows/WSL2 claim, or benchmark behavior.
+configured repository or provider secrets, provider credentials, Harbor execution,
+Codex execution, login, scheduled job, Windows/WSL2 claim, or benchmark behavior.
+GitHub still creates an ephemeral `GITHUB_TOKEN` for the job; it is limited to
+`contents: read`, and checkout does not persist it. Actions can access this token
+through the [`github.token` context](https://docs.github.com/en/actions/concepts/security/github_token),
+so it remains part of the CI trust boundary.
 
 Because this repository is public, its standard GitHub-hosted runner usage is
 free under [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
-Larger runners are excluded. Disabling caches and artifact uploads also avoids
-retained workflow storage.
+Larger runners are excluded. Disabling caches and artifact uploads avoids those
+storage categories and their incremental charges. GitHub still retains public
+workflow logs according to the repository's
+[Actions retention setting](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository),
+so logs must remain free of credentials and other sensitive data.
 
 ## Authentication and first execution
 

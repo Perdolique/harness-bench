@@ -4,7 +4,11 @@ import { dirname, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { EXPECTED_TOOLCHAIN } from "../toolchain.ts";
+import {
+  EXPECTED_TOOLCHAIN,
+  TOOL_COMMANDS,
+  type ToolCommand,
+} from "../toolchain.ts";
 
 const root = resolve(import.meta.dirname, "../..");
 
@@ -25,6 +29,21 @@ const expectedActions = [
   "astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d",
 ] as const;
 
+const expectedScripts = {
+  check:
+    "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:planning && pnpm validate:planning && pnpm verify:toolchain",
+  format:
+    'prettier --write "**/*.{ts,json,yaml,yml}" --ignore-path .prettierignore && uv run ruff format .planning/*.py',
+  "format:check":
+    'prettier --check "**/*.{ts,json,yaml,yml}" --ignore-path .prettierignore && uv run ruff format --check .planning/*.py',
+  lint: "oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning/*.py",
+  test: "vitest run",
+  "test:planning": "python3 .planning/test_sync_github.py",
+  typecheck: "tsc --noEmit",
+  "validate:planning": "python3 .planning/validate.py",
+  "verify:toolchain": "node scripts/verify-toolchain.ts",
+} as const;
+
 function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(resolve(root, path), "utf8")) as Record<
     string,
@@ -32,7 +51,29 @@ function readJson(path: string): Record<string, unknown> {
   >;
 }
 
-function providerPolicyViolations(workflow: string): string[] {
+function readToml(path: string): Record<string, unknown> {
+  const parser = [
+    "import json, pathlib, sys, tomllib",
+    'with pathlib.Path(sys.argv[1]).open("rb") as source:',
+    "    print(json.dumps(tomllib.load(source)))",
+  ].join("\n");
+  const output = execFileSync("python3", ["-c", parser, resolve(root, path)], {
+    encoding: "utf8",
+  });
+
+  return JSON.parse(output) as Record<string, unknown>;
+}
+
+function renderToolCommand(toolCommand: ToolCommand): string {
+  const command = [toolCommand.command, ...toolCommand.args].join(" ");
+  const environment = Object.entries(toolCommand.environment ?? {})
+    .map(([name, value]) => `${name}=${value}`)
+    .join(" ");
+
+  return `${environment} ${command}`.trim();
+}
+
+function providerPolicyViolations(sources: readonly string[]): string[] {
   const checks = [
     ["GitHub secret reference", /\bsecrets\./i],
     [
@@ -44,14 +85,14 @@ function providerPolicyViolations(workflow: string): string[] {
   ] as const;
 
   return checks
-    .filter(([, pattern]) => pattern.test(workflow))
+    .filter(([, pattern]) => sources.some((source) => pattern.test(source)))
     .map(([message]) => message);
 }
 
 describe("repository skeleton", () => {
   it("pins every runtime and direct tool dependency exactly", () => {
     const manifest = readJson("package.json");
-    const pyproject = readFileSync(resolve(root, "pyproject.toml"), "utf8");
+    const pyproject = readToml("pyproject.toml");
 
     expect(readFileSync(resolve(root, ".node-version"), "utf8").trim()).toBe(
       EXPECTED_TOOLCHAIN.node,
@@ -72,16 +113,21 @@ describe("repository skeleton", () => {
       typescript: "7.0.2",
       vitest: "5.0.0",
     });
-    expect(pyproject).toContain(
-      `requires-python = "==${EXPECTED_TOOLCHAIN.python}"`,
-    );
-    expect(pyproject).toContain(
-      `dependencies = ["harbor==${EXPECTED_TOOLCHAIN.harbor}"]`,
-    );
-    expect(pyproject).toContain('dev = ["ruff==0.16.6"]');
-    expect(pyproject).toContain(
-      `required-version = "==${EXPECTED_TOOLCHAIN.uv}"`,
-    );
+    expect(pyproject).toMatchObject({
+      project: {
+        "requires-python": `==${EXPECTED_TOOLCHAIN.python}`,
+        dependencies: [`harbor==${EXPECTED_TOOLCHAIN.harbor}`],
+      },
+      "dependency-groups": {
+        dev: ["ruff==0.16.6"],
+      },
+      tool: {
+        uv: {
+          package: false,
+          "required-version": `==${EXPECTED_TOOLCHAIN.uv}`,
+        },
+      },
+    });
   });
 
   it("keeps every workspace manifest-only", () => {
@@ -127,10 +173,29 @@ describe("repository skeleton", () => {
 });
 
 describe("provider-free CI policy", () => {
-  const workflow = readFileSync(
-    resolve(root, ".github/workflows/check.yml"),
-    "utf8",
+  const workflowsDirectory = resolve(root, ".github/workflows");
+  const workflowPaths = readdirSync(workflowsDirectory)
+    .filter((path) => /\.ya?ml$/.test(path))
+    .sort();
+  const workflowSources = workflowPaths.map((path) =>
+    readFileSync(resolve(workflowsDirectory, path), "utf8"),
   );
+  const workflow = workflowSources[0] ?? "";
+  const manifest = readJson("package.json");
+  const scripts = manifest.scripts;
+  const scriptSources = Object.values(expectedScripts);
+  const toolCommandSources = TOOL_COMMANDS.map(renderToolCommand);
+  const policySources = [
+    ...workflowSources,
+    ...scriptSources,
+    ...toolCommandSources,
+  ];
+
+  it("has exactly one provider-free workflow and the pinned script graph", () => {
+    expect(workflowPaths).toEqual(["check.yml"]);
+    expect(scripts).toEqual(expectedScripts);
+    expect(providerPolicyViolations(policySources)).toEqual([]);
+  });
 
   it("uses read-only permissions and pinned actions without persistent credentials", () => {
     expect(workflow).toMatch(/permissions:\n  contents: read/);
@@ -164,16 +229,14 @@ describe("provider-free CI policy", () => {
     expect(workflow).not.toMatch(/actions\/cache|upload-artifact/i);
   });
 
-  it("contains no provider access or credentials", () => {
-    expect(providerPolicyViolations(workflow)).toEqual([]);
-  });
-
   it.each([
-    ["Codex execution", "run: codex exec --json task"],
-    ["Harbor run", "run: harbor run benchmark/task"],
-    ["Harbor job", "run: harbor jobs start benchmark/task"],
-    ["credential", "env:\n  CODEX_AUTH_JSON_PATH: /credentials/auth.json"],
-    ["secret", "env:\n  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}"],
+    ["Codex execution", ["run: codex exec --json task"]],
+    ["Harbor run", ["run: harbor run benchmark/task"]],
+    ["Harbor job", ["run: harbor jobs start benchmark/task"]],
+    ["credential", ["env:\n  CODEX_AUTH_JSON_PATH: /credentials/auth.json"]],
+    ["secret", ["env:\n  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}"]],
+    ["provider package script", ["check: pnpm test && codex exec task"]],
+    ["separate provider workflow", [workflow, "run: harbor job task"]],
   ])("rejects a %s fixture", (_name, fixture) => {
     expect(providerPolicyViolations(fixture)).not.toEqual([]);
   });

@@ -155,17 +155,16 @@ def main():
             errors.append(f"Item {number}: invalid/missing labels")
         if item["dependencies"] and "blocked" not in item["labels"]:
             errors.append(f"Item {number}: missing initial blocked label")
-        expected_milestone = (
-            0
-            if number <= 3
-            else 1
-            if number <= 9
-            else 2
-            if number <= 13
-            else 3
-            if number <= 17
-            else 4
-        )
+        if number <= 3:
+            expected_milestone = 0
+        elif number <= 9:
+            expected_milestone = 1
+        elif number <= 13:
+            expected_milestone = 2
+        elif number <= 17:
+            expected_milestone = 3
+        else:
+            expected_milestone = 4
         if item["milestone"] != milestones[expected_milestone]:
             errors.append(f"Item {number}: wrong milestone")
         if not body.startswith(f"# {item['title']}\n"):
