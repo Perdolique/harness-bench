@@ -73,7 +73,8 @@ checked against Harbor/native evidence. Changing effort does not reset the run
 budget or make mixed-effort samples an identical repeated pair.
 
 The authorized issue 2 budget is now exhausted: one historical restricted-network
-failure and two successful public-network runs. The owner accepted qualified go;
+failure and three successful public-network runs. The third public run was an
+explicitly authorized one-call extension to complete the low pair after owner go;
 these command examples do not authorize another run or resetting the budget with
 a new run root. See the [evidence report](spikes/harbor-codex-subscription.md).
 
@@ -185,6 +186,14 @@ Use a fresh external run root for this revision. Image locks, preflight reports,
 intents, and completions carry `protocolRevision: public-1`; the runner rejects
 old records, changed images, duplicate IDs, and a third invocation. Preserve the
 earlier restricted-network run and no-go without editing or merging its results.
+
+For the completed one-call extension only, `issue-2-low-confirmation` reused the
+byte-identical image lock and preflight from `issue-2-public-1-final`, with current
+image IDs rechecked before execution. Its `public-03` intent has root-local
+`invocation: 1` but is invocation four overall. The unchanged per-root two-call
+guard is not authorization for another call; the explicit extension allowed one,
+now consumed. No Docker controls or images were rebuilt for this evidence-only
+confirmation. See the report for source hashes and the actual command.
 
 ## Recovery and regrade
 

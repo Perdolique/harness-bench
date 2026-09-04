@@ -98,7 +98,8 @@ the owner gates below. No implementation is part of the bootstrap session.
 | After 17 | Inspect per-task trajectories and patches; decide whether measured behavior is useful before activating M4. |
 
 The issue 2 owner gate was accepted on 2026-09-05 with explicit qualifications:
-the public-network medium and low runs passed, but are not identical repeats;
+the public-network medium and low runs passed. A separately authorized additional
+low run then passed, completing the matching-input low pair;
 Git-free workspace behavior, auth refresh, and native stream-merging limitations
 carry into issue 3. See the [evidence report](spikes/harbor-codex-subscription.md).
 All later gates remain pending. Closing a dependency is necessary but does not

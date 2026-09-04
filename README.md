@@ -7,11 +7,11 @@ A result is evidence about that stack on those tasks, never a bare-model score.
 
 **Status: issue 2 received owner go with qualifications.** The repository has pinned
 development toolchains, provider-free CI, and an isolated disposable spike. The
-retired restricted-network protocol received an owner no-go. Two public-network
-native runs now pass (medium, then owner-requested low); this is not an identical
-repeat pair. The owner accepted that limitation for this temporary spike; issue 3
-reviews the evidence after this PR merges. No production benchmark CLI or runtime
-schemas exist.
+retired restricted-network protocol received an owner no-go. Three public-network
+native runs now pass: one medium and two matching-input low runs, including a
+separately authorized confirmation. The missing-repeat qualification is resolved;
+issue 3 reviews remaining Git-workspace/auth/evidence limitations after this PR
+merges. No production benchmark CLI or runtime schemas exist.
 
 The first useful question is whether a changed harness improves the owner's
 subscription-backed native Codex workflow without increasing regressions or

@@ -132,7 +132,11 @@ Record observable commands and external dependencies in the native evidence.
 Execution qualification: after public-01 started at medium, the owner requested
 low for public-02. Both completed, but they are not an identical-repeat experiment.
 The owner accepted this deviation for the temporary issue 2 feasibility gate on
-2026-09-05. It does not relax paired/repeated methodology for later comparisons.
+2026-09-05, then explicitly authorized one additional low invocation. Public-03
+passed with the same recorded stack settings and byte-identical task inputs as
+public-02, resolving the missing repeat. Four total invocations are now consumed,
+including the historical failure; the supplemental root does not renew the budget.
+This small fixture pair does not relax paired/repeated methodology for later comparisons.
 
 ## Human calibration
 

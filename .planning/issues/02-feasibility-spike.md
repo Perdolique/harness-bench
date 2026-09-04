@@ -19,15 +19,18 @@ the owner accepted qualified go on 2026-09-05. Issue 3 is not started.
 
 ## Goal
 
-Current evidence: both authorized public-network runs completed with all four
+Current evidence: all three authorized public-network runs completed with all four
 reward facets equal to 1, clean secret scans, successful independent collection,
 and separate offline verification. The owner requested low effort while the first
-medium run was already active, so the samples are not identical repeats. The
-original repeat criterion remains unproved and is explicitly waived for this
-temporary feasibility gate by the owner's qualified go on 2026-09-05. Git-free
+medium run was already active, so those first samples were not identical repeats.
+After qualified go on 2026-09-05, the owner explicitly authorized one additional
+low invocation. Public-02 and public-03 now demonstrate the matching-input repeat
+criterion: recorded stack settings and materialized task files are identical.
+The earlier missing-repeat qualification is resolved. Git-free
 workspace behavior, auth refresh, merged native streams, and public-network risks
 remain inputs for issue 3; this is not production readiness or a comparative study.
-All three subscription invocations including the historical failure are consumed.
+All four subscription invocations including the historical failure and the
+separately approved one-call extension are consumed; no further call is authorized.
 See docs/spikes/harbor-codex-subscription.md for the immutable-record hashes,
 native evidence, usage, observed Git-workspace limitation, and exact commands.
 
@@ -35,7 +38,7 @@ Prove the complete Harbor/native Codex/subscription/independent-artifact/offline
 
 ## In scope
 
-- Use one fixed synthetic task with Harbor 0.22.0, Codex 0.153.2, `gpt-5.6-luna`, and `medium` effort.
+- Use one fixed synthetic task with Harbor 0.22.0, Codex 0.153.2, `gpt-5.6-luna`, and initially `medium`, then owner-requested `low` effort.
 - Discover login files, refresh behavior, and native-client requirements from current official behavior with a dedicated external login.
 - Exercise two identical public-network native runs, non-cooperative output collection, and a separate verifier.
 - Keep experimental code under spikes/ unless deliberately promoted; write a go/no-go evidence report.
@@ -51,7 +54,7 @@ Prove the complete Harbor/native Codex/subscription/independent-artifact/offline
 - Verifier starts from the same base with no network/credentials; hidden tests and reference solution remain absent from agent access.
 - Harbor owns lifecycle. A sidecar collector is only a candidate and must use a trusted baseline/tooling independent of agent Git metadata.
 - Retain native traces as well as ATIF; prove actual effective harness/config/permission behavior.
-- Owner-authorized local subscription runs only: at most two identical public-network invocations, sequentially, with concurrency one, zero retries, and no fallback model. Login is outside this invocation limit.
+- Owner-authorized local subscription runs only: two initial public-network invocations plus one separately authorized low confirmation, sequentially, with concurrency one, zero retries, and no fallback model. Login is outside this invocation limit. All four calls including the historical failure are consumed.
 - Follow AGENTS.md and the accepted architecture; no custom sandbox/runner.
 - Keep verifier execution separate, network-disabled and credential-free; never expose hidden tests, reference solutions or future history to the agent.
 - Preserve immutable raw records and independent revisions; retain score facets and distinct task/agent/provider/runner/verifier/infrastructure/cancellation outcomes.

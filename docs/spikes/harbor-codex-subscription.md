@@ -17,19 +17,24 @@ still start for that verifier, but neither agent nor verifier shares its namespa
 The revised card originally scheduled **two identical sequential native invocations**.
 The owner authorized both, then requested `low` effort while `public-01` was already
 running at `medium`. The first run was not restarted; `public-02` used the explicitly
-requested `low` override. These are two successful feasibility samples, not an
-identical repeated pair. Concurrency remained one, retries zero, no fallback model.
-Both used `gpt-5.6-luna`, Harbor `0.22.0`, Codex `0.153.2`, ChatGPT file login,
+requested `low` override. The owner then explicitly authorized one additional
+`low` invocation, `public-03`, to obtain a matching pair with `public-02`.
+Both low runs passed with identical recorded stack settings and task inputs.
+Concurrency remained one, retries zero, no fallback model.
+All used `gpt-5.6-luna`, Harbor `0.22.0`, Codex `0.153.2`, ChatGPT file login,
 one canary skill, empty MCP registry, telemetry off. Built-in web search remains
 disabled; shell-command internet access is unrestricted. Limits remain
 600/120/900 seconds for agent/verifier/build, two CPUs and 2 GiB RAM.
 
-Both revised native invocations completed successfully; all three authorized
-subscription invocations, including the historical failure, are now consumed.
+All three public native invocations completed successfully; all four authorized
+subscription invocations, including the historical failure and the separately
+approved one-call extension, are now consumed.
 On 2026-09-05 (Europe/Tallinn), the owner explicitly accepted **go with the
-mixed-effort and Git-workspace qualifications** after reviewing these results.
-This accepts the temporary feasibility spike and carries the limitations to issue
-3 review; it does not retroactively satisfy the original identical-repeat criterion.
+mixed-effort and Git-workspace qualifications** after reviewing the first two
+public results.
+The subsequent low confirmation resolves the missing identical-repeat evidence;
+the historical medium/low samples are not relabeled. The remaining limitations
+carry to issue 3 review.
 No fallback issue or ADR is created to repair a requirement the owner retired.
 Issue 3 and issues 4–13 remain unstarted. The next task is issue 3 after this issue's
 PR is merged; no production implementation is authorized by this gate alone.
@@ -40,6 +45,7 @@ PR is merged; no production implementation is authorized by this gate alone.
 | --- | --- | --- | --- | --- | --- | --- |
 | `public-01` | `medium` | 2026-09-04 21:40:57.624 | 2026-09-04 21:42:24.750 | 87.126 s | `completed` / true | All four 1 |
 | `public-02` | `low` | 2026-09-04 21:43:37.293 | 2026-09-04 21:44:49.872 | 72.579 s | `completed` / true | All four 1 |
+| `public-03` | `low` | 2026-09-04 22:04:42.890 | 2026-09-04 22:05:44.218 | 61.328 s | `completed` / true | All four 1 |
 
 The commands actually executed were:
 
@@ -50,34 +56,41 @@ CODEX_AUTH_JSON_PATH=<dedicated-external-auth.json> \
 CODEX_AUTH_JSON_PATH=<dedicated-external-auth.json> \
   BENCH_RUN_ROOT=/Users/ky6uk/.agent-stack-bench/runs/harness-bench/issue-2-public-1-final \
   pnpm spike:issue-2 -- --phase public --run-id public-02 --effort low
+CODEX_AUTH_JSON_PATH=<dedicated-external-auth.json> \
+  BENCH_RUN_ROOT=/Users/ky6uk/.agent-stack-bench/runs/harness-bench/issue-2-low-confirmation \
+  pnpm spike:issue-2 -- --phase public --run-id public-03 --effort low
 ```
 
 Only the local per-run effort argument and its evidence matching were added between
-the runs. Images, fixture, verifier, base harness file, skill, resource limits,
+the first two runs; no runtime changes followed before the third. Images, fixture,
+verifier, base harness file, skill, resource limits,
 network policy, and model were unchanged. The second intent records `low` and
 `harnessRevision=public-1-low`; the first intent remains unchanged with `medium`.
 The final provider-free checks passed 50 tests across nine files, four planning
 tests, formatting, lint, types, planning validation, and toolchain verification.
 The focused spike tests passed 29 cases across seven files.
 
-For both runs:
+For all three public runs:
 
 - Native JSONL confirms `gpt-5.6-luna`, the recorded effort, `danger-full-access`,
   and approval policy `never`. Harbor's CLI invocation and effective configuration
   match. The first run demonstrates the base harness's `low` overridden to `medium`;
-  the second explicitly selects `low`.
+  the second and third explicitly select `low`.
 - The native agent read and executed the canary skill. All ten collector canary
   booleans passed. Writes outside `/app` succeeded despite the base read-only
   sandbox setting, inside external Docker isolation.
 - The running main containers were observed on normal Compose bridge networks:
-  `normalize-room-label__ztet2hp__env_default` and
-  `normalize-room-label__mlqbhsu__env_default`, not an egress-sidecar namespace.
+  `normalize-room-label__ztet2hp__env_default`,
+  `normalize-room-label__mlqbhsu__env_default`, and
+  `normalize-room-label__5bdnbzk__env_default`, not an egress-sidecar namespace.
 - Harbor reported main stop before trusted collection. Declared artifact statuses
   matched, the independent patch applied, the reconstructed tree matched the
   collector manifest, and separate verifier networking was loopback-only.
-- `task_contract`, `regressions`, `scope`, and `integrity` were each 1. Both agents
-  changed only the implementation and its regression test. Both implementations
-  added `.replace(/\s+/g, "-")`; regression additions differed.
+- `task_contract`, `regressions`, `scope`, and `integrity` were each 1. The first
+  two runs changed the implementation and its regression test; the third changed
+  only the implementation. All added `.replace(/\s+/g, "-")` (quote style varied).
+  The task grades behavior and allowed scope, not matching patches or mandatory
+  test edits; the third run's unchanged regressions and hidden checks both passed.
 - Temporary Codex home and secret directories were empty after cleanup. The
   external auth file's before/after hash was unchanged. No auth refresh event was
   demonstrated; unchanged credentials do not prove refresh compatibility.
@@ -85,23 +98,23 @@ For both runs:
   28 manifest entries; independently recomputing every listed SHA-256 found zero
   mismatches. Each completion's intent hash matches its immutable intent.
 - No spike containers remained running after completion. Unrelated local services
-  were left untouched. No retry, fallback model, credit redemption, or extra run occurred.
+  were left untouched. No retry, fallback model, credit redemption, or unapproved run occurred.
 
-| Evidence / usage | `public-01` | `public-02` |
-| --- | --- | --- |
-| Native JSONL records | 78 | 71 |
-| Merged JSON events | 28 | 20 |
-| ATIF steps | 13 | 13 |
-| Input tokens (includes cached) | 100,955 | 96,206 |
-| Cached input tokens | 81,152 | 86,016 |
-| Output tokens | 2,157 | 1,543 |
-| Reasoning output tokens | 729 | 391 |
-| Commands with nonzero exit | 1 | 2 |
+| Evidence / usage | `public-01` | `public-02` | `public-03` |
+| --- | --- | --- | --- |
+| Native JSONL records | 78 | 71 | 62 |
+| Merged JSON events | 28 | 20 | 19 |
+| ATIF steps | 13 | 13 | 12 |
+| Input tokens (includes cached) | 100,955 | 96,206 | 82,562 |
+| Cached input tokens | 81,152 | 86,016 | 63,744 |
+| Output tokens | 2,157 | 1,543 | 1,252 |
+| Reasoning output tokens | 729 | 391 | 297 |
+| Commands with nonzero exit | 1 | 2 | 2 |
 
-Low happened to finish 14.547 seconds sooner in these two samples. This is not a
-controlled estimate of low versus medium performance: there is only one sample
-per effort, different actions, cache use, and variable provider latency.
-Harbor reported API-price estimates of USD 0.00817204 and 0.00560992. These are
+The two low runs took 72.579 and 61.328 seconds. This is not a controlled estimate
+of low versus medium performance: there is only one medium sample, different
+actions, cache use, and variable provider latency.
+Harbor reported API-price estimates of USD 0.00817204, 0.00560992, and 0.00654088. These are
 upstream estimates, **not subscription charges**; actual subscription monetary
 cost remains not applicable/unknown.
 
@@ -120,14 +133,35 @@ external root. Their `sha256-manifest.json` hashes are respectively:
 - `62b9c15290b12185c3f45a767e475ebb6d4a54c81a27729a086f0627741b81eb`.
 - `88b7d0c00e500fed64627330e6ee19235fbb1612f68c80a62d98e32bfd2ceb50`.
 
+The supplemental record is `issue-2-low-confirmation/runs/public-03` under the
+same external parent. Its manifest SHA-256 is
+`6f5cf36cc589ed908db0d0173220b94bf83466aef598de1e0dc17bd69c9242f6`;
+its intent SHA-256 is
+`9f894994a2eb79c03a8a2453d12cc43f117ca200e39a816a5817fcc9430cc4d6`.
+All 28 entries and the completion-to-intent link were independently verified.
+
+The supplemental root was created mode 0700 only after explicit one-call approval.
+It reuses byte-identical `image-lock.json` and `provider-free-preflight.json` from
+`issue-2-public-1-final`; their hashes are listed below. No images were rebuilt,
+no runtime source changed, and the runner rechecked current tag-to-ID mappings.
+All recorded stack fields (including host, images, effort, harness revision,
+resources, network, telemetry, and versions) match `public-02`. All four
+materialized task files have identical SHA-256 values. Run IDs, timestamps, and
+output locations differ. The supplemental intent's root-local `invocation: 1`
+means **invocation four overall**, not a renewed two-call allowance. The copied
+preflight is prior control evidence, not a claim of rerunning Docker controls.
+
 Owner decision: **go with explicit qualifications**, accepted on 2026-09-05 after
 the evidence report and a separate request for the decision. The public-network
 Harbor/native-subscription/collector/offline-verifier path is demonstrated for this
-synthetic task. The owner accepts the mixed-effort pair as sufficient for this
-temporary feasibility gate, not as proof of identical-repeat comparability.
+synthetic task. The owner initially accepted the mixed-effort qualification, then
+authorized one additional low run. The completed `public-02`/`public-03` pair now
+satisfies the matching-input repeat criterion; the earlier waiver is no longer
+needed for that criterion.
 Git-free workspace behavior, auth refresh, merged native output, and external-network
-exposure remain inputs to issue 3 review. No further runtime changes or provider
-runs follow this gate; finish the focused issue 2 commit and PR only.
+exposure remain inputs to issue 3 review. The separately authorized confirmation
+is complete. No further runtime changes or provider runs are authorized; finish
+the focused issue 2 evidence update and existing PR only.
 
 ## Public-1 provider-free evidence
 
@@ -216,6 +250,9 @@ Final evidence-file SHA-256 values:
   `/Users/ky6uk/.agent-stack-bench/runs/harness-bench/issue-2-public-1-final`, mode 0700.
 - Both invocations completed and are retained above. The separate owner decision
   is qualified go. No automatic third invocation or fallback model.
+- A subsequent explicit owner approval added exactly one `public-03` invocation
+  with `low`, the same images/task/harness/public network, and zero retries.
+  It completed in a supplemental mode-0700 root without resetting the total budget.
 
 | Image | Public-1 local ID |
 | --- | --- |

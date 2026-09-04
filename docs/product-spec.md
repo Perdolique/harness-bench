@@ -61,9 +61,11 @@ no-go are preserved as historical evidence, not compared with this revision. It 
 model. A separate owner authorization is required before those invocations; the previous protocol's approval is not reset.
 
 Actual issue 2 execution used medium then owner-requested low. Both passed, and the
-owner accepted qualified go on 2026-09-05 for this temporary feasibility test. The
-identical-repeat criterion was not demonstrated; see the [evidence report](spikes/harbor-codex-subscription.md).
-Issue 3 must review that qualification and the remaining fidelity/auth risks.
+owner accepted qualified go on 2026-09-05 for this temporary feasibility test.
+A separately authorized additional low run then passed with identical recorded
+stack settings and task inputs, completing the repeat criterion. See the
+[evidence report](spikes/harbor-codex-subscription.md).
+Issue 3 must review the remaining fidelity/auth risks.
 
 No implementation of issues 4–13 proceeds without a green spike, owner acceptance,
 and the evidence-based ADR review. Unknown authentication files,
