@@ -107,7 +107,7 @@ unavailable provider values. These are planning requirements, not runtime schema
 | Harness and policy | `harness.id`, `harness.digest`, `network_policy_digest`, effective permissions and MCP/tool configuration digest |
 | Budget | `budget.wall_clock_seconds`, `budget.token_or_turn_limits`, CPU/memory limits and enforcement status |
 | Experiment | `experiment.id`, `experiment.arm`, `experiment.block`, `experiment.replicate`, ordering seed and plan digest |
-| Host | `host.os`, `host.architecture`, `host.docker_version`, WSL/kernel details relevant to network enforcement |
+| Host | `host.os`, macOS version, Apple Silicon model/architecture, Docker Desktop/Engine versions, LinuxKit kernel, container architecture |
 | Completion record | `result.status`, `result.termination_reason`, `result.raw_artifact_path`, collection hashes, attempt ID, observed timings/usage |
 
 Record initial and completion manifests separately, linked by ID/digest. Suite,
@@ -115,6 +115,28 @@ task, harness, verifier, scoring, network policy, image, runner configuration, a
 analysis revisions are independently versioned. Never overwrite raw artifacts
 when correcting normalization or grading. Subscription money is `not_applicable`
 or `unknown`, never API-token price multiplied into a supposed bill.
+
+For issue 2 revision `public-1`, freeze two identical sequential invocations with
+unrestricted agent internet. Concurrency is one and retries are zero. A timeout or
+infrastructure failure is retained as its own outcome and never triggers another
+run. Two invocations are the revision's ceiling, not an automatic reset of the old
+approval. Obtain a new explicit run-card authorization before inference.
+
+The owner changed the experiment objective to realistic internet access on
+2026-09-05. Keep the failed restricted-network record and its owner no-go unchanged;
+do not pool it with the public-network results or claim that removing a requirement
+proved the former requirement. Public internet permits changing remote content and
+downloads, so identical inputs do not imply a hermetic or bit-reproducible run.
+Record observable commands and external dependencies in the native evidence.
+
+Execution qualification: after public-01 started at medium, the owner requested
+low for public-02. Both completed, but they are not an identical-repeat experiment.
+The owner accepted this deviation for the temporary issue 2 feasibility gate on
+2026-09-05, then explicitly authorized one additional low invocation. Public-03
+passed with the same recorded stack settings and byte-identical task inputs as
+public-02, resolving the missing repeat. Four total invocations are now consumed,
+including the historical failure; the supplemental root does not renew the budget.
+This small fixture pair does not relax paired/repeated methodology for later comparisons.
 
 ## Human calibration
 

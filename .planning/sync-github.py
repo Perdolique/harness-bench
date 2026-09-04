@@ -60,8 +60,13 @@ def dependency_body(item, body, issue_map):
     if item["dependencies"]:
         for dependency in item["dependencies"]:
             remote = issue_map[dependency]
+            relation = (
+                "Satisfied by closed and merged"
+                if dependency in item.get("resolved_dependencies", [])
+                else "Blocked by"
+            )
             lines.append(
-                f"- Blocked by [planning issue {dependency} / GitHub #{remote['number']}]"
+                f"- {relation} [planning issue {dependency} / GitHub #{remote['number']}]"
                 f"({remote['html_url']})."
             )
     else:
@@ -185,7 +190,16 @@ def main():
             problems.append(f"Remote body changed manually: planning item {item['id']}")
         if existing["title"] != item["title"]:
             problems.append(f"Remote title changed: planning item {item['id']}")
-        if {x["name"] for x in existing["labels"]} != set(item["labels"]):
+        remote_labels = {x["name"] for x in existing["labels"]}
+        desired_labels = set(item["labels"])
+        resolved_dependencies = set(item.get("resolved_dependencies", []))
+        stale_blocked_labels = desired_labels | {"blocked"}
+        stale_blocked_is_expected = (
+            "blocked" not in desired_labels
+            and resolved_dependencies == set(item["dependencies"])
+            and remote_labels == stale_blocked_labels
+        )
+        if remote_labels != desired_labels and not stale_blocked_is_expected:
             problems.append(f"Remote labels changed: planning item {item['id']}")
         if (
             not existing["milestone"]
@@ -261,12 +275,15 @@ def main():
                     f"Saved body hash mismatch for planning item {item['id']}"
                 )
         else:
+            payload = {}
             if body != existing["body"]:
-                mutate(
-                    "PATCH", f"{endpoint}/issues/{existing['number']}", {"body": body}
-                )
+                payload["body"] = body
+            if {x["name"] for x in existing["labels"]} != set(item["labels"]):
+                payload["labels"] = item["labels"]
+            if payload:
+                mutate("PATCH", f"{endpoint}/issues/{existing['number']}", payload)
                 updated += 1
-                print(f"Resolved dependencies: {existing['html_url']}", flush=True)
+                print(f"Updated planning issue: {existing['html_url']}", flush=True)
             if body != local_path.read_text():
                 local_path.write_text(body)
             state["issues"][str(item["id"])] = {
@@ -282,7 +299,7 @@ def main():
             {
                 "mode": "apply" if args.apply else "check",
                 "created": created,
-                "updated_bodies": updated,
+                "updated_issues": updated,
                 "verified_issues": len(issue_map),
                 "planning_labels": len(catalog["labels"]),
                 "milestones": len(catalog["milestones"]),

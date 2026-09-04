@@ -8,6 +8,8 @@ fixtures, Harbor integration, or issue 1's development skeleton.
 - `backlog.json` defines 27 dependency-ordered planning items, five milestones,
   and 21 labels. Purple denotes work type, blue area, red critical priority,
   yellow blockers, orange owner decisions, and green provider-free CI policy.
+  `resolved_dependencies` records a dependency proven closed and merged so its
+  implementing issue can drop a stale `blocked` label without removing the edge.
 - `issues/*.md` is the complete local copy of every issue body, including
   acceptance criteria and actual dependency links after publication.
 - `github-state.json`, when present, records real numbers/URLs and last-published
@@ -46,6 +48,10 @@ milestones, creates issues in dependency order, then resolves real dependency an
 owner-gate links in a second pass. It retains local drafts and records each issue
 immediately so interruptions can be resumed. A second unchanged apply creates
 nothing and rewrites no issue bodies.
+
+When every dependency listed in `resolved_dependencies` is proven closed and
+merged, publication may remove only the stale `blocked` label while preserving the
+dependency link. Any other remote label difference still stops before mutation.
 
 Issues are identified by an exact hidden planning marker, including closed issues;
 saved issue numbers must still match that marker. A missing saved issue or removed

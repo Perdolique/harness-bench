@@ -37,8 +37,8 @@ versions. Harbor declares Python `>=3.12`.
 | Task format | Prompt, task metadata, agent environment, tests, solution; docs show task schema 1.4 [H2] | Use single-step Harbor-compatible tasks; keep solution/tests outside agent image |
 | Verifier | Shared is the default; a verifier environment enables separate mode, built from tests context [H2] | Explicit separate image and offline baseline; source support is not a runtime isolation proof |
 | Rewards | `reward.json` supports numeric metrics and is preferred over scalar `reward.txt` [H2] | Preserve numeric facets plus separate applicability/evidence/failure metadata |
-| Network | Public baseline is default; allowlist and no-network modes exist; phase overrides differ from startup policy [H3] | Explicit policies from startup, measured hosts, no silent fallback to public access |
-| Docker support | Allowlist enforcement uses an nftables sidecar; Linux containers and compatible kernel features are required [H3, H4] | Verify the actual WSL/Docker runtime and sidecar image pin; this Mac host does not prove it |
+| Network | Public baseline is default; allowlist and no-network modes exist; phase overrides differ from startup policy [H3] | Explicit public agent baseline and phase; separate offline verifier; preserve the retired restricted-network outcome |
+| Docker support | Allowlist enforcement uses an nftables sidecar; Linux containers and compatible kernel features are required [H3, H4] | Verify public agent access and separate Docker-none verifier on the selected macOS Apple Silicon target; the pinned sidecar is verifier-only |
 | Native Codex auth | Explicit `CODEX_AUTH_JSON_PATH` selects a file; ambient-home fallback exists; default path otherwise uses API auth [H5] | Require a dedicated explicit file and confirm effective subscription mode; never inherit ambient auth |
 | Native home/config | Adapter uses `/tmp/codex-home`, separate temporary secrets, explicit config/MCP merging, and copies skills into `$HOME/.agents/skills` [H5] | Inspect all effective harness inputs and reject ambient state; cleanup is best-effort |
 | Native execution | Adapter requests exact CLI versions when provided; omission can install an unpinned release. It uses `codex exec --json`, bypasses approvals/sandbox, and merges stderr into stdout [H5] | Explicit version/effort and external isolation are mandatory; trace fidelity and stream separation need evidence |
@@ -85,7 +85,7 @@ versions. Harbor declares Python `>=3.12`.
 | ID | Unknown / risk | Required resolution |
 | --- | --- | --- |
 | R1 | Minimum dedicated auth files, read-only access, refresh persistence and cleanup | Issue 2 observed login/refresh evidence; owner security gate |
-| R2 | Subscription host allowlist and WSL/Docker enforcement including setup and DNS | Issue 2 measured network record and negative probes |
+| R2 | Public agent internet and offline verifier on Docker Desktop/LinuxKit | Issue 2 provider-free Harbor lifecycle and native public-network records |
 | R3 | Independent complete patch capture despite mutable Git, leftover processes, stop/collection failure | Issue 2 positive/adversarial controls, trusted collector evidence |
 | R4 | Native daily-stack fidelity, config/skills/MCP loading, sandbox flags, merged logs and current CLI event coverage | Issue 2 effective-config and trajectory comparison; adapter fallback if needed |
 | R5 | Safe artifact replay, secret exclusion before durable retention, hidden-test isolation | Issue 2 boundary checks; issue 3 threat review; issue 12 recurring integrity checks |

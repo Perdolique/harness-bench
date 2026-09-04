@@ -49,7 +49,7 @@ class PublicationIdentityTests(unittest.TestCase):
             f"repos/{self.repo}/issues?state=all&per_page=100": self.issues,
         }
 
-    def apply(self, expected_error=None):
+    def apply(self, expected_error=None, expected_mutation=None):
         success = subprocess.CompletedProcess(
             [], 0, stdout=f"git@github.com:{self.repo}.git\n", stderr=""
         )
@@ -68,7 +68,11 @@ class PublicationIdentityTests(unittest.TestCase):
                 patch.object(
                     self.sync,
                     "mutate",
-                    side_effect=AssertionError("Unexpected GitHub mutation"),
+                    side_effect=(
+                        None
+                        if expected_mutation
+                        else AssertionError("Unexpected GitHub mutation")
+                    ),
                 )
             )
             save = stack.enter_context(patch.object(self.sync, "save_state"))
@@ -86,7 +90,10 @@ class PublicationIdentityTests(unittest.TestCase):
                 save.assert_not_called()
             else:
                 self.assertEqual(self.sync.main(), 0)
-            mutation.assert_not_called()
+            if expected_mutation:
+                mutation.assert_called_once_with(*expected_mutation)
+            else:
+                mutation.assert_not_called()
 
     def test_renamed_saved_issue_without_marker_blocks_publication(self):
         self.issues[0]["title"] = "Renamed by the owner"
@@ -99,6 +106,19 @@ class PublicationIdentityTests(unittest.TestCase):
 
     def test_unchanged_publication_does_not_mutate_github(self):
         self.apply()
+
+    def test_resolved_dependency_can_remove_only_stale_blocked_label(self):
+        issue = self.issues[1]
+        issue["labels"].append({"name": "blocked"})
+        desired = self.catalog["issues"][1]["labels"]
+
+        self.apply(
+            expected_mutation=(
+                "PATCH",
+                f"repos/{self.repo}/issues/{issue['number']}",
+                {"labels": desired},
+            )
+        )
 
 
 if __name__ == "__main__":

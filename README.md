@@ -5,9 +5,13 @@ stack includes the native agent and version, model and effort, authentication
 mode, harness, tools, permissions, repository snapshot, prompt, budget, and runner.
 A result is evidence about that stack on those tasks, never a bare-model score.
 
-**Status: development skeleton only.** The repository has pinned development
-toolchains, manifest-only workspaces, deterministic checks, and provider-free CI.
-No benchmark CLI, runtime schemas, fixtures, integrations, or experiments exist.
+**Status: issue 2 received owner go with qualifications.** The repository has pinned
+development toolchains, provider-free CI, and an isolated disposable spike. The
+retired restricted-network protocol received an owner no-go. Three public-network
+native runs now pass: one medium and two matching-input low runs, including a
+separately authorized confirmation. The missing-repeat qualification is resolved;
+issue 3 reviews remaining Git-workspace/auth/evidence limitations after this PR
+merges. No production benchmark CLI or runtime schemas exist.
 
 The first useful question is whether a changed harness improves the owner's
 subscription-backed native Codex workflow without increasing regressions or
@@ -16,17 +20,18 @@ visible separately; subscription runs have no invented monetary per-task cost.
 
 ## Planned v1
 
-- Local Windows/WSL2 with Docker Linux containers.
+- Local macOS on Apple Silicon with Docker Desktop Linux/arm64 containers.
 - Pinned Harbor execution kernel; a thin TypeScript control plane, `benchctl`.
 - Pinned native Codex using a dedicated, external ChatGPT login.
-- Immutable harnesses and task snapshots, controlled agent egress, and fresh,
+- Immutable harnesses and task snapshots, unrestricted agent internet, and fresh,
   credential-free, network-disabled deterministic verifiers.
 - One synthetic frontend task, then five real tasks, repeated interleaved
   comparisons, raw evidence retention, and terminal reports.
 
-Harbor 0.22.0 and Codex 0.153.2 are the researched candidates, not an already
-validated pair. [Issue 2](.planning/issues/02-feasibility-spike.md) and owner review
-must establish feasibility before production abstractions begin.
+Harbor 0.22.0, Codex 0.153.2, and `gpt-5.6-luna` passed the synthetic spike at
+`medium` and owner-requested `low` effort. [Issue 2](.planning/issues/02-feasibility-spike.md)
+records the qualified owner go; issue 3 must review that evidence before production
+abstractions begin.
 
 ## Non-goals
 
@@ -53,3 +58,8 @@ Install the exact prerequisites and run the locked checks documented in
 job, does not authenticate Codex, and consumes no provider quota. Future benchmark
 commands must set `HARBOR_TELEMETRY=off` unless the owner explicitly opts an
 experiment in.
+
+Issue 2 adds two isolated commands. `pnpm spike:issue-2:check` runs provider-free
+controls. `pnpm spike:issue-2 -- --phase public --run-id <id>` runs
+exactly one owner-authorized subscription invocation from an explicit external auth
+file and run root. See [Operations](docs/operations.md) before using either command.

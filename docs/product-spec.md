@@ -27,9 +27,11 @@ Success is a defensible decision, not a guaranteed winning harness.
 
 ## V1 product boundary
 
-Windows/WSL2 plus Docker Linux containers is the execution target. The control
-plane is TypeScript; Harbor runs pinned native Codex with subscription auth and
-owns environment lifecycle. Python exists only for locked Harbor/tooling.
+macOS on Apple Silicon with Docker Desktop Linux/arm64 containers is the v1
+execution target. Intel Mac, WSL2, and arbitrary Docker hosts are not compatibility
+claims. The control plane is TypeScript; Harbor runs pinned native Codex with
+subscription auth and owns environment lifecycle. Python exists only for locked
+Harbor/tooling.
 
 V1 includes one synthetic frontend task before three to five real tasks (the pilot
 backlog commits to five), immutable harness capture, Harbor-compatible task
@@ -47,12 +49,26 @@ Coder Eval is excluded.
 
 The first implementation establishes toolchains and governance. The first
 meaningful execution is a disposable spike: subscription Codex edits a fixed
-synthetic snapshot under an explicit harness and controlled network policy;
+synthetic snapshot under an explicit harness and unrestricted agent internet;
 independent collection transfers a declared patch to a fresh offline verifier;
 negative and positive controls and two repeated native-agent runs are retained.
 
+The revised `public-1` spike permits two identical sequential subscription
+invocations with unrestricted internet. It has no discovery phase, hostname
+allowlist, or packet observer. The earlier restricted-network failure and owner
+no-go are preserved as historical evidence, not compared with this revision. It uses Harbor 0.22.0, Codex 0.153.2,
+`gpt-5.6-luna`, `medium` effort, concurrency one, and no automatic retry or fallback
+model. A separate owner authorization is required before those invocations; the previous protocol's approval is not reset.
+
+Actual issue 2 execution used medium then owner-requested low. Both passed, and the
+owner accepted qualified go on 2026-09-05 for this temporary feasibility test.
+A separately authorized additional low run then passed with identical recorded
+stack settings and task inputs, completing the repeat criterion. See the
+[evidence report](spikes/harbor-codex-subscription.md).
+Issue 3 must review the remaining fidelity/auth risks.
+
 No implementation of issues 4–13 proceeds without a green spike, owner acceptance,
-and the evidence-based ADR review. Unknown authentication files, required hosts,
+and the evidence-based ADR review. Unknown authentication files,
 credential-refresh behavior, collection trust, or trajectory loss are unresolved
 requirements, not assumed capabilities. See [research](research-snapshot.md).
 

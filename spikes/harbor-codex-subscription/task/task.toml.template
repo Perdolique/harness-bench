@@ -1,0 +1,41 @@
+schema_version = "1.4"
+
+[metadata]
+issue = 2
+fixture = "normalize-room-label"
+
+[agent]
+timeout_sec = 600.0
+network_mode = "public"
+
+[environment]
+docker_image = "__AGENT_IMAGE__"
+os = "linux"
+cpus = 2
+memory_mb = 2048
+build_timeout_sec = 900.0
+network_mode = "public"
+workdir = "/app"
+
+[verifier]
+timeout_sec = 120.0
+environment_mode = "separate"
+network_mode = "no-network"
+
+[[verifier.collect]]
+service = "collector"
+command = "node --experimental-strip-types /opt/spike/container-collector.ts"
+timeout_sec = 60.0
+
+[verifier.environment]
+docker_image = "__VERIFIER_IMAGE__"
+os = "linux"
+cpus = 2
+memory_mb = 2048
+build_timeout_sec = 900.0
+network_mode = "no-network"
+
+[[artifacts]]
+source = "/evidence"
+destination = "trusted-collector"
+service = "collector"

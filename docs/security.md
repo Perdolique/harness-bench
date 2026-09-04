@@ -14,13 +14,13 @@ components whose exact revisions must be recorded.
 | Threat / boundary | Required control | Evidence owner |
 | --- | --- | --- |
 | Credentials copied with a home directory or harness | Explicit input allowlist; external credential store; fresh non-auth home; reject auth/history/cache paths and escaping links | Issues 2, 5, 12 |
-| Credential reading or exfiltration by repository-driven commands | Minimal native-client auth material, measured egress, no extra secrets; document residual native-client credential visibility | Issues 2, 3 |
+| Credential reading or exfiltration by repository-driven commands | Minimal native-client auth material and no extra secrets; explicitly accept residual native-client credential visibility and unrestricted egress | Issues 2, 3 |
 | Hidden tests, solution, or future history visible to agent | Separate image/build contexts; frozen base only; inspect filesystem and image layers accessible to the agent | Issues 2, 6, 12, 14 |
 | Agent modifies collector, `.git`, or artifacts during collection | Trusted baseline and collector outside agent control; verified quiescence; fail on collection/stop error; hash captured bytes | Issues 2, 7, 8 |
 | Artifact replay overwrites checker or escapes workspace | Declared disjoint paths; reject traversal, unsafe symlinks, special files, and path overlap; apply patch inside disposable workspace with trusted tooling | Issues 2, 6, 12 |
 | Malicious patch deletes tests, rewrites dependencies, or changes infrastructure | Immutable external verifier; direct/regression checks; evidence-backed allowed/conditional/forbidden scope zones | Issues 6, 12, 15 |
-| Provider/verifier accesses undeclared network | Enforce agent allowlist from environment startup where possible; explicit verifier no-network baseline and runtime denial probes | Issues 2, 12 |
-| Container accesses host or trusted sidecars | No host home or Docker socket mounts; bounded workspace mounts; no agent control of collector/egress services | Issues 2, 3 |
+| Verifier accesses external network | Explicit verifier no-network baseline plus Docker `network_mode: none` and runtime negative controls | Issues 2, 12 |
+| Container accesses host or trusted sidecars | No host home or Docker socket mounts; bounded workspace mounts; no agent control of collector/verifier services | Issues 2, 3 |
 | Logs and trajectories expose private code/secrets | Restricted local evidence root, secret scanning before durable retention/publication, derived sanitized exports only | Issues 2, 8, 18 |
 | Scoring drift or raw-record rewriting hides failures | Independently versioned inputs, immutable raw records, hash checks, separate regrade outputs | Issues 8, 11, 13 |
 
@@ -51,11 +51,21 @@ policy as the operative boundary and record this difference from the daily stack
 An unchanged `CODEX_HOME` alone does not isolate project/system config, ambient
 environment variables, or `$HOME/.agents/skills`; inspect effective configuration.
 
-Required provider hosts are **unknown until measured**. Separate dependency/image
-build traffic from agent runtime traffic. Prebuild pinned dependencies so the
-offline verifier does not install packages. Validate DNS, IPv4/IPv6, direct egress,
-host reachability, and Docker/WSL nftables support against the chosen policy.
-No network relaxation is allowed just to get a green result.
+The owner selected unrestricted agent internet on 2026-09-05 to match normal
+development conditions. Agent setup and execution use Harbor `public` networking,
+without a hostname allowlist, direct-IP/gateway blocks, packet observer, or TLS
+proxy. Docker filesystem isolation does not prevent network access to host services
+or exfiltration of files the agent can read, including its temporary native-client
+credentials. This is an explicit residual risk; do not claim egress containment or
+import private tasks before the later owner gate.
+
+The trusted collector and fresh verifier use Docker `network_mode: none`. Prebuild
+the verifier's dependencies; hidden tests and credentials never enter the agent's
+workspace together. Validate public HTTPS from the agent and loopback-only verifier
+networking through the actual Harbor lifecycle on Docker Desktop's LinuxKit VM.
+This is a revised product requirement, not a retroactive green result for the
+failed restricted-network protocol. Evidence applies only to the tested macOS
+Apple Silicon/Linux-arm64 target, not Intel Mac, WSL2, or arbitrary Docker hosts.
 
 The default policy is `HARBOR_TELEMETRY=off` for every local benchmark command.
 An owner-approved experiment opt-in is explicit metadata, not inherited ambient

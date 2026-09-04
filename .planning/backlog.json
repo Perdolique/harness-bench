@@ -167,11 +167,13 @@
         "area:verifier",
         "area:security",
         "no-provider-call-in-ci",
-        "blocked",
         "priority:critical",
         "decision-required"
       ],
       "dependencies": [
+        1
+      ],
+      "resolved_dependencies": [
         1
       ]
     },
