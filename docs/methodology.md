@@ -114,22 +114,24 @@ the original results. Provider-hidden model changes remain a stated limitation.
 
 ## Run manifest contract
 
-The future schema must record at least the following, with explicit `unknown` for
-unavailable provider values. These are planning requirements, not runtime schemas.
+The v1 Valibot schemas record at least the following, with explicit `unknown` for
+unavailable provider values. Serialized fields use `snake_case`; every name below
+is an actual checked-in serialized path.
 
 | Group | Required fields |
 | --- | --- |
-| Identity | `run_id`, `created_at`, `benchmark_repo_commit` |
-| Suite and task | `suite_id`, `suite_revision`, `task_id`, `task_revision`, `task_base_commit`, `task_source_digest`, `task_environment_image_digest` |
-| Verification | `verifier_revision`, `verifier_image_digest`, verifier network-enforcement sidecar digest or explicit `not_applicable`, `scoring_revision` |
-| Collection | `collector_revision`, `collector_image_digest`, quiescence/collection/manifest/hash enforcement status |
-| Runner | `runner.name`, `runner.version`, `runner.config_digest`, effective telemetry setting, requested/effective concurrency and enforcement status |
-| Agent | `agent.product`, `agent.cli_version`, `agent.model`, `agent.effort`, `agent.auth_mode`, observed provider identity when exposed |
-| Harness and policy | `harness.id`, `harness.digest`, `network_policy_digest`, effective permissions and MCP/tool configuration digest |
-| Budget | `budget.wall_clock_seconds`, `budget.token_or_turn_limits`, CPU/memory limits and enforcement status |
-| Experiment | `experiment.id`, `experiment.arm`, `experiment.block`, `experiment.replicate`, ordering seed, plan digest, block first-start/deadline/completion timestamps, contemporaneity status and invalidation reason |
-| Host | `host.os`, macOS version, Apple Silicon model/architecture, Docker Desktop/Engine versions, LinuxKit kernel, container architecture |
-| Completion record | `result.status`, `result.termination_reason`, `result.raw_artifact_path`, collection hashes, attempt ID, observed timings/usage |
+| Identity | `identity.run_id`, `identity.attempt_id`, `identity.attempt`, `created_at`, `benchmark_repo_commit` |
+| Suite and task | `suite.id`, `suite.revision`, `suite.digest`, `task.id`, `task.revision`, `task.base_commit`, `task.source_digest`, `task.environment_image_digest` |
+| Verification | `verifier.revision`, `verifier.image_digest`, `verifier.network_enforcement_sidecar_digest`, `scoring_revision` |
+| Collection | `collector.revision`, `collector.image_digest`; completion uses `collection.collector_revision`, `collection.collector_image_digest`, `collection.quiescence`, `collection.collection`, `collection.exact_manifest`, and `collection.hashes` |
+| Runner | `runner.name`, `runner.version`, `runner.config_digest`, `runner.telemetry`, `runner.requested_concurrency`, `runner.effective_concurrency`, `runner.concurrency_enforcement_status` |
+| Agent | `agent.product`, `agent.cli_version`, `agent.requested_model`, `agent.effort`, `agent.auth_mode`, `agent.observed_provider_identity` |
+| Harness and policy | `harness.id`, `harness.revision`, `harness.digest`, `network_policy_digest`, `effective_permissions_digest`, `mcp_tools_digest` |
+| Budget | `budget.wall_clock_seconds`, `budget.token_or_turn_limit.status`, known `budget.token_or_turn_limit.unit` and `.value`, `budget.cpu_count`, `budget.cpu_enforcement_status`, `budget.memory_megabytes`, `budget.memory_enforcement_status` |
+| Experiment | `experiment.experiment_id`, `experiment.experiment_revision`, `experiment.plan_digest`, `experiment.arm_id`, `experiment.block_id`, `experiment.replicate`; plans additionally use `ordering_seed`, `retry_policy`, and each block's `runs[].run_id`, `runs[].arm_id`, `runs[].attempt`, `runs[].selected`, timestamps, completion status, and contemporaneity |
+| Retention | `retention.classification`, private `retention.default_days` and `retention.expires_at`, or public `retention.expires_at.status: not_applicable` |
+| Host | `host.os`, `host.os_version`, `host.architecture`, `host.apple_silicon_model`, `host.docker_desktop_version`, `host.docker_engine_version`, `host.linuxkit_kernel`, `host.container_architecture` |
+| Completion record | `classification`, `termination`, `completed_at`, `initial_manifest_digest`, `valid_grade`, `score_id`, `timings`, `usage`, `raw_artifact_path`, `raw_artifact_manifest_digest` |
 
 Record initial and completion manifests separately, linked by ID/digest. Suite,
 task, harness, collector, verifier, scoring, network policy, sidecar/image, runner
@@ -137,6 +139,14 @@ configuration, concurrency enforcement, and analysis revisions are independently
 versioned. Never overwrite raw artifacts when correcting normalization or grading.
 Subscription money is `not_applicable` or `unknown`, never API-token price
 multiplied into a supposed bill.
+
+The score document keeps Harbor numeric rewards as upstream metadata and records
+facet applicability, evidence, gates, and failures separately. A composite is
+allowed only for a valid grade with numeric direct-behavior, repository-contract,
+regression, and scope-integrity facets. A verifier failure has no valid quality
+score. Runtime cross-document validation additionally checks immutable
+initial/completion linkage, exact suite/task/stack/harness references, and that a
+harness-effect comparison changes only the declared harness treatment.
 
 For issue 2 revision `public-1`, freeze two identical sequential invocations with
 unrestricted agent internet. Concurrency is one and retries are zero. A timeout or

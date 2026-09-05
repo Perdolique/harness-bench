@@ -1,0 +1,95 @@
+{
+  "document_type": "task",
+  "schema_version": 1,
+  "task_id": "secondary-action",
+  "revision": "1",
+  "base_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "environment": {
+    "id": "vue-task-arm64",
+    "revision": "1",
+    "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "collector": {
+    "revision": "1",
+    "image_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+  },
+  "verifier": {
+    "revision": "1",
+    "image_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "network_enforcement_sidecar_digest": {
+      "status": "known",
+      "value": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+    }
+  },
+  "scoring": {
+    "revision": "1",
+    "rubric_revision": "1"
+  },
+  "prompt": {
+    "path": "instruction.md",
+    "digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+  },
+  "declared_artifacts": [
+    { "path": "workspace.patch", "required": true },
+    { "path": "workspace-metadata.json", "required": true }
+  ],
+  "rubric": [
+    {
+      "obligation_id": "direct",
+      "facet": "direct_behavior",
+      "expectation": "The secondary action performs the requested behavior",
+      "evidence_paths": ["src/components/PrimaryAction.vue"],
+      "justification": "The pristine component defines the action behavior exercised by the task",
+      "deterministic_check": "tests/direct-action.test.ts",
+      "applicability": "required",
+      "weight": 1
+    },
+    {
+      "obligation_id": "contracts",
+      "facet": "repository_contracts",
+      "expectation": "The implementation preserves evidenced repository contracts",
+      "evidence_paths": ["src/components/PrimaryAction.vue"],
+      "justification": "The pristine component is the source of the repository-specific contract",
+      "deterministic_check": "tests/contracts.test.ts",
+      "applicability": "required",
+      "weight": 1
+    },
+    {
+      "obligation_id": "regression",
+      "facet": "regression",
+      "expectation": "Existing supported behavior remains correct",
+      "evidence_paths": ["tests/primary-action.test.ts"],
+      "justification": "The pristine regression test records existing supported behavior",
+      "deterministic_check": "tests/regression.test.ts",
+      "applicability": "required",
+      "weight": 1
+    },
+    {
+      "obligation_id": "scope",
+      "facet": "scope_integrity",
+      "expectation": "Changes stay inside the justified scope envelope",
+      "evidence_paths": ["src/components/PrimaryAction.vue"],
+      "justification": "The requested behavior is owned by the existing component boundary",
+      "deterministic_check": "tests/scope.test.ts",
+      "applicability": "required",
+      "weight": 1
+    }
+  ],
+  "scope": {
+    "allowed": ["src/components"],
+    "conditional": ["src/locales"],
+    "forbidden": ["package.json", ".github"]
+  },
+  "online_reachability": {
+    "status": "ineligible",
+    "reason": "This checked-in synthetic fixture is publicly reachable"
+  },
+  "retention": {
+    "classification": "public",
+    "expires_at": {
+      "status": "not_applicable",
+      "reason": "The sanitized fixture contains no private source"
+    }
+  }
+}

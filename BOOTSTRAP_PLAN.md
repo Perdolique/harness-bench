@@ -1,5 +1,9 @@
 # Agent Stack Benchmark — bootstrap and implementation plan
 
+> This file is retained as source provenance for the published issue bodies.
+> Current requirements live in the GitHub issues, their `.planning/issues/` mirror,
+> and the accepted project documentation and ADRs.
+
 **Plan date:** 2026-09-03  
 **Primary use case:** evaluate complete coding-agent stacks on real repository-native tasks: Codex/other native agents + model/effort + the user's harness (AGENTS.md, skills, MCP, configuration, policies, tools) + repository context.
 
@@ -330,7 +334,7 @@ The planning agent may refine names, but should preserve these boundaries:
 ├── apps/
 │   └── benchctl/                     # TypeScript CLI
 ├── packages/
-│   ├── schemas/                      # Zod schemas and serialized JSON schemas
+│   ├── schemas/                      # Valibot schemas and serialized JSON schemas
 │   ├── core/                         # configuration resolution and orchestration
 │   ├── results/                      # Harbor output normalization
 │   ├── statistics/                   # paired comparisons/bootstrap
@@ -450,7 +454,7 @@ Each issue is intended to fit one focused agent session and one PR. The planning
 
 **Acceptance criteria:**
 
-- Runtime-validated Zod schemas.
+- Runtime-validated Valibot schemas.
 - Serialized schema artifacts for inspection.
 - Schema versions are explicit.
 - Unknown provider fields are representable without invented values.

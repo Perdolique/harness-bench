@@ -1,0 +1,411 @@
+{
+  "type": "object",
+  "properties": {
+    "document_type": {
+      "const": "stack"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "stack_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "agent": {
+      "type": "object",
+      "properties": {
+        "product": {
+          "const": "codex"
+        },
+        "cli_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_provider_identity": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "unknown"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "status",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "effort": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "type": "string"
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "chatgpt_subscription"
+            },
+            "credential_store": {
+              "const": "file"
+            }
+          },
+          "required": [
+            "mode",
+            "credential_store"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "product",
+        "cli_version",
+        "requested_model",
+        "observed_provider_identity",
+        "effort",
+        "auth"
+      ],
+      "additionalProperties": false
+    },
+    "runner": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "const": "harbor"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "config_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "telemetry": {
+          "type": "object",
+          "properties": {
+            "requested": {
+              "enum": [
+                "off",
+                "on"
+              ],
+              "type": "string"
+            },
+            "effective": {
+              "enum": [
+                "off",
+                "on"
+              ],
+              "type": "string"
+            },
+            "owner_opt_in": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "requested",
+            "effective",
+            "owner_opt_in"
+          ],
+          "additionalProperties": false
+        },
+        "concurrency": {
+          "type": "object",
+          "properties": {
+            "requested": {
+              "const": 1
+            },
+            "effective": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "known"
+                    },
+                    "value": {
+                      "const": 1
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "unknown"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "enforcement_status": {
+              "enum": [
+                "enforced",
+                "not_started",
+                "failed"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "requested",
+            "effective",
+            "enforcement_status"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "config_digest",
+        "telemetry",
+        "concurrency"
+      ],
+      "additionalProperties": false
+    },
+    "harness": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "digest"
+      ],
+      "additionalProperties": false
+    },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "digest"
+      ],
+      "additionalProperties": false
+    },
+    "network_policy": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "mode": {
+          "const": "public_unrestricted_agent"
+        }
+      },
+      "required": [
+        "revision",
+        "digest",
+        "mode"
+      ],
+      "additionalProperties": false
+    },
+    "effective_permissions_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "mcp_tools_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "wall_clock_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "token_or_turn_limit": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "unit": {
+                  "enum": [
+                    "tokens",
+                    "turns"
+                  ],
+                  "type": "string"
+                },
+                "value": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "status",
+                "unit",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "unknown"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "status",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "cpu_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cpu_enforcement_status": {
+          "enum": [
+            "enforced",
+            "not_started",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "memory_megabytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memory_enforcement_status": {
+          "enum": [
+            "enforced",
+            "not_started",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "wall_clock_seconds",
+        "token_or_turn_limit",
+        "cpu_count",
+        "cpu_enforcement_status",
+        "memory_megabytes",
+        "memory_enforcement_status"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "document_type",
+    "schema_version",
+    "stack_id",
+    "revision",
+    "digest",
+    "agent",
+    "runner",
+    "harness",
+    "environment",
+    "network_policy",
+    "effective_permissions_digest",
+    "mcp_tools_digest",
+    "budget"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.agent-stack-benchmark.local/v1/stack.schema.json",
+  "title": "Stack document v1",
+  "description": "Complete native agent stack configuration contract"
+}

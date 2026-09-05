@@ -9,10 +9,12 @@
     "pnpm": "11.25.0"
   },
   "scripts": {
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:planning && pnpm validate:planning && pnpm verify:toolchain",
-    "format": "prettier --write \"**/*.{ts,json,yaml,yml}\" --ignore-path .prettierignore && uv run ruff format .planning/*.py",
-    "format:check": "prettier --check \"**/*.{ts,json,yaml,yml}\" --ignore-path .prettierignore && uv run ruff format --check .planning/*.py",
-    "lint": "oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning/*.py",
+    "check": "worsier --check . && uv run ruff format --check .planning && oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning && tsc --noEmit && node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts --check && vitest run --exclude \"spikes/harbor-codex-subscription/fixture/**\" && python3 .planning/test_sync_github.py && python3 .planning/validate.py && node scripts/verify-toolchain.ts",
+    "format": "worsier --write . && uv run ruff format .planning",
+    "format:check": "worsier --check . && uv run ruff format --check .planning",
+    "lint": "oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning",
+    "schemas:check": "node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts --check",
+    "schemas:generate": "node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts",
     "spike:issue-2": "node --experimental-strip-types spikes/harbor-codex-subscription/run.ts",
     "spike:issue-2:check": "vitest run spikes/harbor-codex-subscription/__tests__ && node --experimental-strip-types spikes/harbor-codex-subscription/check.ts",
     "test": "vitest run --exclude \"spikes/harbor-codex-subscription/fixture/**\"",
@@ -25,8 +27,8 @@
     "@openai/codex": "0.153.2",
     "@types/node": "26.4.1",
     "oxlint": "1.81.0",
-    "prettier": "3.9.6",
     "typescript": "7.0.2",
-    "vitest": "5.0.0"
+    "vitest": "5.0.0",
+    "worsier": "3.5.0"
   }
 }

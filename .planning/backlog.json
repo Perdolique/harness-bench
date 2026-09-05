@@ -206,10 +206,12 @@
         "type:feature",
         "area:harness",
         "area:results",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
+        3
+      ],
+      "resolved_dependencies": [
         3
       ]
     },

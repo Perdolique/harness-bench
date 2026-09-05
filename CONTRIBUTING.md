@@ -37,6 +37,7 @@ Install these exact versions before working in the repository:
 
 - Node.js `26.8.1`
 - pnpm `11.25.0`
+- Vite+ `0.3.0`
 - Python `3.14.7`
 - uv `0.12.9`
 
@@ -45,13 +46,21 @@ stable toolchain. The project installs Harbor `0.22.0`, Codex CLI `0.153.2`, and
 all formatting, linting, type-checking, and test tools from committed lockfiles.
 Installation does not sign in to Codex.
 
+Vite+ is a global CLI rather than a project dependency. In an isolated environment
+where `vp` is unavailable, install the exact required version with the official
+installer:
+
 ```sh
-pnpm install --frozen-lockfile
-uv sync --locked
-pnpm check
+curl -fsSL https://vite.plus | VP_VERSION=0.3.0 bash
 ```
 
-`pnpm check` is read-only and runs formatting checks, linting, TypeScript checks,
+```sh
+vp install --frozen-lockfile
+uv sync --locked
+vp run check
+```
+
+`vp run check` is read-only and runs formatting checks, linting, TypeScript checks,
 Vitest, planning tests and validation, and exact toolchain verification. Individual
 commands are documented in [Operations](docs/operations.md).
 

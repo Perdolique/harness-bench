@@ -24,7 +24,7 @@ python3 .planning/test_sync_github.py
 ```
 
 Checks include local links/anchors, Markdown structure, required deliverables,
-issue sections, original acceptance criteria, milestone placement, acyclic
+complete issue acceptance criteria, milestone placement, acyclic
 dependency order, label references and recorded publication hashes. It never runs
 Harbor, Codex inference, package installation, or benchmark tests.
 
@@ -89,7 +89,7 @@ The local bodies and recorded hashes match GitHub. An unchanged second apply
 created zero objects and updated zero bodies.
 
 Local validation passed for 47 Markdown files, 79 local links, 27 complete issue
-bodies, 184 acceptance criteria, all original issue 1–17 criteria/dependencies,
-and the acyclic dependency order. Fifteen immutable official-source permalinks were
+bodies, 184 acceptance criteria, valid dependencies, and the acyclic dependency
+order. Fifteen immutable official-source permalinks were
 checked against the inspected release archives. No benchmark functionality or
 issue 1 implementation was added.

@@ -5,12 +5,13 @@ stack includes the native agent and version, model and effort, authentication
 mode, harness, tools, permissions, repository snapshot, prompt, budget, and runner.
 A result is evidence about that stack on those tasks, never a bare-model score.
 
-**Status: the M0 feasibility decisions are accepted, but the benchmark is not
-implemented.** The repository has pinned development toolchains, provider-free CI,
-an isolated disposable spike, and five accepted ADRs. Production runtime schemas,
-`benchctl` behavior, reusable collection, and benchmark task packages do not exist
-yet. The retired restricted-network protocol remains a preserved no-go. Three
-public-network native runs passed: one medium and two matching-input low runs.
+**Status: M0 feasibility is accepted and the first M1 contracts are implemented,
+but the benchmark runner is not.** The repository has pinned development
+toolchains, provider-free CI, seven versioned runtime schemas, an isolated
+disposable spike, and five accepted ADRs. `benchctl` behavior, reusable collection,
+and benchmark task packages do not exist yet. The retired restricted-network
+protocol remains a preserved no-go. Three public-network native runs passed: one
+medium and two matching-input low runs.
 
 Those runs prove only the recorded synthetic path. Token refresh was not exercised
 and an auth failure requires owner login. Harbor irreversibly merged native stdout
@@ -61,16 +62,16 @@ dependency. Expansion work stays outside the v1 critical path.
   [architecture decisions](docs/adr/README.md).
 - [Official-source research](docs/research-snapshot.md) and
   [backlog publication and validation](.planning/README.md).
-- [Original bootstrap plan](BOOTSTRAP_PLAN.md).
+- [Published backlog source provenance](BOOTSTRAP_PLAN.md).
 
 Install the exact prerequisites and run the locked checks documented in
-[Operations](docs/operations.md). `pnpm check` formats nothing, starts no Harbor
+[Operations](docs/operations.md). `vp run check` formats nothing, starts no Harbor
 job, does not authenticate Codex, and consumes no provider quota. Future benchmark
 commands must set `HARBOR_TELEMETRY=off` unless the owner explicitly opts an
 experiment in.
 
-Issue 2 leaves two isolated historical commands. `pnpm spike:issue-2:check` runs
-provider-free controls. **Do not run the provider-backed spike command:** all four
+Issue 2 leaves a provider-free control at `vp run spike:issue-2:check` and preserved
+historical provider commands. **Do not run the provider-backed spike command:** all four
 authorized issue 2 invocations are consumed, and a fresh run root does not create a
 new authorization. The retained command exists only to document how the evidence
 was produced; it is not an instruction to rerun it. See

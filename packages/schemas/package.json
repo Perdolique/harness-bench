@@ -2,5 +2,12 @@
   "name": "@harness-bench/schemas",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "valibot": "1.4.2"
+  },
+  "devDependencies": {
+    "@valibot/to-json-schema": "1.7.1"
+  }
 }

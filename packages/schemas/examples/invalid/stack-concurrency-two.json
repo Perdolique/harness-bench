@@ -1,0 +1,64 @@
+{
+  "document_type": "stack",
+  "schema_version": 1,
+  "stack_id": "codex-low-v1",
+  "revision": "1",
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "agent": {
+    "product": "codex",
+    "cli_version": "0.153.2",
+    "requested_model": "gpt-5.6-luna",
+    "observed_provider_identity": {
+      "status": "unknown",
+      "reason": "Provider does not expose a stable backend identity"
+    },
+    "effort": "low",
+    "auth": {
+      "mode": "chatgpt_subscription",
+      "credential_store": "file"
+    }
+  },
+  "runner": {
+    "name": "harbor",
+    "version": "0.22.0",
+    "config_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "telemetry": {
+      "requested": "off",
+      "effective": "off",
+      "owner_opt_in": false
+    },
+    "concurrency": {
+      "requested": 2,
+      "effective": { "status": "known", "value": 1 },
+      "enforcement_status": "enforced"
+    }
+  },
+  "harness": {
+    "id": "harness-v1",
+    "revision": "1",
+    "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "environment": {
+    "id": "macos-arm64-docker",
+    "revision": "1",
+    "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "network_policy": {
+    "revision": "public-1",
+    "digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "mode": "public_unrestricted_agent"
+  },
+  "effective_permissions_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "mcp_tools_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "budget": {
+    "wall_clock_seconds": 600,
+    "token_or_turn_limit": {
+      "status": "unknown",
+      "reason": "Subscription client does not expose an enforceable token cap"
+    },
+    "cpu_count": 2,
+    "cpu_enforcement_status": "enforced",
+    "memory_megabytes": 2048,
+    "memory_enforcement_status": "enforced"
+  }
+}
