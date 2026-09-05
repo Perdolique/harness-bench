@@ -2,9 +2,9 @@
 
 ## Current phase and issue boundary
 
-This repository contains the pinned development skeleton, an isolated issue 2
-feasibility spike, and accepted architecture decisions. Production schemas,
-`benchctl` behavior, and benchmark task packages are not implemented yet.
+This repository contains the pinned development skeleton, versioned issue 4 schema
+contracts, an isolated issue 2 feasibility spike, and accepted architecture
+decisions. `benchctl` behavior and benchmark task packages are not implemented yet.
 Implement exactly one selected GitHub issue per session and PR. Do not start the
 next issue after completing it.
 

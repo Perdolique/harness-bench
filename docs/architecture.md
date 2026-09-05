@@ -19,11 +19,26 @@ production validation.
 | Task package | Prompt, fixed base, environment recipe, evidence-backed rubric, declared artifact interface | Agent-visible hidden grading material |
 | Verifier | Fresh base reconstruction, safe patch application, deterministic checks and structured evidence | A reused agent workspace |
 
-The planned package boundaries are `apps/benchctl` and `packages/{schemas,core,
-results,statistics,reporting}`. Their manifests exist, but production schemas and
-runtime implementations do not. Configurations will live under
-`benchmark/{tasks,suites,stacks,experiments,harnesses}`; only synthetic
+The package boundaries are `apps/benchctl` and `packages/{schemas,core,results,
+statistics,reporting}`. `packages/schemas` now owns the version-1 Valibot contracts
+for stack, harness, suite, experiment, task, run, and score documents. The other
+packages remain placeholders without runtime implementations. Configurations will
+live under `benchmark/{tasks,suites,stacks,experiments,harnesses}`; only synthetic
 repositories belong in `fixtures/`.
+
+## Versioned document boundary
+
+Every serialized v1 document uses `snake_case`, carries `document_type` and
+`schema_version: 1`, rejects unknown fields, and keeps its schema version separate
+from content revisions. Task, suite, harness, collector, verifier, scoring,
+environment, runner, network-policy, and analysis identities change independently.
+Schema migration machinery is deferred until a second version exists.
+
+Valibot schemas are the runtime authority. Checked-in JSON Schema Draft 2020-12
+files are deterministic structural inspection artifacts. They do not encode every
+same-document or cross-document rule and must not replace runtime validation.
+Pure relationship checks validate references and harness-effect invariants from
+already loaded documents without reading files or starting Harbor.
 
 ## Execution and trust boundaries
 

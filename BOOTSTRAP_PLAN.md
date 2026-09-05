@@ -330,7 +330,7 @@ The planning agent may refine names, but should preserve these boundaries:
 ├── apps/
 │   └── benchctl/                     # TypeScript CLI
 ├── packages/
-│   ├── schemas/                      # Zod schemas and serialized JSON schemas
+│   ├── schemas/                      # Valibot schemas and serialized JSON schemas
 │   ├── core/                         # configuration resolution and orchestration
 │   ├── results/                      # Harbor output normalization
 │   ├── statistics/                   # paired comparisons/bootstrap
@@ -450,7 +450,7 @@ Each issue is intended to fit one focused agent session and one PR. The planning
 
 **Acceptance criteria:**
 
-- Runtime-validated Zod schemas.
+- Runtime-validated Valibot schemas.
 - Serialized schema artifacts for inspection.
 - Schema versions are explicit.
 - Unknown provider fields are representable without invented values.

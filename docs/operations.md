@@ -6,7 +6,8 @@ The development skeleton requires exact versions of Node.js `26.8.1`, pnpm
 `11.25.0`, Python `3.14.7`, and uv `0.12.9`. Node `26.8.1` is intentionally the
 current stable release rather than an LTS release. Locked project dependencies
 provide Harbor `0.22.0`, Codex CLI `0.153.2`, TypeScript `7.0.2`, Vitest `5.0.0`,
-Oxlint `1.81.0`, Prettier `3.9.6`, and Ruff `0.16.6`.
+Valibot `1.4.2`, its JSON Schema converter `1.7.1`, Oxlint `1.81.0`, Prettier
+`3.9.6`, and Ruff `0.16.6`.
 
 Install the locked environments without authenticating either provider tool:
 
@@ -29,6 +30,7 @@ It runs the following read-only checks in order:
 pnpm format:check
 pnpm lint
 pnpm typecheck
+pnpm schemas:check
 pnpm test
 pnpm test:planning
 pnpm validate:planning
@@ -39,6 +41,19 @@ pnpm verify:toolchain
 Harbor only as `harbor --version` through uv with `HARBOR_TELEMETRY=off`, and invokes
 Codex only as `codex --version` through pnpm. Neither command logs in or contacts a
 model provider. The corresponding write-mode formatter is `pnpm format`.
+
+The versioned schemas are provider-free development inputs:
+
+```sh
+pnpm schemas:check
+pnpm schemas:generate
+```
+
+The first command regenerates all seven JSON Schema documents in memory and fails
+if a checked-in artifact differs. The second rewrites the inspection artifacts
+after an intentional structural schema change. Both use Draft 2020-12 and fail on
+unsupported Valibot constructs. Runtime Valibot validation remains authoritative
+for relationships and rules that JSON Schema cannot express.
 
 Planning publication remains separate:
 

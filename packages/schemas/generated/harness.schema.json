@@ -1,0 +1,70 @@
+{
+  "type": "object",
+  "properties": {
+    "document_type": {
+      "const": "harness"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "harness_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "enum": [
+              "agents_md",
+              "skill",
+              "codex_config",
+              "mcp_tools",
+              "policy"
+            ],
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "kind",
+          "path",
+          "digest"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "document_type",
+    "schema_version",
+    "harness_id",
+    "revision",
+    "digest",
+    "entries"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.agent-stack-benchmark.local/v1/harness.schema.json",
+  "title": "Harness document v1",
+  "description": "Immutable declared harness input contract"
+}

@@ -9,10 +9,12 @@
     "pnpm": "11.25.0"
   },
   "scripts": {
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:planning && pnpm validate:planning && pnpm verify:toolchain",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm schemas:check && pnpm test && pnpm test:planning && pnpm validate:planning && pnpm verify:toolchain",
     "format": "prettier --write \"**/*.{ts,json,yaml,yml}\" --ignore-path .prettierignore && uv run ruff format .planning/*.py",
     "format:check": "prettier --check \"**/*.{ts,json,yaml,yml}\" --ignore-path .prettierignore && uv run ruff format --check .planning/*.py",
     "lint": "oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning/*.py",
+    "schemas:check": "node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts --check",
+    "schemas:generate": "node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts",
     "spike:issue-2": "node --experimental-strip-types spikes/harbor-codex-subscription/run.ts",
     "spike:issue-2:check": "vitest run spikes/harbor-codex-subscription/__tests__ && node --experimental-strip-types spikes/harbor-codex-subscription/check.ts",
     "test": "vitest run --exclude \"spikes/harbor-codex-subscription/fixture/**\"",

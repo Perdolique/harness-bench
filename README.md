@@ -5,12 +5,13 @@ stack includes the native agent and version, model and effort, authentication
 mode, harness, tools, permissions, repository snapshot, prompt, budget, and runner.
 A result is evidence about that stack on those tasks, never a bare-model score.
 
-**Status: the M0 feasibility decisions are accepted, but the benchmark is not
-implemented.** The repository has pinned development toolchains, provider-free CI,
-an isolated disposable spike, and five accepted ADRs. Production runtime schemas,
-`benchctl` behavior, reusable collection, and benchmark task packages do not exist
-yet. The retired restricted-network protocol remains a preserved no-go. Three
-public-network native runs passed: one medium and two matching-input low runs.
+**Status: M0 feasibility is accepted and the first M1 contracts are implemented,
+but the benchmark runner is not.** The repository has pinned development
+toolchains, provider-free CI, seven versioned runtime schemas, an isolated
+disposable spike, and five accepted ADRs. `benchctl` behavior, reusable collection,
+and benchmark task packages do not exist yet. The retired restricted-network
+protocol remains a preserved no-go. Three public-network native runs passed: one
+medium and two matching-input low runs.
 
 Those runs prove only the recorded synthetic path. Token refresh was not exercised
 and an auth failure requires owner login. Harbor irreversibly merged native stdout

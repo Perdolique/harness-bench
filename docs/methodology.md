@@ -114,8 +114,9 @@ the original results. Provider-hidden model changes remain a stated limitation.
 
 ## Run manifest contract
 
-The future schema must record at least the following, with explicit `unknown` for
-unavailable provider values. These are planning requirements, not runtime schemas.
+The v1 Valibot schemas record at least the following, with explicit `unknown` for
+unavailable provider values. Serialized fields use `snake_case`; the names below
+are grouped for readability and map directly to the checked-in contracts.
 
 | Group | Required fields |
 | --- | --- |
@@ -137,6 +138,14 @@ configuration, concurrency enforcement, and analysis revisions are independently
 versioned. Never overwrite raw artifacts when correcting normalization or grading.
 Subscription money is `not_applicable` or `unknown`, never API-token price
 multiplied into a supposed bill.
+
+The score document keeps Harbor numeric rewards as upstream metadata and records
+facet applicability, evidence, gates, and failures separately. A composite is
+allowed only for a valid grade with numeric direct-behavior, repository-contract,
+regression, and scope-integrity facets. A verifier failure has no valid quality
+score. Runtime cross-document validation additionally checks immutable
+initial/completion linkage, exact suite/task/stack/harness references, and that a
+harness-effect comparison changes only the declared harness treatment.
 
 For issue 2 revision `public-1`, freeze two identical sequential invocations with
 unrestricted agent internet. Concurrency is one and retries are zero. A timeout or

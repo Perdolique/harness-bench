@@ -14,7 +14,6 @@ const root = resolve(import.meta.dirname, "../..");
 
 const workspaceManifests = [
   ["apps/benchctl/package.json", "@harness-bench/benchctl"],
-  ["packages/schemas/package.json", "@harness-bench/schemas"],
   ["packages/core/package.json", "@harness-bench/core"],
   ["packages/results/package.json", "@harness-bench/results"],
   ["packages/statistics/package.json", "@harness-bench/statistics"],
@@ -31,12 +30,16 @@ const expectedActions = [
 
 const expectedScripts = {
   check:
-    "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:planning && pnpm validate:planning && pnpm verify:toolchain",
+    "pnpm format:check && pnpm lint && pnpm typecheck && pnpm schemas:check && pnpm test && pnpm test:planning && pnpm validate:planning && pnpm verify:toolchain",
   format:
     'prettier --write "**/*.{ts,json,yaml,yml}" --ignore-path .prettierignore && uv run ruff format .planning/*.py',
   "format:check":
     'prettier --check "**/*.{ts,json,yaml,yml}" --ignore-path .prettierignore && uv run ruff format --check .planning/*.py',
   lint: "oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning/*.py",
+  "schemas:check":
+    "node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts --check",
+  "schemas:generate":
+    "node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts",
   "spike:issue-2":
     "node --experimental-strip-types spikes/harbor-codex-subscription/run.ts",
   "spike:issue-2:check":
@@ -150,6 +153,19 @@ describe("repository skeleton", () => {
         "package.json",
       ]);
     }
+  });
+
+  it("exposes only the versioned schema package with exact dependencies", () => {
+    const manifest = readJson("packages/schemas/package.json");
+    expect(manifest).toEqual({
+      name: "@harness-bench/schemas",
+      version: "0.0.0",
+      private: true,
+      type: "module",
+      exports: "./src/index.ts",
+      dependencies: { valibot: "1.4.2" },
+      devDependencies: { "@valibot/to-json-schema": "1.7.1" },
+    });
   });
 
   it("ignores run state, generated environments, build output, and coverage", () => {

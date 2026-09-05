@@ -16,7 +16,7 @@ Define versioned runtime-validated stack, harness, suite, experiment, task, run 
 
 ## In scope
 
-- Create Zod schemas and serialized inspection artifacts for the seven named document types.
+- Create Valibot schemas and serialized inspection artifacts for the seven named document types.
 - Represent the full manifest contract, failure taxonomy, applicability, independent revisions and immutable completion records, including collection, verifier-network and concurrency identities.
 - Add minimal sanitized valid/invalid examples; explicitly defer schema migrations.
 
@@ -35,7 +35,7 @@ Define versioned runtime-validated stack, harness, suite, experiment, task, run 
 
 ## Acceptance criteria
 
-- [ ] Runtime-validated Zod schemas.
+- [ ] Runtime-validated Valibot schemas.
 - [ ] Serialized schema artifacts for inspection.
 - [ ] Schema versions are explicit.
 - [ ] Unknown provider fields are representable without invented values.
@@ -61,7 +61,7 @@ Define versioned runtime-validated stack, harness, suite, experiment, task, run 
 ## Dependencies/blockers with links
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 3 / GitHub #3](https://github.com/Perdolique/harness-bench/issues/3).
+- Satisfied by closed and merged [planning issue 3 / GitHub #3](https://github.com/Perdolique/harness-bench/issues/3).
 <!-- dependencies:end -->
 
 ## Risks/open questions

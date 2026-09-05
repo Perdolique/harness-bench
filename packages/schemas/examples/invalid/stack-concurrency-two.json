@@ -1,0 +1,5 @@
+{
+  "document_type": "stack",
+  "schema_version": 1,
+  "runner": { "concurrency": { "requested": 2 } }
+}

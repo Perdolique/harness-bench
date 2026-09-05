@@ -1,0 +1,203 @@
+{
+  "document_type": "experiment",
+  "schema_version": 1,
+  "experiment_id": "skill-pilot",
+  "revision": "1",
+  "plan_digest": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
+  "analysis_revision": "1",
+  "comparison_kind": "harness_effect",
+  "suite": {
+    "id": "synthetic-pilot",
+    "revision": "1",
+    "digest": "sha256:abababababababababababababababababababababababababababababababab"
+  },
+  "arms": [
+    {
+      "arm_id": "disabled",
+      "stack": {
+        "id": "codex-low-disabled",
+        "revision": "1",
+        "digest": "sha256:1313131313131313131313131313131313131313131313131313131313131313"
+      },
+      "harness": {
+        "id": "harness-disabled",
+        "revision": "1",
+        "digest": "sha256:1414141414141414141414141414141414141414141414141414141414141414"
+      },
+      "treatment": "skill disabled"
+    },
+    {
+      "arm_id": "v1",
+      "stack": {
+        "id": "codex-low-v1",
+        "revision": "1",
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "harness": {
+        "id": "harness-v1",
+        "revision": "1",
+        "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "treatment": "skill v1"
+    },
+    {
+      "arm_id": "v2",
+      "stack": {
+        "id": "codex-low-v2",
+        "revision": "1",
+        "digest": "sha256:1515151515151515151515151515151515151515151515151515151515151515"
+      },
+      "harness": {
+        "id": "harness-v2",
+        "revision": "1",
+        "digest": "sha256:1616161616161616161616161616161616161616161616161616161616161616"
+      },
+      "treatment": "skill v2"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "secondary-action",
+      "revision": "1",
+      "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "repeats": 3,
+  "ordering_seed": 42,
+  "execution_order": [
+    {
+      "sequence": 1,
+      "block_id": "secondary-action-r1",
+      "arm_id": "v1",
+      "task_id": "secondary-action",
+      "replicate": 1
+    },
+    {
+      "sequence": 2,
+      "block_id": "secondary-action-r1",
+      "arm_id": "disabled",
+      "task_id": "secondary-action",
+      "replicate": 1
+    },
+    {
+      "sequence": 3,
+      "block_id": "secondary-action-r1",
+      "arm_id": "v2",
+      "task_id": "secondary-action",
+      "replicate": 1
+    },
+    {
+      "sequence": 4,
+      "block_id": "secondary-action-r2",
+      "arm_id": "v2",
+      "task_id": "secondary-action",
+      "replicate": 2
+    },
+    {
+      "sequence": 5,
+      "block_id": "secondary-action-r2",
+      "arm_id": "v1",
+      "task_id": "secondary-action",
+      "replicate": 2
+    },
+    {
+      "sequence": 6,
+      "block_id": "secondary-action-r2",
+      "arm_id": "disabled",
+      "task_id": "secondary-action",
+      "replicate": 2
+    },
+    {
+      "sequence": 7,
+      "block_id": "secondary-action-r3",
+      "arm_id": "disabled",
+      "task_id": "secondary-action",
+      "replicate": 3
+    },
+    {
+      "sequence": 8,
+      "block_id": "secondary-action-r3",
+      "arm_id": "v2",
+      "task_id": "secondary-action",
+      "replicate": 3
+    },
+    {
+      "sequence": 9,
+      "block_id": "secondary-action-r3",
+      "arm_id": "v1",
+      "task_id": "secondary-action",
+      "replicate": 3
+    }
+  ],
+  "budget": {
+    "wall_clock_seconds": 600,
+    "token_or_turn_limit": {
+      "status": "unknown",
+      "reason": "Subscription client does not expose an enforceable token cap"
+    },
+    "cpu_count": 2,
+    "memory_megabytes": 2048
+  },
+  "requested_concurrency": 1,
+  "effective_concurrency": { "status": "known", "value": 1 },
+  "concurrency_enforcement_status": "enforced",
+  "blocks": [
+    {
+      "block_id": "secondary-action-r1",
+      "task_id": "secondary-action",
+      "replicate": 1,
+      "arm_ids": ["disabled", "v1", "v2"],
+      "run_ids": ["run-disabled-r1", "run-v1-r1", "run-v2-r1"],
+      "first_started_at": {
+        "status": "known",
+        "value": "2026-09-05T08:00:00Z"
+      },
+      "deadline_at": { "status": "known", "value": "2026-09-06T08:00:00Z" },
+      "completed_at": { "status": "known", "value": "2026-09-05T12:00:00Z" },
+      "completion_status": "completed",
+      "contemporaneity": { "status": "eligible" }
+    },
+    {
+      "block_id": "secondary-action-r2",
+      "task_id": "secondary-action",
+      "replicate": 2,
+      "arm_ids": ["disabled", "v1", "v2"],
+      "run_ids": [],
+      "first_started_at": {
+        "status": "unknown",
+        "reason": "Replicate has not started"
+      },
+      "deadline_at": {
+        "status": "unknown",
+        "reason": "Deadline starts with the first run"
+      },
+      "completed_at": {
+        "status": "unknown",
+        "reason": "Replicate has not completed"
+      },
+      "completion_status": "planned",
+      "contemporaneity": { "status": "pending" }
+    },
+    {
+      "block_id": "secondary-action-r3",
+      "task_id": "secondary-action",
+      "replicate": 3,
+      "arm_ids": ["disabled", "v1", "v2"],
+      "run_ids": [],
+      "first_started_at": {
+        "status": "unknown",
+        "reason": "Replicate has not started"
+      },
+      "deadline_at": {
+        "status": "unknown",
+        "reason": "Deadline starts with the first run"
+      },
+      "completed_at": {
+        "status": "unknown",
+        "reason": "Replicate has not completed"
+      },
+      "completion_status": "planned",
+      "contemporaneity": { "status": "pending" }
+    }
+  ]
+}

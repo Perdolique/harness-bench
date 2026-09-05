@@ -1,0 +1,72 @@
+{
+  "document_type": "score",
+  "schema_version": 1,
+  "score_id": "score-v1-r1",
+  "run_id": "run-v1-r1",
+  "verifier_result_digest": "sha256:1717171717171717171717171717171717171717171717171717171717171717",
+  "scoring_revision": "1",
+  "rubric_revision": "1",
+  "valid_grade": true,
+  "gates": {
+    "direct_behavior_pass": true,
+    "regression_pass": true,
+    "verifier_integrity_pass": true
+  },
+  "facets": {
+    "direct_behavior": {
+      "status": "value",
+      "value": 1,
+      "evidence": [
+        {
+          "check_id": "direct",
+          "outcome": "passed",
+          "evidence_digest": "sha256:1818181818181818181818181818181818181818181818181818181818181818"
+        }
+      ]
+    },
+    "repository_contracts": {
+      "status": "value",
+      "value": 0.8,
+      "evidence": [
+        {
+          "check_id": "contracts",
+          "outcome": "passed",
+          "evidence_digest": "sha256:1919191919191919191919191919191919191919191919191919191919191919"
+        }
+      ]
+    },
+    "regression": {
+      "status": "value",
+      "value": 1,
+      "evidence": [
+        {
+          "check_id": "regression",
+          "outcome": "passed",
+          "evidence_digest": "sha256:2020202020202020202020202020202020202020202020202020202020202020"
+        }
+      ]
+    },
+    "scope_integrity": {
+      "status": "value",
+      "value": 1,
+      "evidence": [
+        {
+          "check_id": "scope",
+          "outcome": "passed",
+          "evidence_digest": "sha256:2121212121212121212121212121212121212121212121212121212121212121"
+        }
+      ]
+    },
+    "maintainability": {
+      "status": "not_applicable",
+      "reason": "Maintainability is outside the v1 composite",
+      "evidence": []
+    }
+  },
+  "scope_violations": [],
+  "harbor_reward": {
+    "status": "retained_upstream",
+    "numeric_values": { "direct_behavior": 1 }
+  },
+  "composite": { "status": "value", "value": 0.93 }
+}
