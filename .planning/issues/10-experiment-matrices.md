@@ -59,10 +59,10 @@ Execute immutable experiment plans with arms, repeats, blocked interleaving and 
 
 - docs/operations.md matrix/dry-run/resume workflow; docs/methodology.md ordering and retry policy.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 9 / GitHub #9](https://github.com/Perdolique/harness-bench/issues/9).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

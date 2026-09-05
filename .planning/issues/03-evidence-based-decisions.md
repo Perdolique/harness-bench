@@ -57,10 +57,10 @@ Finalize the five ADRs and threat model from the accepted feasibility evidence.
 
 - All five docs/adr/ records and index; docs/architecture.md, docs/security.md, docs/operations.md, docs/research-snapshot.md.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Satisfied by closed and merged [planning issue 2 / GitHub #2](https://github.com/Perdolique/harness-bench/issues/2).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

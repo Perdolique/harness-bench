@@ -37,9 +37,9 @@ Use deterministic controls and sanitized fixtures. Ordinary CI makes no provider
 
 List the operations, architecture, methodology, or ADR updates required.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
-Link blocking issues and owner gates; distinguish prerequisites from follow-ups.
+Use GitHub's native issue dependencies for prerequisites. Link owner gates and follow-ups in the body; do not represent manual decisions with dependency edges.
 
 ## Risks/open questions
 

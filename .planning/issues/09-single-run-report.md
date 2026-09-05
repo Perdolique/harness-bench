@@ -51,10 +51,10 @@ Render a terminal report with identities, facets, reliability context and artifa
 
 - docs/operations.md report usage and interpretation; methodology examples.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 8 / GitHub #8](https://github.com/Perdolique/harness-bench/issues/8).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

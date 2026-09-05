@@ -2,8 +2,8 @@
 
 This directory contains planning metadata, complete issue bodies and publication evidence. Its Python scripts use the standard library and GitHub CLI only. They are documentation/backlog tooling, not the benchmark CLI, runtime schemas, fixtures, Harbor integration, or issue 1's development skeleton.
 
-- `backlog.json` defines 27 dependency-ordered planning items, five milestones, and 21 labels. Purple denotes work type, blue area, red critical priority, yellow blockers, orange owner decisions, and green provider-free CI policy. `resolved_dependencies` records a dependency proven closed and merged so its implementing issue can drop a stale `blocked` label without removing the edge.
-- `issues/*.md` is the complete local copy of every issue body, including acceptance criteria and actual dependency links after publication.
+- `backlog.json` defines 27 dependency-ordered planning items, five milestones, 20 labels, and the direct dependency graph. Purple denotes work type, blue area, red critical priority, orange owner decisions, and green provider-free CI policy. GitHub's native issue dependencies enforce the published graph; `decision-required` remains separate because closing a prerequisite cannot approve an owner gate.
+- `issues/*.md` is the complete local copy of every issue body, including acceptance criteria and owner-gate links. Dependency edges are not duplicated in issue prose.
 - `github-state.json`, when present, records real numbers/URLs and last-published body hashes. Planning IDs are stable and never assumed to equal GitHub numbers.
 - [Roadmap](../docs/roadmap.md) explains dependencies, gates, and the item 18 split.
 
@@ -14,7 +14,7 @@ python3 .planning/validate.py
 python3 .planning/test_sync_github.py
 ```
 
-Checks include local links/anchors, Markdown structure, required deliverables, complete issue acceptance criteria, milestone placement, acyclic dependency order, label references and recorded publication hashes. It never runs Harbor, Codex inference, package installation, or benchmark tests.
+Checks include local links/anchors, Markdown structure, required deliverables, complete issue acceptance criteria, milestone placement, acyclic dependency order, label references and recorded publication hashes. Remote checking also verifies the exact native dependency set for every issue. It never runs Harbor, Codex inference, package installation, or benchmark tests.
 
 The publication regression checks simulate renamed or missing saved issues and an unchanged repeat publication. GitHub requests and local writes are mocked.
 
@@ -29,9 +29,9 @@ python3 .planning/sync-github.py --check
 python3 .planning/validate.py
 ```
 
-`--check` is read-only and exits nonzero for missing or divergent objects. `--apply` first inspects origin and all remote pages, creates missing labels and milestones, creates issues in dependency order, then resolves real dependency and owner-gate links in a second pass. It retains local drafts and records each issue immediately so interruptions can be resumed. A second unchanged apply creates nothing and rewrites no issue bodies.
+`--check` is read-only and exits nonzero for missing or divergent objects. `--apply` first inspects origin and all remote pages, creates missing labels and milestones, creates issues in dependency order, then creates missing native issue dependencies and resolves owner-gate links in a second pass. It retains local drafts and records each issue immediately so interruptions can be resumed. A second unchanged apply creates nothing and rewrites no issue bodies.
 
-When every dependency listed in `resolved_dependencies` is proven closed and merged, publication may remove only the stale `blocked` label while preserving the dependency link. Any other remote label difference still stops before mutation.
+Native dependency relationships remain attached after a prerequisite closes, so no label or resolved-dependency bookkeeping is needed. Unexpected native dependencies or remote label differences stop publication before mutation.
 
 Issues are identified by an exact hidden planning marker, including closed issues; saved issue numbers must still match that marker. A missing saved issue or removed marker stops publication before any writes instead of creating a replacement. Milestones are identified by exact title and labels by exact name. Existing unrelated objects are never deleted or modified. Conflicting names, duplicate markers, manual body changes, changed labels/titles/milestones, or a different origin stop publication for reconciliation. The script never reopens closed issues, resets labels, assigns people, comments, enables workflows, purchases credits, or pushes Git commits.
 
@@ -45,6 +45,6 @@ The bootstrap authorizes GitHub labels, milestones and issue publication plus a 
 
 ## Published bootstrap snapshot
 
-On 2026-09-03, publication created [five milestones](https://github.com/Perdolique/harness-bench/milestones), [21 planning labels](https://github.com/Perdolique/harness-bench/labels), and [27 issues](https://github.com/Perdolique/harness-bench/issues), numbered 1–27. The ten pre-existing labels were verified unchanged. A second pass replaced all 49 direct dependency references with actual issue URLs; owner gates are linked too. The local bodies and recorded hashes match GitHub. An unchanged second apply created zero objects and updated zero bodies.
+On 2026-09-03, publication created five milestones, 21 planning labels, and 27 issues numbered 1–27. The 2026-09-05 migration removed the redundant `blocked` label and represented all 49 direct edges with [GitHub's native issue dependencies](https://github.com/Perdolique/harness-bench/issues). The remaining 20 planning labels, local bodies, recorded hashes, and owner-gate links match GitHub. An unchanged apply creates zero objects, edges, or body updates.
 
-Local validation passed for 47 Markdown files, 79 local links, 27 complete issue bodies, 184 acceptance criteria, valid dependencies, and the acyclic dependency order. Fifteen immutable official-source permalinks were checked against the inspected release archives. No benchmark functionality or issue 1 implementation was added.
+The migration validation covers 47 Markdown files, 27 complete issue bodies, 210 acceptance criteria, 20 labels, exact native dependencies, and the acyclic dependency order. The historical official-source permalink checks remain recorded in repository history. No benchmark functionality is added by planning maintenance.

@@ -51,12 +51,10 @@ Freeze and audit one holdout suite lifecycle without silently exposing grading d
 
 - docs/methodology.md holdout policy; docs/operations.md seal/unseal workflow.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 13 / GitHub #13](https://github.com/Perdolique/harness-bench/issues/13).
-- Blocked by [planning issue 16 / GitHub #16](https://github.com/Perdolique/harness-bench/issues/16).
-- Blocked by [planning issue 17 / GitHub #17](https://github.com/Perdolique/harness-bench/issues/17).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 - Outside the v1 critical path. Owner pilot review after [planning issue 17](https://github.com/Perdolique/harness-bench/issues/17) must justify this work before it starts.
 <!-- dependencies:end -->
 

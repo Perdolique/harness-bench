@@ -79,7 +79,7 @@ Use one issue per agent session and PR. Complete 1 → 2 → owner gate → 3. I
 | 26 | M4 | 2, 3, 17 | [research: evaluate Pier trajectory fidelity against current Harbor](../.planning/issues/26-pier-fidelity-research.md) | [#26](https://github.com/Perdolique/harness-bench/issues/26) |
 | 27 | M4 | 18, 21 | [feat: add explicitly opted-in metered experiment schedules](../.planning/issues/27-optional-metered-schedules.md) | [#27](https://github.com/Perdolique/harness-bench/issues/27) |
 
-## Owner gates and blockers
+## Owner gates and dependencies
 
 | Gate | Evidence required before downstream work |
 | --- | --- |
@@ -91,7 +91,7 @@ Use one issue per agent session and PR. Complete 1 → 2 → owner gate → 3. I
 
 The issue 2 owner gate was accepted on 2026-09-05 with explicit qualifications: the public-network medium and low runs passed. A separately authorized additional low run then passed, completing the matching-input low pair; issue 3 accepted the architecture with a future one-base-commit Git workspace, fail-closed owner login for unproved auth refresh, and native stream-merging, public-network, and platform limitations. See the [evidence report](spikes/harbor-codex-subscription.md) and [accepted ADRs](adr/README.md).
 
-The 2026-09-05 corrective review sets conservative v1 defaults unless a later issue and ADR deliberately change them: loss of trustworthy collection or separate verification is fail-closed; subscription concurrency is exactly one; both arms of a block finish within 24 hours and are invalidated by a known stack/provider change; private task/run records declare an expiry and default to 90 days. All later gates remain pending. Closing a dependency is necessary but does not silently satisfy its owner gate. The `blocked` label marks unmet direct dependencies or gates; an implementing agent verifies closure/merge and recorded acceptance before starting, then removes blockers only when justified. The `decision-required` label identifies owner decisions, including deferred M4 candidate/budget choices.
+The 2026-09-05 corrective review sets conservative v1 defaults unless a later issue and ADR deliberately change them: loss of trustworthy collection or separate verification is fail-closed; subscription concurrency is exactly one; both arms of a block finish within 24 hours and are invalidated by a known stack/provider change; private task/run records declare an expiry and default to 90 days. All later gates remain pending. GitHub's native issue dependencies enforce prerequisite closure, but closing a dependency does not silently satisfy its owner gate. The `decision-required` label identifies owner decisions, including deferred M4 candidate/budget choices.
 
 ## M4 scope and split rationale
 
@@ -101,4 +101,4 @@ M4 item dependencies are in the table rather than speculative parallel tracks. I
 
 ## Current boundary
 
-M0 is complete after issue 3 and its focused PR merged. Issue 4 is closed and its versioned v1 schemas are frozen. Issue 5 is the active M1 immutable-harness slice; issue 6 remains independently selectable. Issue 7 stays blocked until issues 5 and 6 are closed and the issue 6 owner calibration gate is recorded. No task packaging or run orchestration is implemented by the issue 5 branch.
+M0 is complete after issue 3 and its focused PR merged. Issues 4 and 5 are closed; the versioned v1 schemas are frozen and immutable-harness tooling is merged. Issue 6 is the next M1 slice. GitHub keeps issue 7 dependent on issues 4–6, and the issue 6 owner calibration gate must also be recorded before issue 7 starts. No canonical task packaging or run orchestration is implemented yet.

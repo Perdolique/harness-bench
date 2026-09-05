@@ -58,17 +58,10 @@ def dependency_body(item, body, issue_map):
         raise ValueError(f"Missing dependency block: {item['file']}")
     lines = ["<!-- dependencies:start -->"]
     if item["dependencies"]:
-        for dependency in item["dependencies"]:
-            remote = issue_map[dependency]
-            relation = (
-                "Satisfied by closed and merged"
-                if dependency in item.get("resolved_dependencies", [])
-                else "Blocked by"
-            )
-            lines.append(
-                f"- {relation} [planning issue {dependency} / GitHub #{remote['number']}]"
-                f"({remote['html_url']})."
-            )
+        lines.append(
+            "- Prerequisites are enforced by GitHub's native issue dependencies; "
+            "`.planning/backlog.json` is the local declaration."
+        )
     else:
         lines.append(
             "- No issue dependencies. This is the first implementation issue after planning is committed."
@@ -94,7 +87,7 @@ def main():
     mode.add_argument(
         "--apply",
         action="store_true",
-        help="Create missing planning objects and resolve links",
+        help="Create missing planning objects, dependencies and owner-gate links",
     )
     args = parser.parse_args()
     catalog = json.loads(CATALOG.read_text())
@@ -147,6 +140,7 @@ def main():
         if "pull_request" not in x
     ]
     issue_map = {}
+    dependency_sets = {}
     problems = []
     for item in catalog["labels"]:
         existing = labels.get(item["name"])
@@ -176,6 +170,30 @@ def main():
             )
         elif any(x["title"] == item["title"] for x in issues):
             problems.append(f"Unrelated issue has the expected title: {item['title']}")
+    for item in catalog["issues"]:
+        existing = issue_map.get(item["id"])
+        if not existing:
+            continue
+        dependencies = pages(
+            f"{endpoint}/issues/{existing['number']}/dependencies/blocked_by?per_page=100"
+        )
+        dependency_sets[item["id"]] = {dependency["id"] for dependency in dependencies}
+        expected = {
+            issue_map[dependency]["id"]
+            for dependency in item["dependencies"]
+            if dependency in issue_map
+        }
+        unexpected = dependency_sets[item["id"]] - expected
+        if unexpected:
+            numbers = sorted(
+                dependency["number"]
+                for dependency in dependencies
+                if dependency["id"] in unexpected
+            )
+            problems.append(
+                f"Unexpected native dependencies for planning item {item['id']}: "
+                + ", ".join(f"#{number}" for number in numbers)
+            )
     # Refuse to overwrite manual edits before creating any new objects.
     for item in catalog["issues"]:
         existing = issue_map.get(item["id"])
@@ -192,14 +210,7 @@ def main():
             problems.append(f"Remote title changed: planning item {item['id']}")
         remote_labels = {x["name"] for x in existing["labels"]}
         desired_labels = set(item["labels"])
-        resolved_dependencies = set(item.get("resolved_dependencies", []))
-        stale_blocked_labels = desired_labels | {"blocked"}
-        stale_blocked_is_expected = (
-            "blocked" not in desired_labels
-            and resolved_dependencies == set(item["dependencies"])
-            and remote_labels == stale_blocked_labels
-        )
-        if remote_labels != desired_labels and not stale_blocked_is_expected:
+        if remote_labels != desired_labels:
             problems.append(f"Remote labels changed: planning item {item['id']}")
         if (
             not existing["milestone"]
@@ -214,11 +225,19 @@ def main():
             x["title"] for x in catalog["milestones"] if x["title"] not in milestones
         ],
         "issues": [x["id"] for x in catalog["issues"] if x["id"] not in issue_map],
+        "dependencies": [
+            {"issue": item["id"], "blocked_by": dependency}
+            for item in catalog["issues"]
+            if item["id"] in issue_map
+            for dependency in item["dependencies"]
+            if dependency in issue_map
+            and issue_map[dependency]["id"] not in dependency_sets[item["id"]]
+        ],
     }
     if args.check and any(missing.values()):
         print(json.dumps({"unapplied": missing}, indent=2))
         return 1
-    created = {"labels": 0, "milestones": 0, "issues": 0}
+    created = {"labels": 0, "milestones": 0, "issues": 0, "dependencies": 0}
     updated = 0
     if args.apply:
         for item in catalog["labels"]:
@@ -254,6 +273,7 @@ def main():
                     f"Created planning item {item['id']}: {issue_map[item['id']]['html_url']}",
                     flush=True,
                 )
+                dependency_sets[item["id"]] = set()
             existing = issue_map[item["id"]]
             state["issues"][str(item["id"])] = {
                 "number": existing["number"],
@@ -261,7 +281,25 @@ def main():
                 "body_sha256": digest(existing.get("body") or ""),
             }
             save_state(state)
-    # Pass two: actual GitHub links replace local dependency links in both copies.
+        for item in catalog["issues"]:
+            existing = issue_map[item["id"]]
+            current = dependency_sets[item["id"]]
+            for dependency in item["dependencies"]:
+                dependency_issue = issue_map[dependency]
+                if dependency_issue["id"] in current:
+                    continue
+                mutate(
+                    "POST",
+                    f"{endpoint}/issues/{existing['number']}/dependencies/blocked_by",
+                    {"issue_id": dependency_issue["id"]},
+                )
+                current.add(dependency_issue["id"])
+                created["dependencies"] += 1
+                print(
+                    f"Linked planning item {item['id']} as blocked by {dependency}",
+                    flush=True,
+                )
+    # Pass two: keep owner-gate links and issue metadata aligned in both copies.
     for item in catalog["issues"]:
         local_path = ROOT / item["file"]
         body = dependency_body(item, local_path.read_text(), issue_map)

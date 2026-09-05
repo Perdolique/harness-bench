@@ -58,10 +58,10 @@ Define versioned runtime-validated stack, harness, suite, experiment, task, run 
 
 - docs/architecture.md and docs/methodology.md schema contracts and examples.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Satisfied by closed and merged [planning issue 3 / GitHub #3](https://github.com/Perdolique/harness-bench/issues/3).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

@@ -57,11 +57,10 @@ Author and calibrate the first five real tasks across at least three task catego
 
 - docs/task-authoring.md pilot catalog, calibration notes and freeze procedure; external private catalog where necessary.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 14 / GitHub #14](https://github.com/Perdolique/harness-bench/issues/14).
-- Blocked by [planning issue 15 / GitHub #15](https://github.com/Perdolique/harness-bench/issues/15).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

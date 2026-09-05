@@ -49,12 +49,10 @@ Compare one pinned Pier candidate against the pinned Harbor baseline for a concr
 
 - Pier fidelity research report and accept/reject ADR, updated research snapshot.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 2 / GitHub #2](https://github.com/Perdolique/harness-bench/issues/2).
-- Blocked by [planning issue 3 / GitHub #3](https://github.com/Perdolique/harness-bench/issues/3).
-- Blocked by [planning issue 17 / GitHub #17](https://github.com/Perdolique/harness-bench/issues/17).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 - Outside the v1 critical path. Owner pilot review after [planning issue 17](https://github.com/Perdolique/harness-bench/issues/17) must justify this work before it starts.
 <!-- dependencies:end -->
 

@@ -59,12 +59,10 @@ Implement one benchctl run over the pinned Harbor executable.
 
 - docs/operations.md run/dry-run examples and failure recovery; architecture ownership.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 4 / GitHub #4](https://github.com/Perdolique/harness-bench/issues/4).
-- Blocked by [planning issue 5 / GitHub #5](https://github.com/Perdolique/harness-bench/issues/5).
-- Blocked by [planning issue 6 / GitHub #6](https://github.com/Perdolique/harness-bench/issues/6).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 - Required gate: owner calibration review after [planning issue 6](https://github.com/Perdolique/harness-bench/issues/6).
 <!-- dependencies:end -->
 

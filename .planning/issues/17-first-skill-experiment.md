@@ -56,10 +56,10 @@ Run and inspect the first controlled three-arm skill experiment.
 
 - docs/experiments/first-skill-pilot.md findings, limitations and sanitized evidence index; keep raw/private records external.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 16 / GitHub #16](https://github.com/Perdolique/harness-bench/issues/16).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 - Required gate: owner-approved frozen suite after [planning issue 16](https://github.com/Perdolique/harness-bench/issues/16).
 <!-- dependencies:end -->
 

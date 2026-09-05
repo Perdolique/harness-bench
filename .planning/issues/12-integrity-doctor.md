@@ -61,12 +61,10 @@ Implement benchctl doctor for task, verifier, environment and harness integrity.
 
 - docs/task-authoring.md doctor workflow; docs/operations.md actionable diagnostics.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 6 / GitHub #6](https://github.com/Perdolique/harness-bench/issues/6).
-- Blocked by [planning issue 7 / GitHub #7](https://github.com/Perdolique/harness-bench/issues/7).
-- Blocked by [planning issue 8 / GitHub #8](https://github.com/Perdolique/harness-bench/issues/8).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

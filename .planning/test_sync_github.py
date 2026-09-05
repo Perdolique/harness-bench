@@ -27,6 +27,7 @@ class PublicationIdentityTests(unittest.TestCase):
             saved = self.state["issues"][str(item["id"])]
             self.issues.append(
                 {
+                    "id": 1000 + item["id"],
                     "number": saved["number"],
                     "html_url": saved["url"],
                     "title": item["title"],
@@ -48,6 +49,16 @@ class PublicationIdentityTests(unittest.TestCase):
             f"repos/{self.repo}/milestones?state=all&per_page=100": milestones,
             f"repos/{self.repo}/issues?state=all&per_page=100": self.issues,
         }
+        issues_by_item = {
+            item["id"]: issue
+            for item, issue in zip(self.catalog["issues"], self.issues, strict=True)
+        }
+        for item in self.catalog["issues"]:
+            issue = issues_by_item[item["id"]]
+            self.responses[
+                f"repos/{self.repo}/issues/{issue['number']}"
+                "/dependencies/blocked_by?per_page=100"
+            ] = [issues_by_item[dependency] for dependency in item["dependencies"]]
 
     def apply(self, expected_error=None, expected_mutation=None):
         success = subprocess.CompletedProcess(
@@ -107,17 +118,45 @@ class PublicationIdentityTests(unittest.TestCase):
     def test_unchanged_publication_does_not_mutate_github(self):
         self.apply()
 
-    def test_resolved_dependency_can_remove_only_stale_blocked_label(self):
+    def test_missing_native_dependency_is_created(self):
         issue = self.issues[1]
-        issue["labels"].append({"name": "blocked"})
-        desired = self.catalog["issues"][1]["labels"]
+        dependency = self.issues[0]
+        self.responses[
+            f"repos/{self.repo}/issues/{issue['number']}"
+            "/dependencies/blocked_by?per_page=100"
+        ] = []
 
         self.apply(
             expected_mutation=(
-                "PATCH",
-                f"repos/{self.repo}/issues/{issue['number']}",
-                {"labels": desired},
+                "POST",
+                f"repos/{self.repo}/issues/{issue['number']}/dependencies/blocked_by",
+                {"issue_id": dependency["id"]},
             )
+        )
+
+    def test_unexpected_native_dependency_blocks_publication(self):
+        issue = self.issues[1]
+        unexpected = self.issues[-1]
+        self.responses[
+            f"repos/{self.repo}/issues/{issue['number']}"
+            "/dependencies/blocked_by?per_page=100"
+        ].append(unexpected)
+
+        self.apply(
+            f"Unexpected native dependencies for planning item 2: #{unexpected['number']}"
+        )
+
+    def test_owner_gate_is_not_a_native_dependency(self):
+        item = self.catalog["issues"][-1]
+        issue = self.issues[-1]
+        dependencies = self.responses[
+            f"repos/{self.repo}/issues/{issue['number']}"
+            "/dependencies/blocked_by?per_page=100"
+        ]
+
+        self.assertEqual(item["id"], 27)
+        self.assertEqual(
+            {dependency["number"] for dependency in dependencies}, {18, 21}
         )
 
 

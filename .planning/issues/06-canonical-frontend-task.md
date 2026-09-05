@@ -65,10 +65,10 @@ Create one canonical TypeScript/Vue frontend blast-radius task with an independe
 
 - docs/task-authoring.md canonical walkthrough, evidence rubric and scope envelope.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 3 / GitHub #3](https://github.com/Perdolique/harness-bench/issues/3).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

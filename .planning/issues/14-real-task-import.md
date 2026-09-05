@@ -61,10 +61,10 @@ Import and freeze one explicit local repository base into an authorable task art
 
 - docs/task-authoring.md import/freeze/manual authoring; docs/security.md provenance handling.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 13 / GitHub #13](https://github.com/Perdolique/harness-bench/issues/13).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 - Required gate: owner dry-run and subscription-canary review after [planning issue 13](https://github.com/Perdolique/harness-bench/issues/13).
 <!-- dependencies:end -->
 

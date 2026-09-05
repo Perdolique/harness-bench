@@ -42,7 +42,7 @@ SECTIONS = [
     "Acceptance criteria",
     "Test/evidence plan",
     "Documentation changes",
-    "Dependencies/blockers with links",
+    "Dependencies and owner gates",
     "Risks/open questions",
     "Definition of Done",
 ]
@@ -93,6 +93,8 @@ def main():
     labels = {label["name"] for label in catalog["labels"]}
     if len(labels) != len(catalog["labels"]):
         errors.append("Duplicate label names")
+    if "blocked" in labels:
+        errors.append("The blocked label is superseded by native issue dependencies")
     for label in catalog["labels"]:
         if not re.fullmatch(r"[0-9a-f]{6}", label["color"]) or not label["description"]:
             errors.append(f"Invalid label definition: {label['name']}")
@@ -126,14 +128,14 @@ def main():
             or "no-provider-call-in-ci" not in item["labels"]
         ):
             errors.append(f"Item {number}: invalid/missing labels")
-        resolved_dependencies = set(item.get("resolved_dependencies", []))
-        if not resolved_dependencies <= set(item["dependencies"]):
-            errors.append(f"Item {number}: resolved dependency is not a dependency")
-        unresolved_dependencies = set(item["dependencies"]) - resolved_dependencies
-        if unresolved_dependencies and "blocked" not in item["labels"]:
-            errors.append(f"Item {number}: missing initial blocked label")
-        if not unresolved_dependencies and "blocked" in item["labels"]:
-            errors.append(f"Item {number}: stale blocked label")
+        if "blocked" in item["labels"]:
+            errors.append(
+                f"Item {number}: use native issue dependencies instead of blocked label"
+            )
+        if "resolved_dependencies" in item:
+            errors.append(
+                f"Item {number}: native dependencies do not need resolved bookkeeping"
+            )
         if number <= 3:
             expected_milestone = 0
         elif number <= 9:
@@ -184,11 +186,10 @@ def main():
                 errors.append(
                     f"Item {item['id']}: local body differs from publication hash"
                 )
-            for dep in item["dependencies"]:
-                if state["issues"].get(str(dep), {}).get("url", "MISSING") not in body:
-                    errors.append(
-                        f"Item {item['id']}: missing actual dependency URL for {dep}"
-                    )
+        if state.get("labels") != [label["name"] for label in catalog["labels"]]:
+            errors.append(
+                "GitHub publication label state differs from backlog metadata"
+            )
     link_count = 0
     markdown_files = [ROOT / f for f in files if f.endswith(".md")]
     for path in markdown_files:
@@ -223,7 +224,7 @@ def main():
     print(
         f"PASS: {len(markdown_files)} Markdown files; {link_count} local links; "
         f"27 complete issues; {criteria_count} acceptance checkboxes; "
-        f"5 milestones; {len(labels)} labels; valid dependencies; "
+        f"5 milestones; {len(labels)} labels; native dependency declarations; "
         "acyclic order; Python syntax; publication hashes when present."
     )
     return 0

@@ -1,6 +1,6 @@
 # Contributing
 
-Select one unblocked issue from [the roadmap](docs/roadmap.md). Dependency closure alone does not replace the owner gates after issues 2, 6, 13, 16, and 17. Record the decision and evidence in the issue or PR before downstream work starts.
+Select one issue whose native GitHub dependencies are complete from [the roadmap](docs/roadmap.md). Dependency closure alone does not replace the owner gates after issues 2, 6, 13, 16, and 17. Record the decision and evidence in the issue or PR before downstream work starts.
 
 Use a focused branch and one PR per issue. Read [AGENTS.md](AGENTS.md), inspect the actual checkout, and map a concise implementation plan to the issue's acceptance criteria. If an independently reviewable outcome is discovered, create a linked follow-up rather than expanding the PR. Do not silently change accepted contracts.
 

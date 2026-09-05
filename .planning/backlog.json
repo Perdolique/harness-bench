@@ -115,11 +115,6 @@
       "description": "Blocks the feasibility or integrity of the v1 path"
     },
     {
-      "name": "blocked",
-      "color": "fbca04",
-      "description": "Waiting on linked dependencies or a required owner gate"
-    },
-    {
       "name": "decision-required",
       "color": "d93f0b",
       "description": "An explicit owner decision or review gate is required"
@@ -172,9 +167,6 @@
       ],
       "dependencies": [
         1
-      ],
-      "resolved_dependencies": [
-        1
       ]
     },
     {
@@ -192,9 +184,6 @@
       ],
       "dependencies": [
         2
-      ],
-      "resolved_dependencies": [
-        2
       ]
     },
     {
@@ -209,9 +198,6 @@
         "no-provider-call-in-ci"
       ],
       "dependencies": [
-        3
-      ],
-      "resolved_dependencies": [
         3
       ]
     },
@@ -229,10 +215,6 @@
       "dependencies": [
         3,
         4
-      ],
-      "resolved_dependencies": [
-        3,
-        4
       ]
     },
     {
@@ -245,7 +227,6 @@
         "area:tasks",
         "area:verifier",
         "no-provider-call-in-ci",
-        "blocked",
         "priority:critical",
         "decision-required"
       ],
@@ -263,7 +244,6 @@
         "area:runner",
         "area:codex",
         "no-provider-call-in-ci",
-        "blocked",
         "priority:critical"
       ],
       "dependencies": [
@@ -282,7 +262,6 @@
         "area:results",
         "area:security",
         "no-provider-call-in-ci",
-        "blocked",
         "priority:critical"
       ],
       "dependencies": [
@@ -298,8 +277,7 @@
         "type:feature",
         "area:reporting",
         "area:results",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
         8
@@ -314,8 +292,7 @@
         "type:feature",
         "area:runner",
         "area:harness",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
         9
@@ -330,8 +307,7 @@
         "type:feature",
         "area:statistics",
         "area:reporting",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
         10
@@ -348,7 +324,6 @@
         "area:verifier",
         "area:security",
         "no-provider-call-in-ci",
-        "blocked",
         "priority:critical"
       ],
       "dependencies": [
@@ -367,7 +342,6 @@
         "area:verifier",
         "area:results",
         "no-provider-call-in-ci",
-        "blocked",
         "priority:critical",
         "decision-required"
       ],
@@ -386,8 +360,7 @@
         "type:feature",
         "area:tasks",
         "area:security",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
         13
@@ -402,8 +375,7 @@
         "type:feature",
         "area:tasks",
         "area:verifier",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
         14
@@ -419,7 +391,6 @@
         "area:tasks",
         "area:verifier",
         "no-provider-call-in-ci",
-        "blocked",
         "decision-required"
       ],
       "dependencies": [
@@ -438,7 +409,6 @@
         "area:statistics",
         "area:reporting",
         "no-provider-call-in-ci",
-        "blocked",
         "decision-required"
       ],
       "dependencies": [
@@ -454,8 +424,7 @@
         "type:feature",
         "area:ci",
         "area:security",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
         12,
@@ -471,8 +440,7 @@
       "labels": [
         "type:feature",
         "area:reporting",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
         11,
@@ -490,7 +458,6 @@
         "area:runner",
         "area:harness",
         "no-provider-call-in-ci",
-        "blocked",
         "decision-required"
       ],
       "dependencies": [
@@ -509,7 +476,6 @@
         "area:results",
         "area:security",
         "no-provider-call-in-ci",
-        "blocked",
         "decision-required"
       ],
       "dependencies": [
@@ -526,8 +492,7 @@
         "type:feature",
         "area:tasks",
         "area:verifier",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
         15,
@@ -544,7 +509,6 @@
         "area:tasks",
         "area:results",
         "no-provider-call-in-ci",
-        "blocked",
         "decision-required"
       ],
       "dependencies": [
@@ -562,8 +526,7 @@
         "type:feature",
         "area:tasks",
         "area:verifier",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
         12,
@@ -581,7 +544,6 @@
         "area:runner",
         "area:security",
         "no-provider-call-in-ci",
-        "blocked",
         "decision-required"
       ],
       "dependencies": [
@@ -599,7 +561,6 @@
         "area:runner",
         "area:results",
         "no-provider-call-in-ci",
-        "blocked",
         "decision-required"
       ],
       "dependencies": [
@@ -618,7 +579,6 @@
         "area:ci",
         "area:security",
         "no-provider-call-in-ci",
-        "blocked",
         "decision-required"
       ],
       "dependencies": [

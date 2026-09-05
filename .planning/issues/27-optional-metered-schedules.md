@@ -51,11 +51,10 @@ Add one explicitly enabled, bounded scheduled experiment entry point separate fr
 
 - docs/operations.md opt-in/disable/budget workflow; docs/security.md credential and trigger boundary.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 18 / GitHub #18](https://github.com/Perdolique/harness-bench/issues/18).
-- Blocked by [planning issue 21 / GitHub #21](https://github.com/Perdolique/harness-bench/issues/21).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 - Outside the v1 critical path. Owner pilot review after [planning issue 17](https://github.com/Perdolique/harness-bench/issues/17) must justify this work before it starts.
 <!-- dependencies:end -->
 

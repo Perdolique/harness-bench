@@ -59,10 +59,10 @@ Normalize supported Harbor outputs while preserving immutable raw records.
 
 - docs/architecture.md normalized/raw boundary; docs/operations.md retention and supported formats.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 7 / GitHub #7](https://github.com/Perdolique/harness-bench/issues/7).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

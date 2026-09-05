@@ -78,10 +78,10 @@ Prove the complete Harbor/native Codex/subscription/independent-artifact/offline
 
 - docs/spikes/harbor-codex-subscription.md with exact commands, public/offline network evidence, evidence locations/digests, failures and decision; update research/security/operations.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Satisfied by closed and merged [planning issue 1 / GitHub #1](https://github.com/Perdolique/harness-bench/issues/1).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

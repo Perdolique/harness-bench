@@ -53,12 +53,10 @@ Add verifier-only regrade with explicit scoring/verifier lineage and compatible 
 
 - docs/operations.md regrade recipe and provenance; docs/methodology.md comparison migration rules.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 8 / GitHub #8](https://github.com/Perdolique/harness-bench/issues/8).
-- Blocked by [planning issue 11 / GitHub #11](https://github.com/Perdolique/harness-bench/issues/11).
-- Blocked by [planning issue 12 / GitHub #12](https://github.com/Perdolique/harness-bench/issues/12).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

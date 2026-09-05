@@ -53,10 +53,10 @@ Formalize and validate blast-radius rubrics anchored to pristine repository evid
 
 - docs/task-authoring.md rubric examples and docs/methodology.md applicability rules.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 14 / GitHub #14](https://github.com/Perdolique/harness-bench/issues/14).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

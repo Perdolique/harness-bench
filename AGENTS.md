@@ -4,7 +4,7 @@
 
 This repository contains the pinned development skeleton, versioned issue 4 schema contracts, an isolated issue 2 feasibility spike, and accepted architecture decisions. `benchctl` behavior and benchmark task packages are not implemented yet. Implement exactly one selected GitHub issue per session and PR. Do not start the next issue after completing it.
 
-Before implementation, read the selected issue and linked dependencies, then `docs/product-spec.md`, `docs/architecture.md`, `docs/methodology.md`, `docs/security.md`, and relevant ADRs and operations/task guidance. Verify blocking work is closed and merged, and required owner gates are recorded. Write a short plan mapped to acceptance criteria and identify evidence this environment cannot produce. Source inspection is not a successful runtime experiment.
+Before implementation, read the selected issue and its native GitHub dependencies, then `docs/product-spec.md`, `docs/architecture.md`, `docs/methodology.md`, `docs/security.md`, and relevant ADRs and operations/task guidance. Verify prerequisite work is closed and merged, and required owner gates are recorded. Write a short plan mapped to acceptance criteria and identify evidence this environment cannot produce. Source inspection is not a successful runtime experiment.
 
 ## Communication
 

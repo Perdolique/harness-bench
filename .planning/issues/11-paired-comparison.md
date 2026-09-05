@@ -56,10 +56,10 @@ Report paired facet effects and uncertainty without hiding failure or revision m
 
 - docs/methodology.md estimator details and limitations; docs/operations.md comparison usage.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 10 / GitHub #10](https://github.com/Perdolique/harness-bench/issues/10).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions

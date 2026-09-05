@@ -56,7 +56,7 @@ Establish a deterministic development skeleton without benchmark behavior.
 
 - README.md, CONTRIBUTING.md, docs/operations.md, and toolchain decisions.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
 - No issue dependencies. This is the first implementation issue after planning is committed.

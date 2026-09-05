@@ -55,11 +55,10 @@ Capture, validate, hash, materialize and compare immutable allowlisted harness b
 
 - docs/operations.md capture/materialize/diff workflow; docs/security.md supported/rejected inputs.
 
-## Dependencies/blockers with links
+## Dependencies and owner gates
 
 <!-- dependencies:start -->
-- Satisfied by closed and merged [planning issue 3 / GitHub #3](https://github.com/Perdolique/harness-bench/issues/3).
-- Satisfied by closed and merged [planning issue 4 / GitHub #4](https://github.com/Perdolique/harness-bench/issues/4).
+- Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
 <!-- dependencies:end -->
 
 ## Risks/open questions
