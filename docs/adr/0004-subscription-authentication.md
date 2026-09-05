@@ -18,6 +18,10 @@ volumes for each run. Never include credentials in source control, harness bundl
 logs, raw run records, or verifier inputs. Do not infer subscription money from
 token counts or Harbor's API-price estimate.
 
+`auth.json` contains plaintext access tokens and is password-equivalent. Keep it
+out of tickets, chat, shared folders, and uncontrolled sync/backup or copying paths;
+only the owner and the explicit local run receive access.
+
 Token refresh, persistence of refreshed credentials across runs, and compatibility
 with read-only access are not demonstrated. An authentication or refresh failure
 stops the run with its own classification and requires the owner to log in again;
@@ -27,6 +31,8 @@ there is no automatic API-auth fallback or retry.
 
 Version-specific Harbor and Codex authentication sources are pinned in the
 [research source register](../research-snapshot.md#primary-source-register).
+The current official authentication page additionally documents plaintext
+password-equivalent file storage and the required handling restrictions.
 The [native run card and commands](../spikes/harbor-codex-subscription.md#revised-native-run-card-authorized-then-amended)
 record `CODEX_AUTH_JSON_PATH=<dedicated-external-auth.json>` for public-01,
 public-02, and public-03. All completed with `chatgpt-file` authentication, and the

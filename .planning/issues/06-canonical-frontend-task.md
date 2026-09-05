@@ -27,6 +27,7 @@ Create one canonical TypeScript/Vue frontend blast-radius task with an independe
 ## Technical constraints
 
 - Hidden tests/reference solution/future history are absent from agent-visible files and layers.
+- Unrestricted internet means local absence is not secrecy. Record whether the exact checks, solution, later history, or identifiable source are publicly reachable; a reachable public fixture is smoke/plumbing evidence only.
 - Agent-visible source is a new local repository with exactly one base commit; do not copy the source object database, refs, remotes, hooks, credentials or later history, and retain no unreachable objects.
 - Verifier image includes all dependencies and consumes only declared safe artifacts.
 - Only evidenced obligations may affect scoring; alternate justified file edits are permitted.
@@ -48,6 +49,8 @@ Create one canonical TypeScript/Vue frontend blast-radius task with an independe
 - [ ] Contract expectations include concrete repository evidence.
 - [ ] No source/diff similarity grading.
 - [ ] Obtain owner review of realism, inferability, evidence, alternate implementations and fair scope grading before issue 7 starts.
+- [ ] Online-reachability assessment is recorded; the public checked-in fixture is not presented as proof of hidden-material or future-history secrecy.
+- [ ] Any secrecy-sensitive verifier material uses an owner-controlled non-public build/pull path rather than a publicly inspectable image or build context.
 
 ## Test/evidence plan
 
@@ -56,6 +59,7 @@ Create one canonical TypeScript/Vue frontend blast-radius task with an independe
 - Remove each required behavior/contract, delete tests or churn a forbidden dependency, and require appropriate failure.
 - Repeat verification offline and inspect agent filesystem for hidden material.
 - Inspect Git objects, refs, remotes, hooks and configuration; require exactly one base commit, no unreachable objects and no source provenance beyond its declared digest.
+- Exercise the public-reachability gate and prove a reachable solution/check set is excluded from secrecy-dependent quality claims.
 
 ## Documentation changes
 

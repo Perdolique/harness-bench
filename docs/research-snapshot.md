@@ -29,6 +29,12 @@ Issue 1 pins Node `26.8.1`, pnpm `11.25.0`, Python `3.14.7`, and uv `0.12.9`.
 Images and model/effort selection remain issue 2 decisions rather than invented
 versions. Harbor declares Python `>=3.12`.
 
+The official authentication page was rechecked on 2026-09-05. It describes file
+authentication as plaintext access-token storage that must be treated like a
+password, kept out of source control and sharing channels, and protected from
+unauthorized access. That current guidance supplements, but does not replace, the
+pinned C4 implementation reference.
+
 ## Harbor findings
 
 | Topic | Observed at the pinned revision | Planning consequence |
@@ -52,7 +58,7 @@ versions. Harbor declares Python `>=3.12`.
 
 | Topic | Official observation | Planning consequence |
 | --- | --- | --- |
-| Login/storage | ChatGPT login, file/keyring storage, automatic refresh, and headless login options are documented [C1]; source uses `CODEX_HOME/auth.json` for file storage [C4] | The file is a supported candidate, not proof of minimum files or safe read-only refresh in the target stack |
+| Login/storage | ChatGPT login, file/keyring storage, automatic refresh, and headless login options are documented [C1]; file auth is plaintext password-equivalent access-token storage, and source uses `CODEX_HOME/auth.json` [C4] | Protect the dedicated file from commits, tickets/chat, uncontrolled copy/sync/backup, and other users; this is not proof of minimum files or safe read-only refresh in the target stack |
 | Non-interactive events | `codex exec --json` emits JSONL events for turns/items/errors, including commands and changes [C2, C5] | Retain native output plus stderr and raw errors; verify current Harbor conversion coverage |
 | Ephemeral execution | `--ephemeral` suppresses session persistence [C2, C5] | A fresh disposable home must still allow collection of required native rollout evidence |
 | Home/state | `CODEX_HOME` selects config/auth/log/session/skill state and must exist; state can have separate environment/config overrides [C3, C6] | Create and inspect a fresh explicit home, do not equate it with total process isolation |
@@ -94,11 +100,11 @@ and `6f5cf36cc589ed908db0d0173220b94bf83466aef598de1e0dc17bd69c9242f6`.
 | ID | Accepted evidence | Residual limitation | Follow-up |
 | --- | --- | --- | --- |
 | R1 | Explicit dedicated file login worked in three public runs; temporary state was cleaned, the external file hash did not change, and scans found no secret | Token expiry, refresh persistence, and read-only refresh compatibility were not exercised; stop and require owner login on failure | Issues 5, 12, and the issue 13 owner gate |
-| R2 | Public agent HTTPS and a fresh Docker-none verifier passed through the actual Harbor lifecycle on the recorded Mac/LinuxKit host | Public networking permits remote and host-service access; no Intel, WSL2, or arbitrary-host claim | Issues 7 and 12 |
-| R3 | Positive and adversarial controls plus three native runs proved trusted-baseline capture after successful stop | Production runs must fail closed on stop, stability, collection, manifest, or hash error | Issues 7, 8, and 12 |
+| R2 | Public agent HTTPS and a fresh Docker-none verifier passed through the actual Harbor lifecycle on the recorded Mac/LinuxKit host | Public networking permits remote and host-service access and reacquisition of public source, later history, solutions, or grading material. Local absence is not online secrecy; no Intel, WSL2, or arbitrary-host claim | Issues 6, 7, 12, 14, and 23 |
+| R3 | Positive and adversarial controls plus three native runs proved trusted-baseline capture after successful stop | Production runs must fail closed on stop, stability, collection, exact inventory, manifest, or hash error. The spike inventory skipped every nested basename `sha256-manifest.json`, so reserved-name collision rejection remains unproved | Issues 7, 8, and 12 |
 | R4 | Native evidence recorded config, one canary skill, empty MCP registry, model/effort, `danger-full-access`, approval policy, JSONL, ATIF, and merged output | Issue 2 was Git-free; future tasks use a one-base-commit repository. stdout/stderr cannot be reconstructed. Other harness or MCP shapes need their own evidence | Issues 5, 6, and 14 |
-| R5 | Artifact collision, traversal, link, special-file, secret, hidden-test, and offline-verifier controls passed | Scanning is incomplete and cannot stop live exfiltration; every revised boundary needs recurring checks | Issues 6, 12, and 18 |
-| R6 | Requested model and effort plus available usage were retained for each run | Provider-hidden identity, quota, nondeterminism, and subscription money remain `unknown`; compare contemporaneously and never infer charges from API prices | Issues 10, 11, and 13 |
+| R5 | Artifact collision, unsafe-link, special-file, secret, hidden-test, and offline-verifier controls passed | Direct parent (`../`) and absolute-path traversal were not exercised. Scanning is incomplete and cannot stop live exfiltration; every revised boundary needs recurring controls | Issues 6, 12, and 18 |
+| R6 | Requested model and effort plus available usage were retained for each run | Provider-hidden identity, quota, nondeterminism, and subscription money remain `unknown`; later pairs use concurrency one, finish within 24 hours, invalidate on known stack/provider change, and never infer charges from API prices | Issues 10, 11, and 13 |
 
 The owner accepted qualified go on 2026-09-05, and the five initial ADRs are
 Accepted. Source support alone still cannot waive later task, integrity, or owner

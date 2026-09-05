@@ -17,7 +17,7 @@ Define versioned runtime-validated stack, harness, suite, experiment, task, run 
 ## In scope
 
 - Create Zod schemas and serialized inspection artifacts for the seven named document types.
-- Represent the full manifest contract, failure taxonomy, applicability, independent revisions and immutable completion records.
+- Represent the full manifest contract, failure taxonomy, applicability, independent revisions and immutable completion records, including collection, verifier-network and concurrency identities.
 - Add minimal sanitized valid/invalid examples; explicitly defer schema migrations.
 
 ## Out of scope
@@ -42,11 +42,16 @@ Define versioned runtime-validated stack, harness, suite, experiment, task, run 
 - [ ] Invalid combinations fail with actionable errors.
 - [ ] Unit tests cover valid/invalid examples and migrations are deferred explicitly.
 - [ ] Example configurations exist but contain no credentials.
+- [ ] Run identity records collector revision/image digest and quiescence, collection, exact-manifest, and hash enforcement status.
+- [ ] Verifier identity records its image digest and network-enforcement sidecar digest, or explicit `not_applicable` when no sidecar participates.
+- [ ] Requested/effective concurrency and enforcement status are explicit; v1 subscription schemas reject values other than one.
+- [ ] Experiment identity records the 24-hour block deadline, completion status, known-change invalidation status, and reason.
 
 ## Test/evidence plan
 
 - Validate representative valid examples and reject incompatible auth/config/revision combinations.
 - Exercise absent facets, invalid ranges, unknown provider identity, distinct failure classes, and initial/completion manifest linkage.
+- Reject missing collector/network-enforcement identities, v1 subscription concurrency other than one, and incompatible or invalidated experiment blocks.
 - Generate serialized artifacts deterministically with no provider calls.
 
 ## Documentation changes

@@ -26,6 +26,7 @@ Freeze and audit one holdout suite lifecycle without silently exposing grading d
 ## Technical constraints
 
 - Sealing must not falsely claim secrecy against the local machine owner.
+- Sealing must not claim secrecy for checks, solutions, future history, images, packages, or source identity reachable through the unrestricted agent internet.
 - Hidden verifier/solution data stays outside agent access and raw results remain immutable.
 - Follow AGENTS.md and the accepted architecture; no custom sandbox/runner.
 - Keep verifier execution separate, network-disabled and credential-free; never expose hidden tests, reference solutions or future history to the agent.
@@ -38,10 +39,12 @@ Freeze and audit one holdout suite lifecycle without silently exposing grading d
 - [ ] Unsealing is explicit and provenance-recorded.
 - [ ] Task changes produce a new suite identity and cannot inherit sealed results.
 - [ ] Verification remains offline and provider-free controls cover the workflow.
+- [ ] Every holdout records and passes an online-reachability assessment before it can make a secrecy-dependent claim.
 
 ## Test/evidence plan
 
 - Attempt revision mutation, repeated unauthorized lifecycle transitions and incompatible comparisons.
+- Use a deliberately public solution/check fixture and require rejection from the sealed-quality path while preserving smoke-test eligibility.
 - Prove audit history and frozen suite identities survive reporting/regrade.
 
 ## Documentation changes

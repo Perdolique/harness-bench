@@ -17,7 +17,7 @@ Execute immutable experiment plans with arms, repeats, blocked interleaving and 
 ## In scope
 
 - Freeze a complete seeded execution plan before any invocation.
-- Schedule by task/replicate block with contemporaneous arms and default concurrency one.
+- Schedule by task/replicate block with v1 subscription concurrency exactly one and both arms completed within 24 hours of the first arm start.
 - Retain attempts and partial results; resume only completed immutable IDs.
 
 ## Out of scope
@@ -28,6 +28,7 @@ Execute immutable experiment plans with arms, repeats, blocked interleaving and 
 
 - Dry-run must show invocation count, budget and full matrix without quota use.
 - Changed inputs produce a new plan/revision; never overwrite a previous experiment.
+- A known model, CLI, provider, runner, Harbor-config, or harness change invalidates the affected block even inside the 24-hour window.
 - Follow AGENTS.md and the accepted architecture; no custom sandbox/runner.
 - Keep verifier execution separate, network-disabled and credential-free; never expose hidden tests, reference solutions or future history to the agent.
 - Preserve immutable raw records and independent revisions; retain score facets and distinct task/agent/provider/runner/verifier/infrastructure/cancellation outcomes.
@@ -39,6 +40,9 @@ Execute immutable experiment plans with arms, repeats, blocked interleaving and 
 - [ ] Old and new harness arms are run contemporaneously.
 - [ ] Scheduling is blocked/interleaved by task and replicate, not all A then all B.
 - [ ] Default subscription concurrency is one.
+- [ ] V1 records requested/effective concurrency and enforcement status and rejects any subscription value other than one.
+- [ ] Each block records first-start, deadline, completion, contemporaneity status, and invalidation reason.
+- [ ] An expired window or known stack/provider change retains both attempts but excludes the block from causal comparison and requires a complete rerun with new IDs.
 - [ ] Resume skips only completed immutable run IDs.
 - [ ] A plan file records complete execution order before the first run.
 - [ ] Partial experiments remain reportable.
@@ -48,6 +52,7 @@ Execute immutable experiment plans with arms, repeats, blocked interleaving and 
 
 - Use fake runs to prove seeded order, interleaving, partial reporting and exact resume behavior.
 - Interrupt between attempts; incomplete/failed IDs must not masquerade as completed runs.
+- Cross the 24-hour boundary and inject each known-change class; require block invalidation and full-block rescheduling rather than selective retry.
 - Assert no real provider call occurs in CI.
 
 ## Documentation changes

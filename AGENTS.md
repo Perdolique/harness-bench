@@ -15,32 +15,52 @@ work is closed and merged, and required owner gates are recorded. Write a short
 plan mapped to acceptance criteria and identify evidence this environment cannot
 produce. Source inspection is not a successful runtime experiment.
 
+## Communication
+
+Assume the user is an experienced professional engineer with years of coding-agent
+experience, but may be new to the specific benchmark, evaluation, or other domain
+under discussion. When domain knowledge is not established, prefer plain language:
+briefly explain the purpose, actors, basic flow, and essential terms before detailed
+findings. Do not explain general software-engineering or coding-agent fundamentals
+unless they are necessary to understand the domain-specific point.
+
 ## Architecture and experimental integrity
 
-- Harbor owns environments, agent adaptation, network enforcement, artifact
-  collection, trajectories, and separate verification. `benchctl` is a thin
-  TypeScript control plane. Python is limited to pinned Harbor/tooling needs.
+- Harbor owns generic environment lifecycle, native-agent adaptation, transport of
+  declared artifacts, trajectories, and separate-verifier orchestration. The
+  project owns schemas, validation, trusted collector/verifier tooling, grading,
+  and fail-closed semantics. `benchctl` is a thin TypeScript control plane. Python
+  is limited to pinned Harbor/tooling needs.
 - The issue 2 feasibility gate and issue 3 evidence review are accepted with the
   documented Git, auth-refresh, merged-stream, public-network, and platform
-  limitations. Keep the spike isolated. If a required Harbor property is later
-  lost, create a narrow fallback issue and ADR: prefer a small Harbor adapter, then
-  host-managed Codex with an ephemeral Docker workspace and Harbor verification,
-  then an evaluated Pier replacement. Never build a custom sandbox platform or
-  install competing kernels by default.
+  limitations. Keep the spike isolated. If native-agent adaptation is lost while
+  trustworthy collection and separate verification still work, create a narrow
+  fallback issue and ADR for a supported Harbor adapter, then consider host-managed
+  Codex with an ephemeral Docker workspace and the still-trusted Harbor verifier.
+  If trustworthy collection or separate verification is lost, stop: no fallback
+  may depend on that lost property. Evaluate Pier or another boundary only through
+  a separate issue and ADR that re-proves the trust contract. Never build a custom
+  sandbox platform or install competing kernels by default.
 - Pin tool versions, OCI digests, task bases, and available stable model IDs.
   Record unavailable/provider-hidden identities as `unknown`.
 - Revise task, suite, verifier, scoring, environment, runner, and harness identities
   independently. Never silently combine incompatible results.
 - Grade observable behavior and evidence-backed repository contracts, not
   resemblance to a reference diff. Preserve score facets and scope violations.
-- Compare harnesses contemporaneously using paired, blocked, repeated runs.
+- Compare harnesses using paired, blocked, repeated runs with subscription
+  concurrency exactly one. Complete both arms of a task/replicate block within 24
+  hours; invalidate the block on a known model, CLI, provider, runner, Harbor
+  configuration, or harness change.
   Keep task-quality failure distinct from agent, provider, runner, verifier,
   infrastructure failure, and cancellation. Retain timeout stage and cause.
 
 ## Trust boundary
 
-- Agent environments never receive hidden tests, reference solutions, future git
-  history, host home directories, Docker sockets, or undeclared secrets.
+- Agent environments never receive hidden tests, reference solutions, future Git
+  history, host home directories, Docker sockets, or undeclared secrets. Local
+  absence is insufficient under unrestricted internet: task eligibility must also
+  exclude grading material or future solutions that the agent can reacquire from a
+  public repository, mirror, package, cache, or other reachable source.
 - Materialize task source as a new local repository with one base commit. Do not
   copy the source object database, refs, remotes, hooks, credentials, or later
   history; retain only objects reachable from the new commit. Collector truth
@@ -55,9 +75,11 @@ produce. Source inspection is not a successful runtime experiment.
 - Capture the repository change independently of an agent's voluntary export,
   commit, or success message. Missing, failed, conflicting, or mutable evidence
   blocks a valid grade; Harbor's best-effort collection is not a success signal.
-- Preserve immutable raw results. Sanitized publication is a separate derived
-  record with provenance, never an in-place rewrite. Potential secrets block
-  retention/publication until the security procedure is followed.
+- Preserve immutable raw results while retained. Sanitized publication is a separate
+  derived record with provenance, never an in-place rewrite. Potential secrets
+  block retention/publication until the security procedure is followed. Every
+  private task declares an expiry; the default is 90 days. Deletion leaves only a
+  redacted intent-linked tombstone without source or secret bytes.
 - Default Harbor telemetry to `off`; record any explicit owner opt-in.
 - Never fabricate subscription monetary cost or buy/redeem provider credits.
 

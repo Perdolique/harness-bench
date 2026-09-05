@@ -18,6 +18,7 @@ Add ordinary CI validation of sanitized task/result integrity without provider c
 
 - Reuse check/doctor and deterministic fixtures in CI.
 - Validate redaction/export integrity and safe artifact handling on sanitized inputs.
+- Validate credential-response and retention tombstone formats using non-secret sentinels.
 
 ## Out of scope
 
@@ -38,10 +39,13 @@ Add ordinary CI validation of sanitized task/result integrity without provider c
 - [ ] Sensitive/tampered artifact fixtures fail validation before publication.
 - [ ] Private code/credentials are absent from retained CI artifacts.
 - [ ] Optional metered scheduling is explicitly deferred to planning item 27 and disabled by default.
+- [ ] Positive secret-sentinel controls require restricted state, owner rotation/revocation status, and declared deletion or incident retention without preserving the sentinel bytes.
+- [ ] Expiry/deletion controls leave only a redacted intent-linked tombstone with no source, prompt, trajectory, or secret content.
 
 ## Test/evidence plan
 
 - Run valid and tampered/sensitive fixture jobs; failing controls must block unsafe publication.
+- Assert positive-scan and expiry fixtures produce safe response/tombstone records without uploading private artifacts.
 - Inspect CI triggers/permissions and prove no provider command/secret is available.
 
 ## Documentation changes

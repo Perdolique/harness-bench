@@ -21,6 +21,11 @@ credentials, or later history; retain only objects reachable from the new commit
 Record source provenance outside that repository, and capture the result
 independently of agent-controlled Git metadata.
 
+With unrestricted agent internet, local absence is not secrecy. Exclude a task from
+hidden-material or future-history claims when the exact grading material, later
+solution, or identifiable source history is publicly reachable. A public synthetic
+fixture can test orchestration but cannot establish this online isolation property.
+
 ## Score vector and applicability
 
 | Dimension | Meaning | Gate |
@@ -74,11 +79,20 @@ Never guess an underlying cause from a zero exit status or empty reward alone.
 ## Scheduling and comparison
 
 Freeze the execution plan before the first invocation. It contains arms, tasks,
-replicates, blocks, ordering seed, budgets, and immutable identities. Run arms
-within each task/replicate block in seeded interleaved order, with default
-subscription concurrency one. Do not run all A followed by all B. Resume only
-skips completed immutable run IDs; failed/retried attempts remain separate records
-under a declared retry policy. Keep incomplete experiments reportable.
+replicates, blocks, ordering seed, budgets, and immutable identities. V1
+subscription concurrency is exactly one, not a tunable default. Record requested
+and effective concurrency plus enforcement status. Run arms within each
+task/replicate block in seeded interleaved order. Do not run all A followed by all
+B. Resume only skips completed immutable run IDs; failed/retried attempts remain
+separate records under a declared retry policy. Keep incomplete experiments
+reportable.
+
+Start and finish both arms of a task/replicate block within 24 hours measured from
+the first arm start. A known model, CLI, provider, runner, Harbor-configuration, or
+harness change during that interval invalidates the block even when it finishes on
+time. If the window expires or a known change occurs, retain the attempts but rerun
+the complete block under new immutable IDs; do not use the old block for a causal
+harness claim.
 
 Compare per-task paired deltas and win/tie/loss using a declared tie rule, pass
 rates, facet deltas, reliability such as all-pass-across-repeats, duration, and
@@ -107,20 +121,22 @@ unavailable provider values. These are planning requirements, not runtime schema
 | --- | --- |
 | Identity | `run_id`, `created_at`, `benchmark_repo_commit` |
 | Suite and task | `suite_id`, `suite_revision`, `task_id`, `task_revision`, `task_base_commit`, `task_source_digest`, `task_environment_image_digest` |
-| Verification | `verifier_revision`, `verifier_image_digest`, `scoring_revision` |
-| Runner | `runner.name`, `runner.version`, `runner.config_digest`, effective telemetry setting |
+| Verification | `verifier_revision`, `verifier_image_digest`, verifier network-enforcement sidecar digest or explicit `not_applicable`, `scoring_revision` |
+| Collection | `collector_revision`, `collector_image_digest`, quiescence/collection/manifest/hash enforcement status |
+| Runner | `runner.name`, `runner.version`, `runner.config_digest`, effective telemetry setting, requested/effective concurrency and enforcement status |
 | Agent | `agent.product`, `agent.cli_version`, `agent.model`, `agent.effort`, `agent.auth_mode`, observed provider identity when exposed |
 | Harness and policy | `harness.id`, `harness.digest`, `network_policy_digest`, effective permissions and MCP/tool configuration digest |
 | Budget | `budget.wall_clock_seconds`, `budget.token_or_turn_limits`, CPU/memory limits and enforcement status |
-| Experiment | `experiment.id`, `experiment.arm`, `experiment.block`, `experiment.replicate`, ordering seed and plan digest |
+| Experiment | `experiment.id`, `experiment.arm`, `experiment.block`, `experiment.replicate`, ordering seed, plan digest, block first-start/deadline/completion timestamps, contemporaneity status and invalidation reason |
 | Host | `host.os`, macOS version, Apple Silicon model/architecture, Docker Desktop/Engine versions, LinuxKit kernel, container architecture |
 | Completion record | `result.status`, `result.termination_reason`, `result.raw_artifact_path`, collection hashes, attempt ID, observed timings/usage |
 
 Record initial and completion manifests separately, linked by ID/digest. Suite,
-task, harness, verifier, scoring, network policy, image, runner configuration, and
-analysis revisions are independently versioned. Never overwrite raw artifacts
-when correcting normalization or grading. Subscription money is `not_applicable`
-or `unknown`, never API-token price multiplied into a supposed bill.
+task, harness, collector, verifier, scoring, network policy, sidecar/image, runner
+configuration, concurrency enforcement, and analysis revisions are independently
+versioned. Never overwrite raw artifacts when correcting normalization or grading.
+Subscription money is `not_applicable` or `unknown`, never API-token price
+multiplied into a supposed bill.
 
 For issue 2 revision `public-1`, freeze two identical sequential invocations with
 unrestricted agent internet. Concurrency is one and retries are zero. A timeout or

@@ -7,8 +7,9 @@
 ## Context
 
 The owner works in TypeScript, while Harbor's execution ecosystem is Python.
-Configuration, harness comparison, statistics, and reports are project-specific;
-container lifecycle and native-agent execution already belong to Harbor.
+Configuration, schemas, validation, trusted collection/verification logic, grading,
+harness comparison, statistics, and reports are project-specific; generic container
+lifecycle, native-agent execution, and artifact transport already belong to Harbor.
 
 ## Decision
 
@@ -32,8 +33,10 @@ inputs, invoke the pinned executable, retain its outputs, and classify results.
 completed with zero provider calls; its preflight SHA-256 is
 `a2ba6b8bc21dc4023d1b25f8c30bafc7a974186d0d3f2eb540dceaf1dea7d9da`.
 
-The exact native commands in the report produced complete public-01, public-02,
-and public-03 records. Their manifest SHA-256 values are respectively
+The report's
+[public-network native results](../spikes/harbor-codex-subscription.md#public-network-native-results)
+contain the exact native commands that produced public-01, public-02, and public-03
+records. Their manifest SHA-256 values are respectively
 `62b9c15290b12185c3f45a767e475ebb6d4a54c81a27729a086f0627741b81eb`,
 `88b7d0c00e500fed64627330e6ee19235fbb1612f68c80a62d98e32bfd2ceb50`,
 and `6f5cf36cc589ed908db0d0173220b94bf83466aef598de1e0dc17bd69c9242f6`.
@@ -51,8 +54,10 @@ for the accepted single native-agent path.
 
 The CLI boundary must preserve exact arguments, statuses, version provenance, and
 raw files. Production packages need deterministic fake-agent tests, so ordinary CI
-never invokes a provider. Harbor remains authoritative for runtime lifecycle; a
-TypeScript wrapper must not grow into a second runner.
+never invokes a provider. Harbor remains authoritative for generic runtime
+lifecycle and transport; project validation and grading remain authoritative for
+whether evidence is complete and a grade is valid. A TypeScript wrapper must not
+grow into a second runner.
 
 ## Validation gate
 

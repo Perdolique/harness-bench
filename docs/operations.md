@@ -58,7 +58,10 @@ credentials, or future history and retains only objects reachable from the new
 commit. The completed issue 2 spike remains Git-free; issue 6 and issue 14 own
 implementation and verification of the accepted Git shape.
 
-Issue 2 has an isolated spike surface outside `benchctl`:
+Issue 2 has an isolated historical spike surface outside `benchctl`. The
+provider-free check remains usable. **Do not run the second command:** all four
+authorized provider invocations are consumed, and changing the run root does not
+renew authorization.
 
 ```sh
 BENCH_RUN_ROOT=/absolute/external/issue-2-root pnpm spike:issue-2:check
@@ -68,15 +71,15 @@ CODEX_AUTH_JSON_PATH=/absolute/external/codex-home/auth.json \
 ```
 
 The check command builds pinned arm64 images and runs unit, fake-agent collector,
-public-agent/offline-verifier lifecycle, config, secret-scanner, and offline-verifier controls without a
-provider invocation. The run command executes exactly one selected subscription
-invocation; it does not choose another phase, retry, or fallback model. It requires
-both explicit paths and rejects an existing run ID.
+public-agent/offline-verifier lifecycle, config, secret-scanner, and offline-verifier
+controls without a provider invocation. The historical run command executed exactly
+one selected subscription invocation; it did not choose another phase, retry, or
+fallback model. It required both explicit paths and rejected an existing run ID.
 
-An explicit `--effort low` override is available for the owner's temporary spike;
-the default remains `medium`. The selected value is recorded in the intent and
-checked against Harbor/native evidence. Changing effort does not reset the run
-budget or make mixed-effort samples an identical repeated pair.
+An explicit `--effort low` override was available for the owner's temporary spike;
+the default was `medium`. The selected value was recorded in the intent and checked
+against Harbor/native evidence. Changing effort did not reset the run budget or
+make mixed-effort samples an identical repeated pair.
 
 The authorized issue 2 budget is now exhausted: one historical restricted-network
 failure and three successful public-network runs. The third public run was an
@@ -117,9 +120,9 @@ workflow logs according to the repository's
 [Actions retention setting](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository),
 so logs must remain free of credentials and other sensitive data.
 
-## Authentication and first execution
+## Historical issue 2 authentication
 
-The owner performs login separately from the revised two-invocation budget. Use a
+The owner performed login separately from the revised two-invocation budget using a
 dedicated external `CODEX_HOME`, never the ambient Codex home or a repository path:
 
 ```sh
@@ -141,6 +144,11 @@ exercise token expiry, refresh persistence, or read-only refresh compatibility.
 An authentication or refresh failure stops the run and requires owner login; it
 does not trigger an API-auth fallback or automatic retry.
 
+`auth.json` contains plaintext access tokens and is password-equivalent. Never put
+it in source control, an issue/ticket, chat, logs, artifacts, a shared folder, or an
+uncontrolled cloud-sync/backup path. Do not duplicate it casually; only the owner
+and the explicit local run receive access.
+
 Harbor creates fresh `/tmp/codex-home` and `/tmp/codex-secrets` volumes for every
 trial. The native session is copied to agent logs before best-effort cleanup, while
 the collector records only safe cleanup booleans. Do not use `codex exec --ephemeral`
@@ -157,12 +165,12 @@ with an unknown field, inside Docker with no network or credentials. It must exi
 before any `thread.started` event and explicitly report the unknown configuration
 field. This proves parser rejection without making a provider request.
 
-Before the first revised inference, present one redacted run card covering two
-identical public-network invocations; model `gpt-5.6-luna`; effort
+Before the first revised inference, the owner received one redacted run card
+covering two identical public-network invocations; model `gpt-5.6-luna`; effort
 `medium`; ChatGPT file auth; exact image IDs; network policy; concurrency `1`;
 retries `0`; agent/verifier/build timeouts `600`/`120`/`900` seconds; CPU `2`; and
-RAM `2 GiB`. Obtain one explicit owner authorization for those two invocations. The earlier restricted-network approval does not
-reset or authorize a different protocol.
+RAM `2 GiB`. The owner explicitly authorized those two invocations. The earlier
+restricted-network approval did not reset or authorize a different protocol.
 Provider-backed runs are local only and never automatic CI.
 
 ## Telemetry, artifacts, and quota
@@ -178,11 +186,27 @@ suspected secret leaves the record quarantined and blocks commit/publication.
 Immutable raw records contain source-sensitive data; only explicitly sanitized
 derived exports can be considered for sharing. Credentials never enter that root.
 
-Default subscription concurrency is one. Record observed usage/quota when exposed,
-otherwise `unknown`; do not estimate subscription money using API rates. On quota
-or authentication failure, retain safe diagnostics and stop/resume under a declared
-policy. Do not purchase credits, redeem resets, switch billing modes, or retry
-indefinitely. Estimated invocation count is not a quota guarantee.
+A positive credential finding immediately restricts access and triggers owner
+notification plus rotation/revocation. The staged content is then deleted under the
+declared disposal policy or retained only in owner-approved incident storage. Keep
+an immutable redacted intent-linked tombstone with identifiers, non-secret hashes,
+timestamps, response status, and reason, but no source or secret bytes.
+
+Before every private task/run, record a retention deadline; the default is 90 days.
+Raw records are immutable while retained, not permanent. At expiry or on owner
+request, remove the private content from managed storage and controlled backups
+according to their lifecycle, then retain only an immutable redacted deletion
+tombstone with identifiers, safe provenance, timestamp, and reason.
+
+V1 subscription concurrency is exactly one. Record requested/effective concurrency
+and enforcement status. Complete both arms of each task/replicate block within 24
+hours of the first arm start. A known model, CLI, provider, runner, Harbor-config,
+or harness change invalidates the block and requires a complete new block with new
+IDs. Record observed usage/quota when exposed, otherwise `unknown`; do not estimate
+subscription money using API rates. On quota or authentication failure, retain safe
+diagnostics and stop/resume under a declared policy. Do not purchase credits, redeem
+resets, switch billing modes, or retry indefinitely. Estimated invocation count is
+not a quota guarantee.
 
 Issue 2 revision `public-1` permits at most two identical public-network invocations,
 sequentially. There is no discovery phase, hostname allowlist, packet observer, or
@@ -212,6 +236,11 @@ overwrites source results. Verify hashes and source lineage first. Missing input
 require a new explicitly authorized run, not invented reconstruction.
 
 ## Required owner reviews
+
+An owner review is a go/no-go decision over a short redacted evidence card prepared
+by the implementing agent; it is not a request for the owner to run Harbor, inspect
+raw credentials, or invent a test procedure. The owner confirms that the stated
+risk, task realism, or result is acceptable, or says what must change.
 
 After issue 2: auth safety, daily-stack fidelity, public-agent/offline-verifier boundaries, collection,
 and trace/usage quality. After issue 6: task realism and fair latent contracts.

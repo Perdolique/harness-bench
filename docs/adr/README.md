@@ -5,6 +5,12 @@ initial records were accepted on 2026-09-05 after the issue 2 spike and qualifie
 owner go. Acceptance applies only to the evidence and limitations recorded in each
 decision; official source capability alone remains insufficient runtime proof.
 
+A 2026-09-05 post-merge review corrected evidence overclaims and made conservative
+guardrails explicit without changing the five core decisions: public networking is
+not online secrecy, direct artifact traversal remains unproved, trusted
+collection/separate-verifier loss is fail-closed, v1 pairs use concurrency one and a
+24-hour window, and private records default to 90-day retention.
+
 ## Records
 
 | ID | Decision | Status |

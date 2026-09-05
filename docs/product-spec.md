@@ -11,6 +11,9 @@ The experimental unit is the native agent product/version, requested and observe
 model/provider identity, effort, auth/billing mode, complete harness, MCP/tools,
 permissions/network policy, repository snapshot, prompt, budget, and execution
 environment. Two runs differing in any of these are not silently interchangeable.
+Unrestricted internet means local filesystem isolation alone cannot hide publicly
+reachable future history, solutions, or grading material; such tasks are ineligible
+for secrecy-dependent benchmark claims.
 
 ## Outcomes to measure
 
@@ -40,7 +43,9 @@ terminal reports, interleaved repeated experiments, task integrity checks, and
 verifier-only regrade. Each agent-visible task snapshot is a new local repository
 with one base commit. It does not copy the source object database, refs, remotes,
 hooks, credentials, or future history and retains only objects reachable from the
-new commit. Default subscription concurrency is one.
+new commit. V1 subscription concurrency is exactly one. Both arms of each
+task/replicate block complete within 24 hours and remain valid only while no known
+model, CLI, provider, runner, Harbor-configuration, or harness revision changes.
 
 V1 excludes bare models, dashboards, cloud/distributed execution, multiple
 providers, generic plugins, LLM judges, public registries, full mutation frameworks,
