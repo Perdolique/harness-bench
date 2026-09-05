@@ -10,29 +10,11 @@ At issue creation, the native subscription workflow and trustworthy collector we
 
 Source: BOOTSTRAP_PLAN.md, section 9, planning item 2; docs/research-snapshot.md and the accepted ADRs constrain implementation.
 
-The owner recorded no-go for the earlier restricted-network protocol, then selected
-unrestricted agent internet on 2026-09-05. Revision `public-1` replaces the discovery
-and allowlist requirements. Preserve the earlier raw failure; do not open a fallback
-issue merely to repair the retired requirement. Native runs need a new redacted
-run-card approval, followed by a separate owner gate. Both approvals were obtained;
-the owner accepted qualified go on 2026-09-05. Issue 3 is not started.
+The owner recorded no-go for the earlier restricted-network protocol, then selected unrestricted agent internet on 2026-09-05. Revision `public-1` replaces the discovery and allowlist requirements. Preserve the earlier raw failure; do not open a fallback issue merely to repair the retired requirement. Native runs need a new redacted run-card approval, followed by a separate owner gate. Both approvals were obtained; the owner accepted qualified go on 2026-09-05. Issue 3 is not started.
 
 ## Goal
 
-Current evidence: all three authorized public-network runs completed with all four
-reward facets equal to 1, clean secret scans, successful independent collection,
-and separate offline verification. The owner requested low effort while the first
-medium run was already active, so those first samples were not identical repeats.
-After qualified go on 2026-09-05, the owner explicitly authorized one additional
-low invocation. Public-02 and public-03 now demonstrate the matching-input repeat
-criterion: recorded stack settings and materialized task files are identical.
-The earlier missing-repeat qualification is resolved. Git-free
-workspace behavior, auth refresh, merged native streams, and public-network risks
-remain inputs for issue 3; this is not production readiness or a comparative study.
-All four subscription invocations including the historical failure and the
-separately approved one-call extension are consumed; no further call is authorized.
-See docs/spikes/harbor-codex-subscription.md for the immutable-record hashes,
-native evidence, usage, observed Git-workspace limitation, and exact commands.
+Current evidence: all three authorized public-network runs completed with all four reward facets equal to 1, clean secret scans, successful independent collection, and separate offline verification. The owner requested low effort while the first medium run was already active, so those first samples were not identical repeats. After qualified go on 2026-09-05, the owner explicitly authorized one additional low invocation. Public-02 and public-03 now demonstrate the matching-input repeat criterion: recorded stack settings and materialized task files are identical. The earlier missing-repeat qualification is resolved. Git-free workspace behavior, auth refresh, merged native streams, and public-network risks remain inputs for issue 3; this is not production readiness or a comparative study. All four subscription invocations including the historical failure and the separately approved one-call extension are consumed; no further call is authorized. See docs/spikes/harbor-codex-subscription.md for the immutable-record hashes, native evidence, usage, observed Git-workspace limitation, and exact commands.
 
 Prove the complete Harbor/native Codex/subscription/independent-artifact/offline-verifier path with the smallest disposable fixture.
 

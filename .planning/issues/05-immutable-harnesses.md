@@ -58,8 +58,8 @@ Capture, validate, hash, materialize and compare immutable allowlisted harness b
 ## Dependencies/blockers with links
 
 <!-- dependencies:start -->
-- Blocked by [planning issue 3 / GitHub #3](https://github.com/Perdolique/harness-bench/issues/3).
-- Blocked by [planning issue 4 / GitHub #4](https://github.com/Perdolique/harness-bench/issues/4).
+- Satisfied by closed and merged [planning issue 3 / GitHub #3](https://github.com/Perdolique/harness-bench/issues/3).
+- Satisfied by closed and merged [planning issue 4 / GitHub #4](https://github.com/Perdolique/harness-bench/issues/4).
 <!-- dependencies:end -->
 
 ## Risks/open questions

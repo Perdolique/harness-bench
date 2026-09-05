@@ -23,8 +23,7 @@ State one reviewable outcome.
 
 ## Technical constraints
 
-Preserve Harbor ownership, exact pins, immutable records, separate offline
-verification, credential isolation, and the complete-stack measurement model.
+Preserve Harbor ownership, exact pins, immutable records, separate offline verification, credential isolation, and the complete-stack measurement model.
 
 ## Acceptance criteria
 
@@ -32,8 +31,7 @@ verification, credential isolation, and the complete-stack measurement model.
 
 ## Test/evidence plan
 
-Use deterministic controls and sanitized fixtures. Ordinary CI makes no provider
-calls. Identify any explicitly authorized local canary and unavailable environment.
+Use deterministic controls and sanitized fixtures. Ordinary CI makes no provider calls. Identify any explicitly authorized local canary and unavailable environment.
 
 ## Documentation changes
 
@@ -49,7 +47,6 @@ Record unknowns directly. Do not invent provider behavior or permission.
 
 ## Definition of Done
 
-- [ ] All acceptance criteria have evidence and the global Definition of Done in
-  CONTRIBUTING.md is satisfied.
+- [ ] All acceptance criteria have evidence and the global Definition of Done in CONTRIBUTING.md is satisfied.
 - [ ] Exact commands/results and unverified criteria are recorded in the PR.
 - [ ] Scope remains one issue; implementation stops after this PR.

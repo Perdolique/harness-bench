@@ -1,9 +1,6 @@
 # Official-source research snapshot
 
-Researched on **2026-09-04**. Only official Harbor and OpenAI documentation and
-repositories support the external capability claims below. These are source
-observations, not a completed feasibility spike. No login, provider invocation,
-container run, or private-repository import occurred in this planning run.
+Researched on **2026-09-04**. Only official Harbor and OpenAI documentation and repositories support the external capability claims below. These are source observations, not a completed feasibility spike. No login, provider invocation, container run, or private-repository import occurred in this planning run.
 
 ## Exact references consulted
 
@@ -12,28 +9,11 @@ container run, or private-repository import occurred in this planning run.
 | Harbor | [v0.22.0](https://github.com/harbor-framework/harbor/releases/tag/v0.22.0), published 2026-08-22 | `4407eb5227a2ff4f0d3f16b2eb48849382fdf276` | Candidate pin `harbor==0.22.0` |
 | Native Codex | [rust-v0.153.2](https://github.com/openai/codex/releases/tag/rust-v0.153.2), published 2026-09-03 | `657a993cbee87acf52d14b758ce49dbd46d1b8eb` | Candidate pin `@openai/codex@0.153.2` |
 
-The annotated tag object IDs are Harbor
-`41a50d62d7f35677cc34ba3a0c36f042a4fef68c` and Codex
-`79016fcca2c514d9c38643d8b7970a021e829b3b`; use the resolved commits above for source
-permalinks. Release metadata was read with GitHub CLI and tags resolved with
-`git ls-remote`. Public source archives at those commits were extracted outside the
-repository and inspected. The installed CLI independently reported
-`codex-cli 0.153.2`; this does not demonstrate Harbor compatibility. The source
-blobs referenced as C4-C7 are unchanged from `0.153.0`; the two intervening patch
-releases changed the model catalog and display text rather than those interfaces.
+The annotated tag object IDs are Harbor `41a50d62d7f35677cc34ba3a0c36f042a4fef68c` and Codex `79016fcca2c514d9c38643d8b7970a021e829b3b`; use the resolved commits above for source permalinks. Release metadata was read with GitHub CLI and tags resolved with `git ls-remote`. Public source archives at those commits were extracted outside the repository and inspected. The installed CLI independently reported `codex-cli 0.153.2`; this does not demonstrate Harbor compatibility. The source blobs referenced as C4-C7 are unchanged from `0.153.0`; the two intervening patch releases changed the model catalog and display text rather than those interfaces.
 
-Current official website pages were also fetched on this date. They are mutable;
-the source permalinks below anchor version-dependent Harbor/Codex behavior. No
-floating release, branch, image tag, or unspecified model is a planned runtime pin.
-Issue 1 pins Node `26.8.1`, pnpm `11.25.0`, Python `3.14.7`, and uv `0.12.9`.
-Images and model/effort selection remain issue 2 decisions rather than invented
-versions. Harbor declares Python `>=3.12`.
+Current official website pages were also fetched on this date. They are mutable; the source permalinks below anchor version-dependent Harbor/Codex behavior. No floating release, branch, image tag, or unspecified model is a planned runtime pin. Issue 1 pins Node `26.8.1`, pnpm `11.25.0`, Python `3.14.7`, and uv `0.12.9`. Images and model/effort selection remain issue 2 decisions rather than invented versions. Harbor declares Python `>=3.12`.
 
-The official authentication page was rechecked on 2026-09-05. It describes file
-authentication as plaintext access-token storage that must be treated like a
-password, kept out of source control and sharing channels, and protected from
-unauthorized access. That current guidance supplements, but does not replace, the
-pinned C4 implementation reference.
+The official authentication page was rechecked on 2026-09-05. It describes file authentication as plaintext access-token storage that must be treated like a password, kept out of source control and sharing channels, and protected from unauthorized access. That current guidance supplements, but does not replace, the pinned C4 implementation reference.
 
 ## Harbor findings
 
@@ -88,14 +68,7 @@ pinned C4 implementation reference.
 
 ## Feasibility risk register
 
-Issue 3 reviewed the original risks against the
-[retained spike evidence](spikes/harbor-codex-subscription.md). The provider-free
-preflight SHA-256 is
-`a2ba6b8bc21dc4023d1b25f8c30bafc7a974186d0d3f2eb540dceaf1dea7d9da`;
-the public-01, public-02, and public-03 manifest SHA-256 values are
-`62b9c15290b12185c3f45a767e475ebb6d4a54c81a27729a086f0627741b81eb`,
-`88b7d0c00e500fed64627330e6ee19235fbb1612f68c80a62d98e32bfd2ceb50`,
-and `6f5cf36cc589ed908db0d0173220b94bf83466aef598de1e0dc17bd69c9242f6`.
+Issue 3 reviewed the original risks against the [retained spike evidence](spikes/harbor-codex-subscription.md). The provider-free preflight SHA-256 is `a2ba6b8bc21dc4023d1b25f8c30bafc7a974186d0d3f2eb540dceaf1dea7d9da`; the public-01, public-02, and public-03 manifest SHA-256 values are `62b9c15290b12185c3f45a767e475ebb6d4a54c81a27729a086f0627741b81eb`, `88b7d0c00e500fed64627330e6ee19235fbb1612f68c80a62d98e32bfd2ceb50`, and `6f5cf36cc589ed908db0d0173220b94bf83466aef598de1e0dc17bd69c9242f6`.
 
 | ID | Accepted evidence | Residual limitation | Follow-up |
 | --- | --- | --- | --- |
@@ -106,6 +79,4 @@ and `6f5cf36cc589ed908db0d0173220b94bf83466aef598de1e0dc17bd69c9242f6`.
 | R5 | Artifact collision, unsafe-link, special-file, secret, hidden-test, and offline-verifier controls passed | Direct parent (`../`) and absolute-path traversal were not exercised. Scanning is incomplete and cannot stop live exfiltration; every revised boundary needs recurring controls | Issues 6, 12, and 18 |
 | R6 | Requested model and effort plus available usage were retained for each run | Provider-hidden identity, quota, nondeterminism, and subscription money remain `unknown`; later pairs use concurrency one, finish within 24 hours, invalidate on known stack/provider change, and never infer charges from API prices | Issues 10, 11, and 13 |
 
-The owner accepted qualified go on 2026-09-05, and the five initial ADRs are
-Accepted. Source support alone still cannot waive later task, integrity, or owner
-gates.
+The owner accepted qualified go on 2026-09-05, and the five initial ADRs are Accepted. Source support alone still cannot waive later task, integrity, or owner gates.

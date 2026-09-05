@@ -2,5 +2,11 @@
   "name": "@harness-bench/core",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@harness-bench/schemas": "workspace:*",
+    "smol-toml": "1.8.0",
+    "valibot": "1.4.2"
+  }
 }

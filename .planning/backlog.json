@@ -224,10 +224,13 @@
         "type:feature",
         "area:harness",
         "area:security",
-        "no-provider-call-in-ci",
-        "blocked"
+        "no-provider-call-in-ci"
       ],
       "dependencies": [
+        3,
+        4
+      ],
+      "resolved_dependencies": [
         3,
         4
       ]

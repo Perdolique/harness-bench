@@ -1,8 +1,6 @@
 # Agent Stack Benchmark — bootstrap and implementation plan
 
-> This file is retained as source provenance for the published issue bodies.
-> Current requirements live in the GitHub issues, their `.planning/issues/` mirror,
-> and the accepted project documentation and ADRs.
+> This file is retained as source provenance for the published issue bodies. Current requirements live in the GitHub issues, their `.planning/issues/` mirror, and the accepted project documentation and ADRs.
 
 **Plan date:** 2026-09-03  
 **Primary use case:** evaluate complete coding-agent stacks on real repository-native tasks: Codex/other native agents + model/effort + the user's harness (AGENTS.md, skills, MCP, configuration, policies, tools) + repository context.

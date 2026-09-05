@@ -1,15 +1,8 @@
 # Architecture decision records
 
-ADRs preserve a decision, its evidence, alternatives, and consequences. The five
-initial records were accepted on 2026-09-05 after the issue 2 spike and qualified
-owner go. Acceptance applies only to the evidence and limitations recorded in each
-decision; official source capability alone remains insufficient runtime proof.
+ADRs preserve a decision, its evidence, alternatives, and consequences. The five initial records were accepted on 2026-09-05 after the issue 2 spike and qualified owner go. Acceptance applies only to the evidence and limitations recorded in each decision; official source capability alone remains insufficient runtime proof.
 
-A 2026-09-05 post-merge review corrected evidence overclaims and made conservative
-guardrails explicit without changing the five core decisions: public networking is
-not online secrecy, direct artifact traversal remains unproved, trusted
-collection/separate-verifier loss is fail-closed, v1 pairs use concurrency one and a
-24-hour window, and private records default to 90-day retention.
+A 2026-09-05 post-merge review corrected evidence overclaims and made conservative guardrails explicit without changing the five core decisions: public networking is not online secrecy, direct artifact traversal remains unproved, trusted collection/separate-verifier loss is fail-closed, v1 pairs use concurrency one and a 24-hour window, and private records default to 90-day retention.
 
 ## Records
 
@@ -23,11 +16,6 @@ collection/separate-verifier loss is fail-closed, v1 pairs use concurrency one a
 
 ## Required format
 
-Use an incrementing four-digit ID and descriptive English filename. Include Title,
-Date, Status, Context, Decision, Evidence, Alternatives, Consequences, and Validation
-gate. Cite exact source revisions and concrete spike artifacts. Explicitly label
-assumptions and unknowns. Record owner acceptance in the linked issue/PR.
+Use an incrementing four-digit ID and descriptive English filename. Include Title, Date, Status, Context, Decision, Evidence, Alternatives, Consequences, and Validation gate. Cite exact source revisions and concrete spike artifacts. Explicitly label assumptions and unknowns. Record owner acceptance in the linked issue/PR.
 
-Allowed states: Proposed, Accepted, Rejected, Superseded. Preserve accepted decision
-history; a replacement links to the old record and marks it Superseded. Do not
-retcon failed feasibility evidence or add Pier alongside Harbor without a decision.
+Allowed states: Proposed, Accepted, Rejected, Superseded. Preserve accepted decision history; a replacement links to the old record and marks it Superseded. Do not retcon failed feasibility evidence or add Pier alongside Harbor without a decision.
