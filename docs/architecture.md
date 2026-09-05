@@ -14,8 +14,8 @@ production validation.
 
 | Component | Owns | Must not become |
 | --- | --- | --- |
-| Harbor | Container lifecycle, native agent adaptation, network enforcement, collection, trajectories, separate verification, supported regrade | A second runner hidden in `benchctl` |
-| `benchctl` | Config resolution, immutable harnesses, run manifests, experiment plans, normalization, integrity checks, statistics, reports | A container orchestration framework |
+| Harbor | Container lifecycle, native-agent adaptation, configured network enforcement, artifact transport, trajectories, separate-verifier orchestration, supported regrade transport | The authority for project schemas, validation, grading, or trust decisions |
+| `benchctl` and project tooling | Config resolution, immutable harnesses, run manifests, trusted collector/verifier contracts, experiment plans, normalization, integrity gates, grading, statistics, reports | A second container orchestration framework |
 | Task package | Prompt, fixed base, environment recipe, evidence-backed rubric, declared artifact interface | Agent-visible hidden grading material |
 | Verifier | Fresh base reconstruction, safe patch application, deterministic checks and structured evidence | A reused agent workspace |
 
@@ -33,7 +33,7 @@ flowchart LR
     B --> H[Pinned Harbor]
     C[Dedicated external credentials] --> A[Fresh Codex agent environment]
     H --> A
-    A --> K[Harbor-controlled collection]
+    A --> K[Project collector via Harbor lifecycle]
     K --> P[Validated declared patch and metadata]
     P --> V[Fresh separate offline verifier]
     T[Immutable base and hidden checks] --> V
@@ -93,6 +93,13 @@ only objects reachable from the new commit. The task records source provenance
 outside the agent-visible repository. The trusted collector still computes
 changes from its own immutable baseline and ignores agent-controlled `.git` data.
 
+This removes local Git history; it does not make publicly reachable history secret.
+Because the agent has unrestricted internet, a production task is eligible for
+hidden-material or future-history claims only when its grading material and later
+solution are unavailable from public repositories, mirrors, packages, caches, or
+other reachable sources. The public synthetic fixture may validate plumbing, but it
+cannot by itself prove online secrecy.
+
 The completed issue 2 runs remain Git-free evidence. Issue 6 implements and tests
 the synthetic one-commit snapshot; issue 14 applies the same rule to imported real
 tasks and proves future-history removal.
@@ -132,11 +139,17 @@ call or rewriting the original run. See [methodology](methodology.md).
 
 ## Fallback sequence
 
-If Harbor later loses trustworthy collection, separate verification, or required
-native-agent behavior, stop dependent implementation and open a narrow fallback
-issue and ADR: first a supported `codex exec --json` Harbor adapter; next
-host-managed Codex against an ephemeral Docker workspace retaining separate Harbor
-verification; then evaluate Pier. Host execution increases host exposure and must
-re-prove the same boundaries. Accepted Git, auth-refresh, merged-stream, and public
-network limitations do not trigger fallback by themselves. Only build the missing
-adapter; no competing kernels or custom sandbox/verifier platform are planned.
+Fallback depends on which capability is lost. If Harbor loses required native-agent
+adaptation while trustworthy collection and separate verification still work, stop
+dependent implementation and open a narrow issue and ADR for a supported
+`codex exec --json` Harbor adapter. If that is insufficient, host-managed Codex in
+an ephemeral Docker workspace may be evaluated only while the still-trusted Harbor
+collection and verifier boundary remains intact.
+
+If Harbor loses trustworthy collection or separate verification, stop. A fallback
+that still relies on the lost property is invalid. Any Pier or alternative-boundary
+evaluation needs its own issue and ADR and must re-prove quiescence, independent
+capture, exact manifests and hashes, and fresh offline verification. Host execution
+increases host exposure. Accepted Git, auth-refresh, merged-stream, and public-network
+limitations do not trigger fallback by themselves. No competing kernel or custom
+sandbox/verifier platform is installed by default.

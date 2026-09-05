@@ -19,6 +19,7 @@ Implement benchctl doctor for task, verifier, environment and harness integrity.
 - Validate Harbor structure, image/dependency pins and artifact interfaces.
 - Run deterministic base/reference controls and offline verifier checks.
 - Inspect hidden-file/credential isolation, scope violations and evidence integrity.
+- Validate exact artifact inventory, direct traversal controls, reserved names, and the task's recorded online-reachability assessment.
 
 ## Out of scope
 
@@ -44,11 +45,16 @@ Implement benchctl doctor for task, verifier, environment and harness integrity.
 - [ ] Confirms deterministic verifier result across repeated runs.
 - [ ] Detects deletion/disablement of tests and forbidden-file edits.
 - [ ] Reports actionable failures and non-actionable warnings separately.
+- [ ] Rejects parent (`../`) and absolute artifact paths, unsafe links/special files, path overlap, and any nested reserved `sha256-manifest.json` collision.
+- [ ] Compares the complete staged filesystem inventory with the manifest and rejects every unlisted, missing, duplicate, or conflicting entry.
+- [ ] Rejects a missing/failed online-reachability assessment and prevents publicly reachable checks, solutions, or later history from supporting a secrecy-dependent claim.
 
 ## Test/evidence plan
 
 - Use deliberately malformed tasks, exposed sentinel secrets/tests, mutable image refs and unsafe artifact paths.
+- Include separate parent-traversal, absolute-path, nested-reserved-name, and unmanifested-file negative controls.
 - Detect base unexpectedly passing, reference failing, verifier nondeterminism, network access, disabled checks and forbidden edits.
+- Use a declared reachable public fixture to prove doctor downgrades it to smoke/plumbing use rather than claiming online secrecy.
 - Use local deterministic controls on the proven Docker target with no provider credentials.
 
 ## Documentation changes
@@ -65,7 +71,7 @@ Implement benchctl doctor for task, verifier, environment and harness integrity.
 
 ## Risks/open questions
 
-- A static file scan alone cannot establish runtime network denial or hidden-file isolation.
+- A static file scan alone cannot establish runtime network denial, hidden-file isolation, or absence from the public internet. Doctor validates the recorded reachability gate and local controls; it does not invent proof of global non-discoverability.
 
 ## Definition of Done
 

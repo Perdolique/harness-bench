@@ -22,6 +22,11 @@ missing, failed, conflicting, mutable, path-overlapping, or hash-invalid evidenc
 none of those states can produce a valid grade. Agent-created `.git`, hooks, Git
 configuration, symlinks, and processes are untrusted inputs.
 
+Under unrestricted agent internet, local absence is not online secrecy. A task may
+claim hidden checks or future-history isolation only when its grading material,
+later solution, and identifiable source history are not publicly reachable. Public
+fixtures remain useful for plumbing but not secrecy-dependent quality claims.
+
 ## Evidence
 
 Version-specific Harbor sources are pinned in the
@@ -56,8 +61,10 @@ code, and Harbor's implicit `/logs/artifacts` path. Regrade can reuse only captu
 bytes whose hashes and provenance still validate.
 
 The spike proves a narrow synthetic implementation, not a reusable production
-collector. Issue 6 must exercise the canonical task boundary; issue 12 must turn
-the integrity controls into repeatable product diagnostics.
+collector. It did not exercise direct parent/absolute artifact traversal, and its
+inventory skipped any nested `sha256-manifest.json` basename. Issue 6 must exercise
+the canonical task boundary; issue 12 must add those negative controls, exact
+inventory comparison, and repeatable product diagnostics.
 
 ## Validation gate
 

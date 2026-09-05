@@ -18,7 +18,7 @@ Implement one benchctl run over the pinned Harbor executable.
 
 - Resolve a stack/harness/task or suite selection and explicit budgets.
 - Create unique immutable initial and separate completion records and invoke Harbor.
-- Support dry-run, stage-specific failures, cancellation and default concurrency one.
+- Support dry-run, stage-specific failures, cancellation and v1 subscription concurrency exactly one.
 
 ## Out of scope
 
@@ -29,6 +29,7 @@ Implement one benchctl run over the pinned Harbor executable.
 - Keep Harbor ownership and the proven collection/verifier boundaries intact.
 - Never log credentials; enforce effective telemetry off by default.
 - A failed/missing artifact or verifier is not task-quality zero.
+- Loss of trustworthy collection or separate verification is fail-closed; no fallback may continue through the lost property.
 - Follow AGENTS.md and the accepted architecture; no custom sandbox/runner.
 - Keep verifier execution separate, network-disabled and credential-free; never expose hidden tests, reference solutions or future history to the agent.
 - Preserve immutable raw records and independent revisions; retain score facets and distinct task/agent/provider/runner/verifier/infrastructure/cancellation outcomes.
@@ -42,6 +43,8 @@ Implement one benchctl run over the pinned Harbor executable.
 - [ ] It handles success, agent failure, verifier failure, timeout, cancellation, and infrastructure failure distinctly.
 - [ ] It never logs credentials.
 - [ ] Default concurrency for subscription runs is one.
+- [ ] V1 rejects requested or effective subscription concurrency other than one and records enforcement status.
+- [ ] Successful quiescence, trusted collection, exact manifest, and verified hashes are required before a grade is valid.
 - [ ] Dry-run prints the resolved plan without starting an agent.
 - [ ] Integration test uses a deterministic fake agent or reference solution and does not consume provider quota.
 
@@ -49,6 +52,7 @@ Implement one benchctl run over the pinned Harbor executable.
 
 - Use a deterministic fake agent/reference solution to cover success and failure outcomes without quota.
 - Exercise timeout, cancellation, provider/runner/verifier/infrastructure errors and incomplete artifacts.
+- Prove stop/collection/manifest/hash and separate-verifier failures stop grading without fallback.
 - Verify dry-run starts no environment/agent and immutable inputs remain unchanged.
 
 ## Documentation changes

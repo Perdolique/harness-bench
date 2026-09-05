@@ -10,6 +10,10 @@ Issue 2 closed and merged after three successful public-network native runs and 
 qualified owner go. This issue converts the proposed bootstrap decisions into
 accepted architecture without broadening the synthetic evidence.
 
+The 2026-09-05 corrective review narrows overclaimed evidence and records
+conservative v1 defaults for capability-specific fallback, online reachability,
+concurrency, block timing, and private-record retention. It adds no runtime proof.
+
 Source: BOOTSTRAP_PLAN.md, section 9, planning item 3; docs/research-snapshot.md and the accepted ADRs constrain implementation.
 
 ## Goal
@@ -67,6 +71,7 @@ Finalize the five ADRs and threat model from the accepted feasibility evidence.
 
 - Token refresh/read-only persistence remains unproved and fails closed to owner login.
 - Public agent networking can expose temporary native credentials and reachable host services.
+- Public agent networking can reacquire publicly reachable source, later history, solutions, or grading material; local absence alone is not secrecy.
 - Native stdout/stderr separation cannot be reconstructed.
 - Completed issue 2 runs remain Git-free; issues 6 and 14 implement the accepted one-base-commit snapshot.
 

@@ -5,13 +5,18 @@ stack includes the native agent and version, model and effort, authentication
 mode, harness, tools, permissions, repository snapshot, prompt, budget, and runner.
 A result is evidence about that stack on those tasks, never a bare-model score.
 
-**Status: the M0 feasibility decisions are accepted.** The repository has pinned
-development toolchains, provider-free CI, an isolated disposable spike, and five
-accepted ADRs. The retired restricted-network protocol remains a preserved no-go.
-Three public-network native runs passed: one medium and two matching-input low
-runs. Issue 3 accepts Harbor with explicit Git-workspace, auth-refresh,
-merged-stream, public-network, and platform limitations. No production benchmark
-CLI or runtime schemas exist.
+**Status: the M0 feasibility decisions are accepted, but the benchmark is not
+implemented.** The repository has pinned development toolchains, provider-free CI,
+an isolated disposable spike, and five accepted ADRs. Production runtime schemas,
+`benchctl` behavior, reusable collection, and benchmark task packages do not exist
+yet. The retired restricted-network protocol remains a preserved no-go. Three
+public-network native runs passed: one medium and two matching-input low runs.
+
+Those runs prove only the recorded synthetic path. Token refresh was not exercised
+and an auth failure requires owner login. Harbor irreversibly merged native stdout
+and stderr. The agent had unrestricted network access, including possible access to
+remote content, host services, and its temporary credentials. The result applies
+only to the recorded macOS Apple Silicon and Docker Desktop Linux/arm64 environment.
 
 The first useful question is whether a changed harness improves the owner's
 subscription-backed native Codex workflow without increasing regressions or
@@ -25,6 +30,9 @@ visible separately; subscription runs have no invented monetary per-task cost.
 - Pinned native Codex using a dedicated, external ChatGPT login.
 - Immutable harnesses and one-base-commit task snapshots, unrestricted agent
   internet, and fresh, credential-free, network-disabled deterministic verifiers.
+- A trusted collector independent of agent-controlled Git, with fail-closed proof
+  of quiescence, complete collection, an exact manifest, and verified hashes before
+  any grade is valid.
 - One synthetic frontend task, then five real tasks, repeated interleaved
   comparisons, raw evidence retention, and terminal reports.
 
@@ -61,7 +69,9 @@ job, does not authenticate Codex, and consumes no provider quota. Future benchma
 commands must set `HARBOR_TELEMETRY=off` unless the owner explicitly opts an
 experiment in.
 
-Issue 2 adds two isolated commands. `pnpm spike:issue-2:check` runs provider-free
-controls. `pnpm spike:issue-2 -- --phase public --run-id <id>` runs
-exactly one owner-authorized subscription invocation from an explicit external auth
-file and run root. See [Operations](docs/operations.md) before using either command.
+Issue 2 leaves two isolated historical commands. `pnpm spike:issue-2:check` runs
+provider-free controls. **Do not run the provider-backed spike command:** all four
+authorized issue 2 invocations are consumed, and a fresh run root does not create a
+new authorization. The retained command exists only to document how the evidence
+was produced; it is not an instruction to rerun it. See
+[Operations](docs/operations.md) before using the provider-free check.

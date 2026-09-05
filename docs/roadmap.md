@@ -105,6 +105,12 @@ fail-closed owner login for unproved auth refresh, and native stream-merging,
 public-network, and platform limitations. See the
 [evidence report](spikes/harbor-codex-subscription.md) and
 [accepted ADRs](adr/README.md).
+
+The 2026-09-05 corrective review sets conservative v1 defaults unless a later issue
+and ADR deliberately change them: loss of trustworthy collection or separate
+verification is fail-closed; subscription concurrency is exactly one; both arms of
+a block finish within 24 hours and are invalidated by a known stack/provider change;
+private task/run records declare an expiry and default to 90 days.
 All later gates remain pending. Closing a dependency is necessary but does not
 silently satisfy its owner gate. The `blocked` label marks unmet direct dependencies or
 gates; an implementing agent verifies closure/merge and recorded acceptance before
@@ -129,6 +135,6 @@ fallback issue at that time; the post-pilot Pier research issue cannot unblock i
 
 ## Current boundary
 
-Issue 3 completes M0 when its focused PR merges. Issues 4 and 6 are the first
-independently selectable M1 tasks after that merge; issue 5 additionally depends
-on issue 4. Do not implement either downstream task in the issue 3 PR.
+M0 is complete after issue 3 and its focused PR merged. Issues 4 and 6 are the first
+independently selectable M1 tasks; issue 5 additionally depends on issue 4. This
+corrective documentation review does not implement any downstream issue.

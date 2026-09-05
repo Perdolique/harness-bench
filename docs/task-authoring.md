@@ -8,6 +8,13 @@ prompt, allowed repository snapshot, explicit harness, tools, and budgets. Hidde
 checks, the reference patch, future history, and credentials remain outside its
 filesystem. No runtime clone from a moving branch is permitted.
 
+The agent has unrestricted internet, so filesystem absence is only one control.
+Before treating checks, a solution, or later history as hidden, establish that the
+exact material and identifiable source history are not reachable from public
+repositories, mirrors, packages, caches, container registries, or other online
+sources. Otherwise classify the task as a plumbing/smoke fixture and exclude it
+from secrecy-dependent quality comparisons.
+
 Materialize those frozen bytes as a new local repository with exactly one base
 commit. Do not copy the source object database, refs, remotes, hooks, credentials,
 alternates, or later commits; retain only objects reachable from the new commit.
@@ -18,7 +25,9 @@ The first task is a small synthetic TypeScript/Vue repository: a secondary UI
 action with established analytics, localization, accessibility, and test precedents.
 The prompt requests behavior without listing those obligations. Issue 6 authors
 this task after the accepted feasibility review and proves that ordinary Git
-commands work without exposing future history.
+commands work without exposing future history locally. Because this repository and
+its checked-in fixtures are public, that fixture cannot by itself prove online
+secrecy or support a hidden-material quality claim.
 
 ## Harbor package and visibility
 
@@ -29,6 +38,12 @@ must supply `/tests/test.sh`; do not expect runtime test upload. Both images sta
 from the declared base, but only the verifier image has hidden checks. Public
 regression tests already present in the base remain visible to the agent.
 [Pinned task format](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/docs/content/docs/tasks/index.mdx).
+
+A separate verifier image is not automatically secret: a publicly pullable image or
+public build context can be inspected through the agent's network. Secrecy-sensitive
+checks and reference material live only in owner-controlled external storage and a
+non-public verifier build/pull path. Checked-in sanitized verifier fixtures are
+public stand-ins for deterministic CI, not hidden production grading material.
 
 Declare a narrow patch/metadata interface with no overlap with `/tests`, verifier
 logs, auth, or trusted tools. Account for Harbor's implicit `/logs/artifacts`
@@ -75,7 +90,9 @@ must not fail merely because it edits a different justified file.
    delete/disable tests, and edit a forbidden path. Expected checks must fail.
 5. Repeat verification with no network or credentials and identical artifacts;
    verify deterministic outcomes and absence of hidden material from agent access.
-6. Obtain the issue 6 owner review using the evidence from steps 1–5 before
+6. Record the online-reachability assessment. Fail the secrecy gate if the exact
+   checks, solution, later history, or identifiable source are publicly reachable.
+7. Obtain the issue 6 owner review using the evidence from steps 1–6 before
    downstream orchestration uses the canonical task.
 
 After issue 12 implements `benchctl doctor`, run it and retain its evidence for
@@ -83,8 +100,8 @@ subsequent task calibration. Doctor is not a prerequisite for the initial issue 
 owner review.
 
 Real import (issue 14) keeps private data in external owner-controlled storage,
-records sanitized provenance, and leaves hidden-test authoring manual. Issue 15
-formalizes the rubric used by the canonical task. Issue 16 produces five tasks
-across at least three categories, documents ambiguity/difficulty, and freezes all
-revisions before the final comparison. Never tune a task using the winning arm of
-the sealed final experiment.
+records sanitized provenance, declares a retention deadline (90 days by default),
+and leaves hidden-test authoring manual. Issue 15 formalizes the rubric used by the
+canonical task. Issue 16 produces five tasks across at least three categories,
+documents ambiguity/difficulty, and freezes all revisions before the final
+comparison. Never tune a task using the winning arm of the sealed final experiment.

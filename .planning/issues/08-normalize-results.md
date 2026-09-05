@@ -19,6 +19,7 @@ Normalize supported Harbor outputs while preserving immutable raw records.
 - Retain/hash raw directories and native/ATIF trajectory references.
 - Normalize facets, applicability, statuses, timing, usage and provenance.
 - Scan capture/export boundaries and produce separate sanitized derived records.
+- Validate the exact staged filesystem inventory and implement declared private-record expiry and redacted deletion tombstones.
 
 ## Out of scope
 
@@ -29,6 +30,7 @@ Normalize supported Harbor outputs while preserving immutable raw records.
 - Record upstream estimated cost as provenance only; subscription monetary cost is not applicable/unknown.
 - Artifact collection must be complete and trusted before marking a grade valid.
 - Secrets must be excluded before durable raw retention, not only scrubbed from public reports.
+- Reject reserved manifest-name collisions, including any nested `sha256-manifest.json`, rather than silently omitting them from inventory.
 - Follow AGENTS.md and the accepted architecture; no custom sandbox/runner.
 - Keep verifier execution separate, network-disabled and credential-free; never expose hidden tests, reference solutions or future history to the agent.
 - Preserve immutable raw records and independent revisions; retain score facets and distinct task/agent/provider/runner/verifier/infrastructure/cancellation outcomes.
@@ -42,11 +44,15 @@ Normalize supported Harbor outputs while preserving immutable raw records.
 - [ ] Hashes detect accidental mutation.
 - [ ] Secret/redaction scan runs before a result is marked publishable.
 - [ ] Unit tests use checked-in sanitized fixtures.
+- [ ] A positive credential sentinel restricts the record and produces owner-response state for rotation/revocation and declared deletion or incident retention, without copying secret bytes.
+- [ ] Every private task/run has an explicit retention deadline defaulting to 90 days; expiry or owner deletion removes private bytes and leaves an immutable safe intent-linked tombstone.
+- [ ] Exact inventory validation rejects reserved-name collisions and any staged entry missing from the manifest.
 
 ## Test/evidence plan
 
 - Parse sanitized fixtures from the exact supported Harbor revision, including absent tokens and merged log events.
 - Reject incompatible formats, mutated hashes, missing/failed/skipped collection entries and unsafe export content.
+- Reject a nested reserved manifest name and prove deletion tombstones contain identifiers, safe provenance, timestamps, and reason but no source, prompt, trajectory, or secret bytes.
 - Assert normalization leaves every original byte/hash unchanged.
 
 ## Documentation changes
