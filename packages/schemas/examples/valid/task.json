@@ -36,11 +36,42 @@
   ],
   "rubric": [
     {
-      "obligation_id": "direct-action",
+      "obligation_id": "direct",
       "facet": "direct_behavior",
       "expectation": "The secondary action performs the requested behavior",
       "evidence_paths": ["src/components/PrimaryAction.vue"],
+      "justification": "The pristine component defines the action behavior exercised by the task",
       "deterministic_check": "tests/direct-action.test.ts",
+      "applicability": "required",
+      "weight": 1
+    },
+    {
+      "obligation_id": "contracts",
+      "facet": "repository_contracts",
+      "expectation": "The implementation preserves evidenced repository contracts",
+      "evidence_paths": ["src/components/PrimaryAction.vue"],
+      "justification": "The pristine component is the source of the repository-specific contract",
+      "deterministic_check": "tests/contracts.test.ts",
+      "applicability": "required",
+      "weight": 1
+    },
+    {
+      "obligation_id": "regression",
+      "facet": "regression",
+      "expectation": "Existing supported behavior remains correct",
+      "evidence_paths": ["tests/primary-action.test.ts"],
+      "justification": "The pristine regression test records existing supported behavior",
+      "deterministic_check": "tests/regression.test.ts",
+      "applicability": "required",
+      "weight": 1
+    },
+    {
+      "obligation_id": "scope",
+      "facet": "scope_integrity",
+      "expectation": "Changes stay inside the justified scope envelope",
+      "evidence_paths": ["src/components/PrimaryAction.vue"],
+      "justification": "The requested behavior is owned by the existing component boundary",
+      "deterministic_check": "tests/scope.test.ts",
       "applicability": "required",
       "weight": 1
     }

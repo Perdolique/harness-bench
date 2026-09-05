@@ -1,6 +1,0 @@
-.planning/
-.venv/
-node_modules/
-coverage/
-dist/
-packages/schemas/generated/

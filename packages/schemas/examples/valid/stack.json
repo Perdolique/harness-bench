@@ -57,6 +57,8 @@
       "reason": "Subscription client does not expose an enforceable token cap"
     },
     "cpu_count": 2,
-    "memory_megabytes": 2048
+    "cpu_enforcement_status": "enforced",
+    "memory_megabytes": 2048,
+    "memory_enforcement_status": "enforced"
   }
 }

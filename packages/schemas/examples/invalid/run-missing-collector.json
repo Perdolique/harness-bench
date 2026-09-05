@@ -2,5 +2,101 @@
   "document_type": "run",
   "schema_version": 1,
   "record_type": "initial",
-  "collector": null
+  "identity": {
+    "run_id": "run-v1-r1",
+    "attempt_id": "attempt-1",
+    "attempt": 1
+  },
+  "created_at": "2026-09-05T09:00:00Z",
+  "benchmark_repo_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "stack": {
+    "id": "codex-low-v1",
+    "revision": "1",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "suite": {
+    "id": "synthetic-pilot",
+    "revision": "1",
+    "digest": "sha256:abababababababababababababababababababababababababababababababab"
+  },
+  "task": {
+    "id": "secondary-action",
+    "revision": "1",
+    "base_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "environment_image_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "verifier": {
+    "revision": "1",
+    "image_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "network_enforcement_sidecar_digest": {
+      "status": "known",
+      "value": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+    }
+  },
+  "scoring_revision": "1",
+  "runner": {
+    "name": "harbor",
+    "version": "0.22.0",
+    "config_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "telemetry": "off",
+    "requested_concurrency": 1,
+    "effective_concurrency": { "status": "known", "value": 1 },
+    "concurrency_enforcement_status": "enforced"
+  },
+  "agent": {
+    "product": "codex",
+    "cli_version": "0.153.2",
+    "requested_model": "gpt-5.6-luna",
+    "observed_provider_identity": {
+      "status": "unknown",
+      "reason": "Provider does not expose a stable backend identity"
+    },
+    "effort": "low",
+    "auth_mode": "chatgpt_subscription"
+  },
+  "harness": {
+    "id": "harness-v1",
+    "revision": "1",
+    "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "network_policy_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "effective_permissions_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "mcp_tools_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "budget": {
+    "wall_clock_seconds": 600,
+    "token_or_turn_limit": {
+      "status": "unknown",
+      "reason": "Subscription client does not expose an enforceable token cap"
+    },
+    "cpu_count": 2,
+    "cpu_enforcement_status": "enforced",
+    "memory_megabytes": 2048,
+    "memory_enforcement_status": "enforced"
+  },
+  "experiment": {
+    "experiment_id": "skill-pilot",
+    "experiment_revision": "1",
+    "plan_digest": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
+    "arm_id": "v1",
+    "block_id": "secondary-action-r1",
+    "replicate": 1
+  },
+  "retention": {
+    "classification": "public",
+    "expires_at": {
+      "status": "not_applicable",
+      "reason": "The sanitized fixture contains no private source"
+    }
+  },
+  "host": {
+    "os": "macos",
+    "os_version": "27.0",
+    "architecture": "arm64",
+    "apple_silicon_model": "Apple Silicon",
+    "docker_desktop_version": "4.47.0",
+    "docker_engine_version": "28.4.0",
+    "linuxkit_kernel": "6.12.48-linuxkit",
+    "container_architecture": "linux/arm64"
+  }
 }

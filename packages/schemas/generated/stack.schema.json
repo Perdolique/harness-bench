@@ -314,6 +314,13 @@
                 "status": {
                   "const": "known"
                 },
+                "unit": {
+                  "enum": [
+                    "tokens",
+                    "turns"
+                  ],
+                  "type": "string"
+                },
                 "value": {
                   "type": "integer",
                   "minimum": 1
@@ -321,6 +328,7 @@
               },
               "required": [
                 "status",
+                "unit",
                 "value"
               ],
               "additionalProperties": false
@@ -348,16 +356,34 @@
           "type": "integer",
           "minimum": 1
         },
+        "cpu_enforcement_status": {
+          "enum": [
+            "enforced",
+            "not_started",
+            "failed"
+          ],
+          "type": "string"
+        },
         "memory_megabytes": {
           "type": "integer",
           "minimum": 1
+        },
+        "memory_enforcement_status": {
+          "enum": [
+            "enforced",
+            "not_started",
+            "failed"
+          ],
+          "type": "string"
         }
       },
       "required": [
         "wall_clock_seconds",
         "token_or_turn_limit",
         "cpu_count",
-        "memory_megabytes"
+        "cpu_enforcement_status",
+        "memory_megabytes",
+        "memory_enforcement_status"
       ],
       "additionalProperties": false
     }

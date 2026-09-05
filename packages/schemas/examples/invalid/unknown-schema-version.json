@@ -1,4 +1,14 @@
 {
   "document_type": "suite",
-  "schema_version": 2
+  "schema_version": 2,
+  "suite_id": "synthetic-pilot",
+  "revision": "1",
+  "digest": "sha256:abababababababababababababababababababababababababababababababab",
+  "tasks": [
+    {
+      "task_id": "secondary-action",
+      "revision": "1",
+      "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ]
 }

@@ -160,6 +160,33 @@
       "type": "integer",
       "minimum": 0
     },
+    "retry_policy": {
+      "type": "object",
+      "properties": {
+        "max_attempts_per_arm": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "retryable_classifications": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "agent_failure",
+              "provider_failure",
+              "runner_failure",
+              "verifier_failure",
+              "infrastructure_failure"
+            ],
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "max_attempts_per_arm",
+        "retryable_classifications"
+      ],
+      "additionalProperties": false
+    },
     "execution_order": {
       "type": "array",
       "items": {
@@ -214,6 +241,13 @@
                 "status": {
                   "const": "known"
                 },
+                "unit": {
+                  "enum": [
+                    "tokens",
+                    "turns"
+                  ],
+                  "type": "string"
+                },
                 "value": {
                   "type": "integer",
                   "minimum": 1
@@ -221,6 +255,7 @@
               },
               "required": [
                 "status",
+                "unit",
                 "value"
               ],
               "additionalProperties": false
@@ -248,16 +283,34 @@
           "type": "integer",
           "minimum": 1
         },
+        "cpu_enforcement_status": {
+          "enum": [
+            "enforced",
+            "not_started",
+            "failed"
+          ],
+          "type": "string"
+        },
         "memory_megabytes": {
           "type": "integer",
           "minimum": 1
+        },
+        "memory_enforcement_status": {
+          "enum": [
+            "enforced",
+            "not_started",
+            "failed"
+          ],
+          "type": "string"
         }
       },
       "required": [
         "wall_clock_seconds",
         "token_or_turn_limit",
         "cpu_count",
-        "memory_megabytes"
+        "cpu_enforcement_status",
+        "memory_megabytes",
+        "memory_enforcement_status"
       ],
       "additionalProperties": false
     },
@@ -328,21 +381,36 @@
             "type": "integer",
             "minimum": 1
           },
-          "arm_ids": {
+          "runs": {
             "type": "array",
             "items": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
-            },
-            "minItems": 2
-          },
-          "run_ids": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+              "type": "object",
+              "properties": {
+                "run_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+                },
+                "arm_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+                },
+                "attempt": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "selected": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "run_id",
+                "arm_id",
+                "attempt",
+                "selected"
+              ],
+              "additionalProperties": false
             }
           },
           "first_started_at": {
@@ -532,8 +600,7 @@
           "block_id",
           "task_id",
           "replicate",
-          "arm_ids",
-          "run_ids",
+          "runs",
           "first_started_at",
           "deadline_at",
           "completed_at",
@@ -557,6 +624,7 @@
     "tasks",
     "repeats",
     "ordering_seed",
+    "retry_policy",
     "execution_order",
     "budget",
     "requested_concurrency",

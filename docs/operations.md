@@ -3,16 +3,23 @@
 ## Development installation
 
 The development skeleton requires exact versions of Node.js `26.8.1`, pnpm
-`11.25.0`, Python `3.14.7`, and uv `0.12.9`. Node `26.8.1` is intentionally the
-current stable release rather than an LTS release. Locked project dependencies
-provide Harbor `0.22.0`, Codex CLI `0.153.2`, TypeScript `7.0.2`, Vitest `5.0.0`,
-Valibot `1.4.2`, its JSON Schema converter `1.7.1`, Oxlint `1.81.0`, Prettier
-`3.9.6`, and Ruff `0.16.6`.
+`11.25.0`, Vite+ `0.3.0`, Python `3.14.7`, and uv `0.12.9`. Node `26.8.1` is
+intentionally the current stable release rather than an LTS release. Locked project
+dependencies provide Harbor `0.22.0`, Codex CLI `0.153.2`, TypeScript `7.0.2`,
+Vitest `5.0.0`, Valibot `1.4.2`, its JSON Schema converter `1.7.1`, Oxlint `1.81.0`,
+Worsier `3.5.0`, and Ruff `0.16.6`.
+
+Vite+ is installed globally and is intentionally not a project dependency. A clean,
+isolated environment can install the exact required version with:
+
+```sh
+curl -fsSL https://vite.plus | VP_VERSION=0.3.0 bash
+```
 
 Install the locked environments without authenticating either provider tool:
 
 ```sh
-pnpm install --frozen-lockfile
+vp install --frozen-lockfile
 uv sync --locked
 ```
 
@@ -21,39 +28,49 @@ uv sync --locked
 The aggregate development check is:
 
 ```sh
-pnpm check
+vp run check
 ```
 
 It runs the following read-only checks in order:
 
 ```sh
-pnpm format:check
-pnpm lint
-pnpm typecheck
-pnpm schemas:check
-pnpm test
-pnpm test:planning
-pnpm validate:planning
-pnpm verify:toolchain
+vp run format:check
+vp run lint
+vp run typecheck
+vp run schemas:check
+vp run test
+vp run test:planning
+vp run validate:planning
+vp run verify:toolchain
 ```
 
-`pnpm verify:toolchain` compares every actual version with its exact pin. It invokes
-Harbor only as `harbor --version` through uv with `HARBOR_TELEMETRY=off`, and invokes
-Codex only as `codex --version` through pnpm. Neither command logs in or contacts a
-model provider. The corresponding write-mode formatter is `pnpm format`.
+`vp run verify:toolchain` compares every repository runtime and tool version with its
+exact pin. It invokes Harbor only as `harbor --version` through uv with
+`HARBOR_TELEMETRY=off`, and invokes Codex only as `codex --version` through the locked
+project package manager. Neither command logs in or contacts a model provider. The
+corresponding write-mode formatter is `vp run format`.
+Worsier runs from the repository root with its default configuration and selects its
+supported JavaScript, TypeScript, and Vue files; Ruff remains authoritative for the
+planning Python files. The accepted issue 2 spike remains protected by its reference
+patch regression.
 
 The versioned schemas are provider-free development inputs:
 
 ```sh
-pnpm schemas:check
-pnpm schemas:generate
+vp run schemas:check
+vp run schemas:generate
 ```
 
-The first command regenerates all seven JSON Schema documents in memory and fails
-if a checked-in artifact differs. The second rewrites the inspection artifacts
-after an intentional structural schema change. Both use Draft 2020-12 and fail on
-unsupported Valibot constructs. Runtime Valibot validation remains authoritative
-for relationships and rules that JSON Schema cannot express.
+The first command regenerates all seven JSON Schema documents in memory, verifies
+the exact `*.schema.json` inventory, fails on missing, stale, or unexpected files,
+and never writes in check mode. The second rewrites missing or expected inspection
+artifacts after an intentional pre-freeze structural change, but fails on
+unexpected artifacts instead of silently deleting them. Both use Draft 2020-12
+and fail on unsupported Valibot constructs. Runtime Valibot validation remains
+authoritative for relationships and rules that JSON Schema cannot express.
+
+Once v1 is merged, an incompatible shape or semantic change requires v2 and
+retained v1 validation/artifacts; `schemas:generate` is not a migration mechanism.
 
 Planning publication remains separate:
 
@@ -79,7 +96,7 @@ authorized provider invocations are consumed, and changing the run root does not
 renew authorization.
 
 ```sh
-BENCH_RUN_ROOT=/absolute/external/issue-2-root pnpm spike:issue-2:check
+BENCH_RUN_ROOT=/absolute/external/issue-2-root vp run spike:issue-2:check
 CODEX_AUTH_JSON_PATH=/absolute/external/codex-home/auth.json \
   BENCH_RUN_ROOT=/absolute/external/issue-2-root \
   pnpm spike:issue-2 -- --phase public --run-id public-01
@@ -116,8 +133,10 @@ through the actual Harbor lifecycle on Docker Desktop. Intel Mac, WSL2, and arbi
 ## Provider-free CI
 
 The `Check` workflow runs for pull requests and pushes to `master` on the standard
-`ubuntu-24.04` GitHub-hosted runner with a 15-minute timeout. It installs only from
-the committed pnpm and uv lockfiles and runs `pnpm check`. Repository permissions
+`ubuntu-24.04` GitHub-hosted runner with a 15-minute timeout. It uses the official
+`voidzero-dev/setup-vp` action pinned to an immutable commit, installs Vite+ `0.3.0`
+and the exact Node.js and pnpm repository pins, then runs `vp install
+--frozen-lockfile` and `vp run check`. Repository permissions
 are read-only, checkout credentials are not persisted, Harbor telemetry is off,
 dependency caches are disabled, and no artifacts are uploaded. The workflow has no
 configured repository or provider secrets, provider credentials, Harbor execution,

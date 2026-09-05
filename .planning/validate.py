@@ -46,49 +46,6 @@ SECTIONS = [
     "Risks/open questions",
     "Definition of Done",
 ]
-ORIGINAL_DEPENDENCIES = {
-    1: [],
-    2: [1],
-    3: [2],
-    4: [3],
-    5: [3, 4],
-    6: [3],
-    7: [4, 5, 6],
-    8: [7],
-    9: [8],
-    10: [9],
-    11: [10],
-    12: [6, 7, 8],
-    13: [8, 11, 12],
-    14: [13],
-    15: [14],
-    16: [14, 15],
-    17: [16],
-}
-ORIGINAL_CRITERION_REPLACEMENTS = {
-    2: {
-        "`docs/spikes/harbor-codex-subscription.md` records exact commands, "
-        "observed required hosts, security caveats, failures, and a go/no-go conclusion.": (
-            "`docs/spikes/harbor-codex-subscription.md` records exact commands, "
-            "public/offline network evidence, security caveats, failures, and a go/no-go conclusion."
-        ),
-        "Agent network access is measured and reduced to a documented allowlist, "
-        "or the unresolved blocker is proven with logs.": (
-            "Agent internet access is unrestricted during setup and execution, "
-            "with no allowlist, egress proxy, or packet observer."
-        ),
-        "At least two repeated agent runs are retained.": (
-            "Two identical public-network agent runs are retained "
-            "without automatic retry under revision public-1."
-        ),
-        "Trajectory, stdout/stderr, patch/artifacts, timings, termination reason, "
-        "and available usage data are saved.": (
-            "Native JSONL, ATIF, Harbor merged `codex.txt`, trial log, patch/artifacts, "
-            "timings, termination reason, and available usage data are saved; irreversible "
-            "stdout/stderr merging is reported as a limitation rather than reconstructed."
-        ),
-    }
-}
 
 
 def prose(text, name, errors):
@@ -148,14 +105,6 @@ def main():
         "M4 Hardening and expansion",
     ]:
         errors.append("Milestone definitions drifted")
-    source = (ROOT / "BOOTSTRAP_PLAN.md").read_text()
-    original = {}
-    pattern = r"^#### Issue (\d+) — `([^`]+)`\n([\s\S]*?)(?=^#### Issue |^### Milestone |^## 10\.)"
-    for match in re.finditer(pattern, source, re.M):
-        criteria = re.split(
-            r"\n\*\*|\n---", match[3].split("**Acceptance criteria:**", 1)[1]
-        )[0]
-        original[int(match[1])] = (match[2], re.findall(r"^- (.+)$", criteria, re.M))
     seen = set()
     files = REQUIRED + [i["file"] for i in issues]
     actual_drafts = {
@@ -219,20 +168,6 @@ def main():
         criteria_count += len(criteria)
         if not criteria:
             errors.append(f"Item {number}: acceptance criteria are not checkboxes")
-        if number in original:
-            if item["title"] != original[number][0]:
-                errors.append(f"Item {number}: original title changed")
-            for criterion in original[number][1]:
-                expected = ORIGINAL_CRITERION_REPLACEMENTS.get(number, {}).get(
-                    criterion, criterion
-                )
-                if expected not in criteria:
-                    errors.append(
-                        f"Item {number}: original criterion or explicit replacement missing: "
-                        f"{criterion}"
-                    )
-            if item["dependencies"] != ORIGINAL_DEPENDENCIES[number]:
-                errors.append(f"Item {number}: original dependencies changed")
         if number >= 18 and "Outside the v1 critical path" not in body:
             errors.append(f"Item {number}: missing expansion boundary")
     state_path = ROOT / ".planning/github-state.json"
@@ -288,8 +223,7 @@ def main():
     print(
         f"PASS: {len(markdown_files)} Markdown files; {link_count} local links; "
         f"27 complete issues; {criteria_count} acceptance checkboxes; "
-        f"5 milestones; {len(labels)} labels; original criteria preserved or explicitly "
-        "replaced; dependencies preserved; "
+        f"5 milestones; {len(labels)} labels; valid dependencies; "
         "acyclic order; Python syntax; publication hashes when present."
     )
     return 0

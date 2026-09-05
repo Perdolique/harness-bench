@@ -1,3 +1,3 @@
 export function normalizeRoomLabel(value) {
-  return value.trim().toLowerCase();
+  return value.trim().toLowerCase()
 }

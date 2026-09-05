@@ -2,7 +2,11 @@
   "document_type": "run",
   "schema_version": 1,
   "record_type": "initial",
-  "identity": { "run_id": "run-v1-r1", "attempt_id": "attempt-1" },
+  "identity": {
+    "run_id": "run-v1-r1",
+    "attempt_id": "attempt-1",
+    "attempt": 1
+  },
   "created_at": "2026-09-05T09:00:00Z",
   "benchmark_repo_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "stack": {
@@ -70,7 +74,9 @@
       "reason": "Subscription client does not expose an enforceable token cap"
     },
     "cpu_count": 2,
-    "memory_megabytes": 2048
+    "cpu_enforcement_status": "enforced",
+    "memory_megabytes": 2048,
+    "memory_enforcement_status": "enforced"
   },
   "experiment": {
     "experiment_id": "skill-pilot",
@@ -79,6 +85,13 @@
     "arm_id": "v1",
     "block_id": "secondary-action-r1",
     "replicate": 1
+  },
+  "retention": {
+    "classification": "public",
+    "expires_at": {
+      "status": "not_applicable",
+      "reason": "The sanitized fixture contains no private source"
+    }
   },
   "host": {
     "os": "macos",

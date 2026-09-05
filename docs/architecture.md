@@ -32,7 +32,12 @@ Every serialized v1 document uses `snake_case`, carries `document_type` and
 `schema_version: 1`, rejects unknown fields, and keeps its schema version separate
 from content revisions. Task, suite, harness, collector, verifier, scoring,
 environment, runner, network-policy, and analysis identities change independently.
-Schema migration machinery is deferred until a second version exists.
+
+Version 1 freezes when issue 4 merges. Any later change to required fields,
+accepted or rejected document shapes, field meaning, or runtime relationship
+semantics requires a new schema version and retained v1 parser and inspection
+artifacts for existing records. Migration machinery is deferred until a second
+version exists; that deferral does not permit incompatible changes under `/v1/`.
 
 Valibot schemas are the runtime authority. Checked-in JSON Schema Draft 2020-12
 files are deterministic structural inspection artifacts. They do not encode every

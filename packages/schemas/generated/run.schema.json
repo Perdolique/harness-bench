@@ -24,11 +24,16 @@
               "type": "string",
               "minLength": 1,
               "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 1
             }
           },
           "required": [
             "run_id",
-            "attempt_id"
+            "attempt_id",
+            "attempt"
           ],
           "additionalProperties": false
         },
@@ -335,8 +340,15 @@
               ]
             },
             "effort": {
-              "type": "string",
-              "minLength": 1
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "type": "string"
             },
             "auth_mode": {
               "const": "chatgpt_subscription"
@@ -403,6 +415,13 @@
                     "status": {
                       "const": "known"
                     },
+                    "unit": {
+                      "enum": [
+                        "tokens",
+                        "turns"
+                      ],
+                      "type": "string"
+                    },
                     "value": {
                       "type": "integer",
                       "minimum": 1
@@ -410,6 +429,7 @@
                   },
                   "required": [
                     "status",
+                    "unit",
                     "value"
                   ],
                   "additionalProperties": false
@@ -437,16 +457,34 @@
               "type": "integer",
               "minimum": 1
             },
+            "cpu_enforcement_status": {
+              "enum": [
+                "enforced",
+                "not_started",
+                "failed"
+              ],
+              "type": "string"
+            },
             "memory_megabytes": {
               "type": "integer",
               "minimum": 1
+            },
+            "memory_enforcement_status": {
+              "enum": [
+                "enforced",
+                "not_started",
+                "failed"
+              ],
+              "type": "string"
             }
           },
           "required": [
             "wall_clock_seconds",
             "token_or_turn_limit",
             "cpu_count",
-            "memory_megabytes"
+            "cpu_enforcement_status",
+            "memory_megabytes",
+            "memory_enforcement_status"
           ],
           "additionalProperties": false
         },
@@ -490,6 +528,61 @@
             "replicate"
           ],
           "additionalProperties": false
+        },
+        "retention": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "classification": {
+                  "const": "public"
+                },
+                "expires_at": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "not_applicable"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "classification",
+                "expires_at"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "classification": {
+                  "const": "private"
+                },
+                "default_days": {
+                  "const": 90
+                },
+                "expires_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "classification",
+                "default_days",
+                "expires_at"
+              ],
+              "additionalProperties": false
+            }
+          ]
         },
         "host": {
           "type": "object",
@@ -558,6 +651,7 @@
         "mcp_tools_digest",
         "budget",
         "experiment",
+        "retention",
         "host"
       ],
       "additionalProperties": false
@@ -586,11 +680,16 @@
               "type": "string",
               "minLength": 1,
               "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 1
             }
           },
           "required": [
             "run_id",
-            "attempt_id"
+            "attempt_id",
+            "attempt"
           ],
           "additionalProperties": false
         },
@@ -1558,6 +1657,61 @@
           ],
           "additionalProperties": false
         },
+        "retention": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "classification": {
+                  "const": "public"
+                },
+                "expires_at": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "not_applicable"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "classification",
+                "expires_at"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "classification": {
+                  "const": "private"
+                },
+                "default_days": {
+                  "const": 90
+                },
+                "expires_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "classification",
+                "default_days",
+                "expires_at"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
         "raw_artifact_path": {
           "type": "string",
           "minLength": 1
@@ -1582,6 +1736,7 @@
         "score_id",
         "timings",
         "usage",
+        "retention",
         "raw_artifact_path",
         "raw_artifact_manifest_digest"
       ],

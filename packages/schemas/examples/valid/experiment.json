@@ -64,6 +64,10 @@
   ],
   "repeats": 3,
   "ordering_seed": 42,
+  "retry_policy": {
+    "max_attempts_per_arm": 1,
+    "retryable_classifications": []
+  },
   "execution_order": [
     {
       "sequence": 1,
@@ -136,7 +140,9 @@
       "reason": "Subscription client does not expose an enforceable token cap"
     },
     "cpu_count": 2,
-    "memory_megabytes": 2048
+    "cpu_enforcement_status": "enforced",
+    "memory_megabytes": 2048,
+    "memory_enforcement_status": "enforced"
   },
   "requested_concurrency": 1,
   "effective_concurrency": { "status": "known", "value": 1 },
@@ -146,8 +152,26 @@
       "block_id": "secondary-action-r1",
       "task_id": "secondary-action",
       "replicate": 1,
-      "arm_ids": ["disabled", "v1", "v2"],
-      "run_ids": ["run-disabled-r1", "run-v1-r1", "run-v2-r1"],
+      "runs": [
+        {
+          "run_id": "run-disabled-r1",
+          "arm_id": "disabled",
+          "attempt": 1,
+          "selected": true
+        },
+        {
+          "run_id": "run-v1-r1",
+          "arm_id": "v1",
+          "attempt": 1,
+          "selected": true
+        },
+        {
+          "run_id": "run-v2-r1",
+          "arm_id": "v2",
+          "attempt": 1,
+          "selected": true
+        }
+      ],
       "first_started_at": {
         "status": "known",
         "value": "2026-09-05T08:00:00Z"
@@ -161,8 +185,7 @@
       "block_id": "secondary-action-r2",
       "task_id": "secondary-action",
       "replicate": 2,
-      "arm_ids": ["disabled", "v1", "v2"],
-      "run_ids": [],
+      "runs": [],
       "first_started_at": {
         "status": "unknown",
         "reason": "Replicate has not started"
@@ -182,8 +205,7 @@
       "block_id": "secondary-action-r3",
       "task_id": "secondary-action",
       "replicate": 3,
-      "arm_ids": ["disabled", "v1", "v2"],
-      "run_ids": [],
+      "runs": [],
       "first_started_at": {
         "status": "unknown",
         "reason": "Replicate has not started"

@@ -1,9 +1,11 @@
 # Roadmap
 
-This backlog implements BOOTSTRAP_PLAN.md section 9 under the planning-only
-requirements of section 11. Planning IDs below are stable; GitHub numbers and
-URLs are recorded in `.planning/github-state.json` after publication. Every issue
-has a complete local body and the global Definition of Done.
+The current backlog is defined by `.planning/backlog.json`, the complete local issue
+bodies, and their published GitHub counterparts. `BOOTSTRAP_PLAN.md` is retained as
+source provenance for those published bodies, not as a second requirements
+authority. Planning IDs below are stable; GitHub numbers and URLs are recorded in
+`.planning/github-state.json`. Every issue has a complete local body and the global
+Definition of Done.
 
 ## Milestones
 
@@ -135,6 +137,7 @@ fallback issue at that time; the post-pilot Pier research issue cannot unblock i
 
 ## Current boundary
 
-M0 is complete after issue 3 and its focused PR merged. Issues 4 and 6 are the first
-independently selectable M1 tasks; issue 5 additionally depends on issue 4. This
-corrective documentation review does not implement any downstream issue.
+M0 is complete after issue 3 and its focused PR merged. Issue 4 is the active M1
+schema implementation and must not be selected again as new work. Issue 6 remains
+independently selectable; issue 5 starts only after issue 4 is closed and merged.
+No downstream issue is implemented by the issue 4 branch.
