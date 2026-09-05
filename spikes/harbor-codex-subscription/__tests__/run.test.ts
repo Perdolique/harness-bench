@@ -91,7 +91,7 @@ describe('subscription terminal classification', () => {
     ).toThrow('protocol')
   })
 
-  it('accepts the pnpm argument separator before provider preflight', () => {
+  it('accepts the package-script argument separator before provider preflight', () => {
     const environment = { ...process.env }
 
     delete environment.BENCH_RUN_ROOT

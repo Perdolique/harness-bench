@@ -1,11 +1,6 @@
 # Roadmap
 
-The current backlog is defined by `.planning/backlog.json`, the complete local issue
-bodies, and their published GitHub counterparts. `BOOTSTRAP_PLAN.md` is retained as
-source provenance for those published bodies, not as a second requirements
-authority. Planning IDs below are stable; GitHub numbers and URLs are recorded in
-`.planning/github-state.json`. Every issue has a complete local body and the global
-Definition of Done.
+The current backlog is defined by `.planning/backlog.json`, the complete local issue bodies, and their published GitHub counterparts. `BOOTSTRAP_PLAN.md` is retained as source provenance for those published bodies, not as a second requirements authority. Planning IDs below are stable; GitHub numbers and URLs are recorded in `.planning/github-state.json`. Every issue has a complete local body and the global Definition of Done.
 
 ## Milestones
 
@@ -50,12 +45,7 @@ flowchart TD
 
 ## Recommended execution order
 
-Use one issue per agent session and PR. Complete 1 → 2 → owner gate → 3. Issue 4
-precedes 5; issue 6 depends only on 3 and can be developed independently of 4/5
-after feasibility acceptance. Complete 4/5/6 and the issue 6 owner gate before 7,
-then 8 → 9. Issue 10 follows 9; issue 12 can proceed independently once 6–8 are
-complete. Finish 11 after 10, then 13 after 8/11/12, then 14 → 15 → 16 → 17 with
-the owner gates below. No implementation is part of the bootstrap session.
+Use one issue per agent session and PR. Complete 1 → 2 → owner gate → 3. Issue 4 precedes 5; issue 6 depends only on 3 and can be developed independently of 4/5 after feasibility acceptance. Complete 4/5/6 and the issue 6 owner gate before 7, then 8 → 9. Issue 10 follows 9; issue 12 can proceed independently once 6–8 are complete. Finish 11 after 10, then 13 after 8/11/12, then 14 → 15 → 16 → 17 with the owner gates below. No implementation is part of the bootstrap session.
 
 ## Complete issue index
 
@@ -99,45 +89,16 @@ the owner gates below. No implementation is part of the bootstrap session.
 | After 16 | Approve calibration and freeze task/suite/verifier/scoring revisions before comparative experiment 17. |
 | After 17 | Inspect per-task trajectories and patches; decide whether measured behavior is useful before activating M4. |
 
-The issue 2 owner gate was accepted on 2026-09-05 with explicit qualifications:
-the public-network medium and low runs passed. A separately authorized additional
-low run then passed, completing the matching-input low pair;
-issue 3 accepted the architecture with a future one-base-commit Git workspace,
-fail-closed owner login for unproved auth refresh, and native stream-merging,
-public-network, and platform limitations. See the
-[evidence report](spikes/harbor-codex-subscription.md) and
-[accepted ADRs](adr/README.md).
+The issue 2 owner gate was accepted on 2026-09-05 with explicit qualifications: the public-network medium and low runs passed. A separately authorized additional low run then passed, completing the matching-input low pair; issue 3 accepted the architecture with a future one-base-commit Git workspace, fail-closed owner login for unproved auth refresh, and native stream-merging, public-network, and platform limitations. See the [evidence report](spikes/harbor-codex-subscription.md) and [accepted ADRs](adr/README.md).
 
-The 2026-09-05 corrective review sets conservative v1 defaults unless a later issue
-and ADR deliberately change them: loss of trustworthy collection or separate
-verification is fail-closed; subscription concurrency is exactly one; both arms of
-a block finish within 24 hours and are invalidated by a known stack/provider change;
-private task/run records declare an expiry and default to 90 days.
-All later gates remain pending. Closing a dependency is necessary but does not
-silently satisfy its owner gate. The `blocked` label marks unmet direct dependencies or
-gates; an implementing agent verifies closure/merge and recorded acceptance before
-starting, then removes blockers only when justified. The `decision-required` label
-identifies owner decisions, including deferred M4 candidate/budget choices.
+The 2026-09-05 corrective review sets conservative v1 defaults unless a later issue and ADR deliberately change them: loss of trustworthy collection or separate verification is fail-closed; subscription concurrency is exactly one; both arms of a block finish within 24 hours and are invalidated by a known stack/provider change; private task/run records declare an expiry and default to 90 days. All later gates remain pending. Closing a dependency is necessary but does not silently satisfy its owner gate. The `blocked` label marks unmet direct dependencies or gates; an implementing agent verifies closure/merge and recorded acceptance before starting, then removes blockers only when justified. The `decision-required` label identifies owner decisions, including deferred M4 candidate/budget choices.
 
 ## M4 scope and split rationale
 
-Planning item 18 combined provider-free CI integrity work and optional metered
-scheduling, which can be reviewed independently. Under section 11 these are split
-into item 18 (CI validation/redaction) and item 27 (explicitly opted-in metered
-schedules after 18 and API mode 21). The original 26 planning topics are all
-preserved; the backlog contains 27 issues. All M4 work depends directly or
-transitively on pilot review and is outside the v1 critical path.
+Planning item 18 combined provider-free CI integrity work and optional metered scheduling, which can be reviewed independently. Under section 11 these are split into item 18 (CI validation/redaction) and item 27 (explicitly opted-in metered schedules after 18 and API mode 21). The original 26 planning topics are all preserved; the backlog contains 27 issues. All M4 work depends directly or transitively on pilot review and is outside the v1 critical path.
 
-M4 item dependencies are in the table rather than speculative parallel tracks.
-Items 19–26 remain bounded: one static local dashboard, one selected second native
-agent, explicit API auth, one calibrated review-task matcher, one sealed-suite
-workflow, selective probes for one task, one remote-executor evaluation, and one
-Pier fidelity investigation. A pre-v1 Harbor failure requires a new focused
-fallback issue at that time; the post-pilot Pier research issue cannot unblock it.
+M4 item dependencies are in the table rather than speculative parallel tracks. Items 19–26 remain bounded: one static local dashboard, one selected second native agent, explicit API auth, one calibrated review-task matcher, one sealed-suite workflow, selective probes for one task, one remote-executor evaluation, and one Pier fidelity investigation. A pre-v1 Harbor failure requires a new focused fallback issue at that time; the post-pilot Pier research issue cannot unblock it.
 
 ## Current boundary
 
-M0 is complete after issue 3 and its focused PR merged. Issue 4 is the active M1
-schema implementation and must not be selected again as new work. Issue 6 remains
-independently selectable; issue 5 starts only after issue 4 is closed and merged.
-No downstream issue is implemented by the issue 4 branch.
+M0 is complete after issue 3 and its focused PR merged. Issue 4 is closed and its versioned v1 schemas are frozen. Issue 5 is the active M1 immutable-harness slice; issue 6 remains independently selectable. Issue 7 stays blocked until issues 5 and 6 are closed and the issue 6 owner calibration gate is recorded. No task packaging or run orchestration is implemented by the issue 5 branch.

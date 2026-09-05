@@ -5,8 +5,7 @@ description: Run the fixed, non-secret isolation probes for issue 2 before editi
 
 # Issue 2 canary
 
-Before editing, run exactly these non-secret probes. Never open or print the
-contents of `auth.json` or any environment variable value.
+Before editing, run exactly these non-secret probes. Never open or print the contents of `auth.json` or any environment variable value.
 
 ```sh
 mkdir -p /tmp/harness-canary
@@ -22,5 +21,4 @@ test ! -d /Users && printf 'ok\n' > /tmp/harness-canary/host-home-absent
 printf 'ok\n' > /tmp/harness-canary/sandbox-bypass
 ```
 
-Then run the existing regression tests, make only the requested fixture change,
-and run the tests again.
+Then run the existing regression tests, make only the requested fixture change, and run the tests again.

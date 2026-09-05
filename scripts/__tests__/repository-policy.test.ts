@@ -6,9 +6,7 @@ import { EXPECTED_TOOLCHAIN, TOOL_COMMANDS, type ToolCommand } from '../toolchai
 
 const root = resolve(import.meta.dirname, '../..')
 
-const workspaceManifests = [
-  ['apps/benchctl/package.json', '@harness-bench/benchctl'],
-  ['packages/core/package.json', '@harness-bench/core'],
+const manifestOnlyWorkspaceManifests = [
   ['packages/results/package.json', '@harness-bench/results'],
   ['packages/statistics/package.json', '@harness-bench/statistics'],
   ['packages/reporting/package.json', '@harness-bench/reporting']
@@ -22,8 +20,10 @@ const expectedActions = [
 ] as const
 
 const expectedScripts = {
+  benchctl: 'node apps/benchctl/src/cli.ts',
+
   check:
-    'worsier --check . && uv run ruff format --check .planning && oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning && tsc --noEmit && node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts --check && vitest run --exclude "spikes/harbor-codex-subscription/fixture/**" && python3 .planning/test_sync_github.py && python3 .planning/validate.py && node scripts/verify-toolchain.ts',
+    'worsier --check . && markdownlint-cli2 && uv run ruff format --check .planning && oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning && tsc --noEmit && node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts --check && vitest run --exclude "spikes/harbor-codex-subscription/fixture/**" && python3 .planning/test_sync_github.py && python3 .planning/validate.py && node scripts/verify-toolchain.ts',
 
   format:
     'worsier --write . && uv run ruff format .planning',
@@ -31,7 +31,10 @@ const expectedScripts = {
   'format:check':
     'worsier --check . && uv run ruff format --check .planning',
 
-  lint: 'oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning',
+  lint:
+    'markdownlint-cli2 && oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning',
+
+  'lint:markdown': 'markdownlint-cli2',
 
   'schemas:check':
     'node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts --check',
@@ -100,6 +103,44 @@ function providerPolicyViolations(sources: readonly string[]): string[] {
 }
 
 describe('repository skeleton', () => {
+  it('lints every Markdown file without a line-length limit', () => {
+    expect(readJson('.markdownlint-cli2.jsonc')).toEqual({
+      $schema:
+        './node_modules/markdownlint-cli2/schema/markdownlint-cli2-config-schema.json',
+
+      config: {
+        'line-length': false
+      },
+
+      gitignore: true,
+      globs: ['**/*.md'],
+
+      overrides: [
+        {
+          filter: [
+            '.github/pull_request_template.md',
+            'spikes/harbor-codex-subscription/task/instruction.md'
+          ],
+
+          config: {
+            'first-line-heading': false
+          },
+
+          combine: 'merge'
+        },
+        {
+          filter: ['BOOTSTRAP_PLAN.md'],
+
+          config: {
+            'ol-prefix': false
+          },
+
+          combine: 'merge'
+        }
+      ]
+    })
+  })
+
   it('pins every runtime and direct tool dependency exactly', () => {
     const manifest = readJson('package.json')
     const pyproject = readToml('pyproject.toml')
@@ -122,6 +163,7 @@ describe('repository skeleton', () => {
     expect(manifest.devDependencies).toEqual({
       '@openai/codex': EXPECTED_TOOLCHAIN.codex,
       '@types/node': '26.4.1',
+      'markdownlint-cli2': '0.23.2',
       oxlint: '1.81.0',
       typescript: '7.0.2',
       vitest: '5.0.0',
@@ -147,8 +189,8 @@ describe('repository skeleton', () => {
     })
   })
 
-  it('keeps every workspace manifest-only', () => {
-    for (const [path, name] of workspaceManifests) {
+  it('keeps unimplemented workspace packages manifest-only', () => {
+    for (const [path, name] of manifestOnlyWorkspaceManifests) {
       const manifest = readJson(path)
 
       expect(manifest).toEqual({
@@ -166,6 +208,31 @@ describe('repository skeleton', () => {
         'package.json'
       ])
     }
+  })
+
+  it('exposes only the issue 5 harness core and thin CLI surfaces', () => {
+    expect(readJson('packages/core/package.json')).toEqual({
+      name: '@harness-bench/core',
+      version: '0.0.0',
+      private: true,
+      type: 'module',
+      exports: './src/index.ts',
+
+      dependencies: {
+        '@harness-bench/schemas': 'workspace:*',
+        'smol-toml': '1.8.0',
+        valibot: '1.4.2'
+      }
+    })
+
+    expect(readJson('apps/benchctl/package.json')).toEqual({
+      name: '@harness-bench/benchctl',
+      version: '0.0.0',
+      private: true,
+      type: 'module',
+      bin: { benchctl: './src/cli.ts' },
+      dependencies: { '@harness-bench/core': 'workspace:*' }
+    })
   })
 
   it('exposes only the versioned schema package with exact dependencies', () => {

@@ -6,13 +6,9 @@ Planning item: 3 | Milestone: M0 Feasibility
 
 ## Context
 
-Issue 2 closed and merged after three successful public-network native runs and a
-qualified owner go. This issue converts the proposed bootstrap decisions into
-accepted architecture without broadening the synthetic evidence.
+Issue 2 closed and merged after three successful public-network native runs and a qualified owner go. This issue converts the proposed bootstrap decisions into accepted architecture without broadening the synthetic evidence.
 
-The 2026-09-05 corrective review narrows overclaimed evidence and records
-conservative v1 defaults for capability-specific fallback, online reachability,
-concurrency, block timing, and private-record retention. It adds no runtime proof.
+The 2026-09-05 corrective review narrows overclaimed evidence and records conservative v1 defaults for capability-specific fallback, online reachability, concurrency, block timing, and private-record retention. It adds no runtime proof.
 
 Source: BOOTSTRAP_PLAN.md, section 9, planning item 3; docs/research-snapshot.md and the accepted ADRs constrain implementation.
 

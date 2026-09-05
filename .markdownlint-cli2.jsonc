@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/markdownlint-cli2/schema/markdownlint-cli2-config-schema.json",
+  "config": {
+    "line-length": false
+  },
+  "gitignore": true,
+  "globs": ["**/*.md"],
+  "overrides": [
+    {
+      "filter": [
+        ".github/pull_request_template.md",
+        "spikes/harbor-codex-subscription/task/instruction.md"
+      ],
+      "config": {
+        "first-line-heading": false
+      },
+      "combine": "merge"
+    },
+    {
+      "filter": ["BOOTSTRAP_PLAN.md"],
+      "config": {
+        "ol-prefix": false
+      },
+      "combine": "merge"
+    }
+  ]
+}

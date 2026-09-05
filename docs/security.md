@@ -2,13 +2,7 @@
 
 ## Status and assets
 
-This threat model was accepted on 2026-09-05 from the issue 2 evidence and issue 3
-review. Assets include subscription credentials, private source code, local host
-data, hidden tests/reference solutions, immutable experiment inputs, and
-trustworthy results. Task text, repository files, agent commands, patches, and
-emitted logs are untrusted. The local owner, pinned runner/collector, and verifier
-image are trusted components whose exact revisions must be recorded. Acceptance
-includes the residual risks below; it is not a claim of egress containment.
+This threat model was accepted on 2026-09-05 from the issue 2 evidence and issue 3 review. Assets include subscription credentials, private source code, local host data, hidden tests/reference solutions, immutable experiment inputs, and trustworthy results. Task text, repository files, agent commands, patches, and emitted logs are untrusted. The local owner, pinned runner/collector, and verifier image are trusted components whose exact revisions must be recorded. Acceptance includes the residual risks below; it is not a claim of egress containment.
 
 ## Threats and required controls
 
@@ -27,118 +21,60 @@ includes the residual risks below; it is not a claim of egress containment.
 
 ## Credential lifecycle
 
-Use a dedicated directory outside the repository, such as
-`~/.agent-stack-bench/credentials/codex/`. The accepted flow uses file storage
-and passes the absolute `auth.json` path explicitly. Never inspect or copy the
-owner's ambient Codex credential store.
+Use a dedicated directory outside the repository, such as `~/.agent-stack-bench/credentials/codex/`. The accepted flow uses file storage and passes the absolute `auth.json` path explicitly. Never inspect or copy the owner's ambient Codex credential store.
 
-File-based `auth.json` contains plaintext access tokens and is password-equivalent.
-Do not commit it or attach it to issues, tickets, chat, logs, or artifacts. Do not
-put its directory under uncontrolled cloud sync, backup, shared folders, or another
-copying mechanism. Grant access only to the owner and the explicit local run that
-needs it.
+File-based `auth.json` contains plaintext access tokens and is password-equivalent. Do not commit it or attach it to issues, tickets, chat, logs, or artifacts. Do not put its directory under uncontrolled cloud sync, backup, shared folders, or another copying mechanism. Grant access only to the owner and the explicit local run that needs it.
 
-Official Codex supports file or keyring storage and token refresh. The pinned
-Harbor path used a specified `auth.json` in temporary state and cleanup succeeded
-in all three public runs. No token expired, so the evidence does not prove refresh,
-read-only refresh compatibility, or persistence across runs. On authentication or
-refresh failure, retain safe diagnostics, stop, and require owner login; never
-silently fall back to ambient credentials or API auth.
-[Codex authentication](https://learn.chatgpt.com/docs/auth) and
-[Harbor adapter](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/src/harbor/agents/installed/codex.py).
+Official Codex supports file or keyring storage and token refresh. The pinned Harbor path used a specified `auth.json` in temporary state and cleanup succeeded in all three public runs. No token expired, so the evidence does not prove refresh, read-only refresh compatibility, or persistence across runs. On authentication or refresh failure, retain safe diagnostics, stop, and require owner login; never silently fall back to ambient credentials or API auth. [Codex authentication](https://learn.chatgpt.com/docs/auth) and [Harbor adapter](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/src/harbor/agents/installed/codex.py).
 
-Credentials must never be committed, bundled, logged, persisted in run artifacts,
-or exposed to the verifier. Read-only access may be introduced only after compatible
-refresh behavior is proved. Any future controlled update of the dedicated store
-stays outside artifacts. No blanket mount of a user home is allowed.
+Credentials must never be committed, bundled, logged, persisted in run artifacts, or exposed to the verifier. Read-only access may be introduced only after compatible refresh behavior is proved. Any future controlled update of the dedicated store stays outside artifacts. No blanket mount of a user home is allowed.
 
 ## Network and host exposure
 
-Harbor's Codex adapter bypasses the CLI's internal sandbox. Treat Docker and Harbor
-policy as the operative boundary and record this difference from the daily stack.
-An unchanged `CODEX_HOME` alone does not isolate project/system config, ambient
-environment variables, or `$HOME/.agents/skills`; inspect effective configuration.
+Harbor's Codex adapter bypasses the CLI's internal sandbox. Treat Docker and Harbor policy as the operative boundary and record this difference from the daily stack. An unchanged `CODEX_HOME` alone does not isolate project/system config, ambient environment variables, or `$HOME/.agents/skills`; inspect effective configuration.
 
-The owner selected unrestricted agent internet on 2026-09-05 to match normal
-development conditions. Agent setup and execution use Harbor `public` networking,
-without a hostname allowlist, direct-IP/gateway blocks, packet observer, or TLS
-proxy. Docker filesystem isolation does not prevent network access to host services
-or exfiltration of files the agent can read, including its temporary native-client
-credentials. This is an explicit residual risk; do not claim egress containment or
-import private tasks before the later owner gate.
+The owner selected unrestricted agent internet on 2026-09-05 to match normal development conditions. Agent setup and execution use Harbor `public` networking, without a hostname allowlist, direct-IP/gateway blocks, packet observer, or TLS proxy. Docker filesystem isolation does not prevent network access to host services or exfiltration of files the agent can read, including its temporary native-client credentials. This is an explicit residual risk; do not claim egress containment or import private tasks before the later owner gate.
 
-The same network also defeats any claim that publicly reachable material is hidden.
-Before a task can support hidden-check or future-history claims, record that its
-exact grading material, later solution, and identifiable source history are not
-available from public repositories, mirrors, package registries, caches, container
-registries, or other reachable locations. If that cannot be established, retain the
-task only as a plumbing/smoke fixture and exclude it from secrecy-dependent quality
-comparisons.
+The same network also defeats any claim that publicly reachable material is hidden. Before a task can support hidden-check or future-history claims, record that its exact grading material, later solution, and identifiable source history are not available from public repositories, mirrors, package registries, caches, container registries, or other reachable locations. If that cannot be established, retain the task only as a plumbing/smoke fixture and exclude it from secrecy-dependent quality comparisons.
 
-The trusted collector and fresh verifier use Docker `network_mode: none`. Prebuild
-the verifier's dependencies; hidden tests and credentials never enter the agent's
-workspace together. Validate public HTTPS from the agent and loopback-only verifier
-networking through the actual Harbor lifecycle on Docker Desktop's LinuxKit VM.
-This is a revised product requirement, not a retroactive green result for the
-failed restricted-network protocol. Evidence applies only to the tested macOS
-Apple Silicon/Linux-arm64 target, not Intel Mac, WSL2, or arbitrary Docker hosts.
+The trusted collector and fresh verifier use Docker `network_mode: none`. Prebuild the verifier's dependencies; hidden tests and credentials never enter the agent's workspace together. Validate public HTTPS from the agent and loopback-only verifier networking through the actual Harbor lifecycle on Docker Desktop's LinuxKit VM. This is a revised product requirement, not a retroactive green result for the failed restricted-network protocol. Evidence applies only to the tested macOS Apple Silicon/Linux-arm64 target, not Intel Mac, WSL2, or arbitrary Docker hosts.
 
-The default policy is `HARBOR_TELEMETRY=off` for every local benchmark command.
-An owner-approved experiment opt-in is explicit metadata, not inherited ambient
-state. Source code sent to the model is an intentional disclosure to the provider;
-local containers do not make provider processing local.
+The default policy is `HARBOR_TELEMETRY=off` for every local benchmark command. An owner-approved experiment opt-in is explicit metadata, not inherited ambient state. Source code sent to the model is an intentional disclosure to the provider; local containers do not make provider processing local.
 
 ## Capture, retention, and publication
 
-Collect only declared patch/artifact paths and necessary execution evidence.
-Credential directories are never collection roots. Raw output first enters a
-mode-0700 restricted staging root. Secret checks run over that complete staged
-record before hashing and read-only finalization. A suspected credential leaves the
-record quarantined and blocks durable finalization or publication while preserving
-safe diagnostic metadata. The issue 2 positive and negative controls demonstrated
-this boundary, including logs generated before normalization.
+Collect only declared patch/artifact paths and necessary execution evidence. Credential directories are never collection roots. Raw output first enters a mode-0700 restricted staging root. Secret checks run over that complete staged record before hashing and read-only finalization. A suspected credential leaves the record quarantined and blocks durable finalization or publication while preserving safe diagnostic metadata. The issue 2 positive and negative controls demonstrated this boundary, including logs generated before normalization.
 
-On any positive credential finding, immediately restrict access to the staged
-record, identify the affected credential without copying its secret bytes into a
-report, notify the owner, and rotate or revoke it. Then either delete the staged
-content under the declared disposal policy or retain it only in explicitly approved
-incident storage. In both cases keep an immutable redacted tombstone linked to the
-run intent, with identifiers, hashes, timestamps, response status, and reason but
-no source or secret bytes.
+On any positive credential finding, immediately restrict access to the staged record, identify the affected credential without copying its secret bytes into a report, notify the owner, and rotate or revoke it. Then either delete the staged content under the declared disposal policy or retain it only in explicitly approved incident storage. In both cases keep an immutable redacted tombstone linked to the run intent, with identifiers, hashes, timestamps, response status, and reason but no source or secret bytes.
 
-A passing scan is not proof that every secret is absent. It cannot prevent an
-agent from transmitting readable data during execution and does not authorize
-public release.
+A passing scan is not proof that every secret is absent. It cannot prevent an agent from transmitting readable data during execution and does not authorize public release.
 
-Finalized raw source/trajectory records stay immutable while retained in a
-restricted local root. Immutability forbids in-place rewriting; it does not require
-indefinite retention. Every private task/run declares a retention deadline before
-execution. The default is 90 days. At expiry or on an owner deletion request,
-remove the private content from managed task/run storage and controlled backups
-according to their declared lifecycle. Leave only an immutable redacted
-intent-linked tombstone containing identifiers, non-secret hashes/provenance,
-deletion time, and reason. The tombstone contains no source, trajectory, prompt, or
-secret bytes.
+Finalized raw source/trajectory records stay immutable while retained in a restricted local root. Immutability forbids in-place rewriting; it does not require indefinite retention. Every private task/run declares a retention deadline before execution. The default is 90 days. At expiry or on an owner deletion request, remove the private content from managed task/run storage and controlled backups according to their declared lifecycle. Leave only an immutable redacted intent-linked tombstone containing identifiers, non-secret hashes/provenance, deletion time, and reason. The tombstone contains no source, trajectory, prompt, or secret bytes.
 
-Private source is allowed only in owner-authorized local task/run storage, never in
-this public planning repository. Sanitization produces a separate export with
-source digests and a redaction report. Passing automation does not authorize public
-publication of private code. No automatic upload is part of v1.
+Private source is allowed only in owner-authorized local task/run storage, never in this public planning repository. Sanitization produces a separate export with source digests and a redaction report. Passing automation does not authorize public publication of private code. No automatic upload is part of v1.
 
-If a secret is discovered after retention, stop use/publication, restrict access,
-notify the owner for credential rotation or revocation, and follow the same
-deletion-or-incident-retention procedure. Do not silently rewrite the original as
-if it had always been clean.
+If a secret is discovered after retention, stop use/publication, restrict access, notify the owner for credential rotation or revocation, and follow the same deletion-or-incident-retention procedure. Do not silently rewrite the original as if it had always been clean.
+
+## Harness capture boundary
+
+An immutable harness capture accepts only the dedicated source layout documented in [operations](operations.md#immutable-harness-bundles). It never scans or copies an ambient home. Required `config.toml` and `mcp-tools.json`, optional global instructions, complete declared skill directories, and flat Codex rule files are the only supported inputs. Project instructions and project config belong to a future immutable task snapshot instead.
+
+Capture rejects rather than skips:
+
+- unknown top-level inputs, missing skill entrypoints, VCS/cache directories, non-regular files, path traversal, non-NFC or case-fold-colliding names;
+- every symlink, including a link whose current target remains inside the source;
+- `auth.json`, session/history/cache paths, environment and credential files, private-key filenames, and detected private-key/provider-token/header or credential-assignment content;
+- plugin marketplace state, embedded MCP tables, credential-bearing config, and config references to files outside the canonical source contract;
+- MCP auth/env/header fields, credential-like arguments, and URLs containing userinfo, query parameters, or fragments.
+
+Errors identify a safe path and rule category but do not echo matched values. Raw subprocess diagnostics are retained only as an error cause for trusted callers; the CLI prints the safe error code and message. The scanner deliberately uses conservative known patterns. Passing it is not proof that arbitrary binary or previously unknown secret formats are absent, and it cannot prevent exfiltration during a later public-network agent run. A suspected credential blocks bundle finalization and follows the incident procedure above.
+
+Capture reads regular files without following symlinks, compares two complete source snapshots around config validation, stages under the target store, verifies the staged manifest and inventory, applies read-only modes, and atomically renames the result to its digest address. Recapturing an existing address validates and returns it; a corrupt or conflicting address is never repaired or overwritten. Read-only modes and hashes detect accidental or later observed mutation but do not defend against a malicious local owner with permission to change them.
+
+Materialization revalidates all bundle bytes before creating a new destination. The destination has a fresh Codex home, user skill home, and empty workspace, with no authentication, history, session, or cache files. Issue 7 must inject the separate owner-controlled authentication path through Harbor without weakening this boundary.
 
 ## Feasibility security gate
 
-Issue 2 satisfied the gate with base-fails/reference-passes controls, three retained
-public agent runs, offline verifier probes, credential and hidden-file visibility
-checks, independent complete collection, and the explicit residual risks above.
-Its restricted-network failure remains a separate invalid grade.
+Issue 2 satisfied the gate with base-fails/reference-passes controls, three retained public agent runs, offline verifier probes, credential and hidden-file visibility checks, independent complete collection, and the explicit residual risks above. Its restricted-network failure remains a separate invalid grade.
 
-Later revisions must reproduce their applicable controls. A stop or artifact
-collection warning is not acceptable integrity evidence. Loss of trustworthy
-collection or separate offline verification stops the main path; no fallback may
-depend on the lost property. Loss of required native behavior may use a focused
-adapter issue and ADR only while those trust boundaries remain intact.
+Later revisions must reproduce their applicable controls. A stop or artifact collection warning is not acceptable integrity evidence. Loss of trustworthy collection or separate offline verification stops the main path; no fallback may depend on the lost property. Loss of required native behavior may use a focused adapter issue and ADR only while those trust boundaries remain intact.
