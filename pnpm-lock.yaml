@@ -35,6 +35,9 @@ importers:
       '@harness-bench/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@harness-bench/results':
+        specifier: workspace:*
+        version: link:../../packages/results
 
   packages/core:
     dependencies:
@@ -53,7 +56,17 @@ importers:
 
   packages/reporting: {}
 
-  packages/results: {}
+  packages/results:
+    dependencies:
+      '@harness-bench/core':
+        specifier: workspace:*
+        version: link:../core
+      '@harness-bench/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      valibot:
+        specifier: 1.4.2
+        version: 1.4.2(typescript@7.0.2)
 
   packages/schemas:
     dependencies:

@@ -1,0 +1,17 @@
+{
+  "job_name": "job",
+  "n_attempts": 1,
+  "n_concurrent_trials": 1,
+  "retry": {
+    "max_retries": 0
+  },
+  "agents": [
+    {
+      "name": "codex",
+      "n_concurrent": 1,
+      "kwargs": {
+        "version": "0.153.2"
+      }
+    }
+  ]
+}

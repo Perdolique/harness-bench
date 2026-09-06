@@ -1,0 +1,5 @@
+{
+  "auth_transport": "inherited-fd-3",
+  "harbor_telemetry": "off",
+  "shell": false
+}

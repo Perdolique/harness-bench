@@ -1,0 +1,16 @@
+[
+  {
+    "source": "/logs/artifacts",
+    "destination": "artifacts/logs/artifacts",
+    "type": "directory",
+    "status": "empty",
+    "service": null
+  },
+  {
+    "source": "/evidence",
+    "destination": "artifacts/trusted-collector",
+    "type": "directory",
+    "status": "ok",
+    "service": "collector"
+  }
+]

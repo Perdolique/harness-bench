@@ -8,6 +8,7 @@ import { captureHarnessBundle } from '../packages/core/src/harness.ts'
 import { executeRunPlanWithRuntime, runHarborProcess, type RunRuntime } from '../packages/core/src/run-execution.ts'
 import { resolveRunPlan } from '../packages/core/src/run.ts'
 import { inspectTaskSource, materializeTaskWorkspace } from '../packages/core/src/task.ts'
+import { normalizeRun } from '../packages/results/src/normalize.ts'
 
 const repositoryRoot = resolve(import.meta.dirname, '..')
 const fixtureRoot = resolve(repositoryRoot, 'tests/fixtures/run-integration')
@@ -854,6 +855,35 @@ async function main(): Promise<void> {
       !materializedCompose.includes(imageIds.collector)
     ) {
       throw new Error('Integration runner controls drifted')
+    }
+
+    if (mode === 'success') {
+      const normalized = await normalizeRun(result.run_directory)
+
+      if (normalized.kind !== 'normalized') {
+        throw new Error('Integration result was unexpectedly restricted')
+      }
+
+      const hasCompleteEvidence =
+        normalized.record.evidence_availability.native_rollout === 'available' &&
+        normalized.record.evidence_availability.atif_trajectory === 'available' &&
+        normalized.record.evidence_availability.merged_agent_output === 'available'
+
+      if (!hasCompleteEvidence) {
+        throw new Error('Integration normalized evidence availability drifted')
+      }
+
+      const hasKnownZeroUsage =
+        normalized.record.usage.input_tokens.status === 'known' &&
+        normalized.record.usage.input_tokens.value === 0 &&
+        normalized.record.usage.output_tokens.status === 'known' &&
+        normalized.record.usage.output_tokens.value === 0
+
+      if (!hasKnownZeroUsage) {
+        throw new Error('Integration normalized usage drifted')
+      }
+
+      console.log(`normalized: ${normalized.digest}`)
     }
 
     console.log(`${mode}: ${result.classification}`)

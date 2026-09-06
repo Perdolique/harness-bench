@@ -16,12 +16,26 @@ import {
   type HarnessBundleDiff
 } from '@harness-bench/core'
 
+import {
+  disposeRun,
+  exportSanitizedResult,
+  isResultError,
+  normalizeRun,
+  type CredentialAction,
+  type DisposeDisposition,
+  type DisposeReason,
+  type DisposeRunOptions
+} from '@harness-bench/results'
+
 const USAGE = `Usage:
   benchctl run --experiment FILE --run-id ID --stack FILE --harness-document FILE --suite FILE --task FILE --task-source DIR --task-package DIR --harness-bundle DIR --runs-dir ABSOLUTE_DIR [--dry-run]
   benchctl harness capture --source DIR --store DIR --id ID --revision REV
   benchctl harness validate BUNDLE
   benchctl harness materialize BUNDLE --destination DIR
   benchctl harness diff LEFT RIGHT
+  benchctl results normalize RUN_DIR
+  benchctl results export NORMALIZED_RECORD
+  benchctl results dispose RUN_DIR --confirm-run-id ID --reason retention-expired|owner-request|credential-detected --disposition delete|incident-retain [--credential-action rotated|revoked] [--incident-expires-at ISO_TIMESTAMP]
 `
 
 class CliUsageError extends Error {}
@@ -353,6 +367,241 @@ async function run(arguments_: readonly string[], io: CliIo): Promise<number> {
   return runExitCode(result.classification)
 }
 
+async function normalizeResult(
+  arguments_: readonly string[],
+  io: CliIo
+): Promise<number> {
+  const parsed = parseArgs({
+    args: [...arguments_],
+    allowPositionals: true,
+    strict: true
+  })
+
+  if (parsed.positionals.length !== 1 || parsed.positionals[0] === undefined) {
+    throw new CliUsageError('results normalize requires exactly one RUN_DIR')
+  }
+
+  const result = await normalizeRun(parsed.positionals[0])
+
+  const runId = result.kind === 'normalized'
+    ? result.record.identities.run.run_id
+    : result.record.identity.run_id
+
+  writeJson(io, {
+    status: result.kind,
+    run_id: runId,
+    digest: result.digest,
+    record_path: result.recordPath,
+
+    ...(result.kind === 'restricted'
+      ? {
+          publication: 'blocked',
+
+          owner_actions: {
+            rotation_or_revocation: 'pending',
+            disposition: 'pending'
+          }
+        }
+      : {})
+  })
+
+  return result.kind === 'normalized' ? 0 : 2
+}
+
+async function exportResult(
+  arguments_: readonly string[],
+  io: CliIo
+): Promise<number> {
+  const parsed = parseArgs({
+    args: [...arguments_],
+    allowPositionals: true,
+    strict: true
+  })
+
+  if (parsed.positionals.length !== 1 || parsed.positionals[0] === undefined) {
+    throw new CliUsageError(
+      'results export requires exactly one NORMALIZED_RECORD'
+    )
+  }
+
+  const result = await exportSanitizedResult(parsed.positionals[0])
+
+  writeJson(io, {
+    status: 'exported',
+    digest: result.digest,
+    record_path: result.recordPath,
+    publication_authorized: false
+  })
+
+  return 0
+}
+
+function disposeReason(value: string): DisposeReason {
+  if (
+    value === 'retention-expired' ||
+    value === 'owner-request' ||
+    value === 'credential-detected'
+  ) {
+    return value
+  }
+
+  throw new CliUsageError('Invalid --reason value')
+}
+
+function disposeDisposition(value: string): DisposeDisposition {
+  if (value === 'delete' || value === 'incident-retain') {
+    return value
+  }
+
+  throw new CliUsageError('Invalid --disposition value')
+}
+
+function credentialAction(
+  value: string | undefined
+): CredentialAction | undefined {
+  if (value === undefined || value === 'rotated' || value === 'revoked') {
+    return value
+  }
+
+  throw new CliUsageError('Invalid --credential-action value')
+}
+
+function validateDisposeCliOptions(
+  reason: DisposeReason,
+  disposition: DisposeDisposition,
+  selectedCredentialAction: CredentialAction | undefined,
+  incidentExpiresAt: string | undefined
+): void {
+  const credentialDisposition = reason === 'credential-detected'
+  const incidentRetention = disposition === 'incident-retain'
+
+  if (credentialDisposition && selectedCredentialAction === undefined) {
+    throw new CliUsageError(
+      'credential-detected requires --credential-action rotated|revoked'
+    )
+  }
+
+  if (!credentialDisposition && selectedCredentialAction !== undefined) {
+    throw new CliUsageError(
+      '--credential-action is only valid with --reason credential-detected'
+    )
+  }
+
+  if (incidentRetention && !credentialDisposition) {
+    throw new CliUsageError(
+      'incident-retain is only valid with --reason credential-detected'
+    )
+  }
+
+  if (incidentRetention && incidentExpiresAt === undefined) {
+    throw new CliUsageError(
+      'incident-retain requires --incident-expires-at ISO_TIMESTAMP'
+    )
+  }
+
+  if (!incidentRetention && incidentExpiresAt !== undefined) {
+    throw new CliUsageError(
+      '--incident-expires-at is only valid with --disposition incident-retain'
+    )
+  }
+}
+
+async function disposeResult(
+  arguments_: readonly string[],
+  io: CliIo
+): Promise<number> {
+  const parsed = parseArgs({
+    args: [...arguments_],
+    allowPositionals: true,
+
+    options: {
+      'confirm-run-id': { type: 'string' },
+      'credential-action': { type: 'string' },
+      disposition: { type: 'string' },
+      'incident-expires-at': { type: 'string' },
+      reason: { type: 'string' }
+    },
+
+    strict: true
+  })
+
+  if (parsed.positionals.length !== 1 || parsed.positionals[0] === undefined) {
+    throw new CliUsageError('results dispose requires exactly one RUN_DIR')
+  }
+
+  const selectedCredentialAction = credentialAction(
+    parsed.values['credential-action']
+  )
+
+  const selectedReason = disposeReason(
+    requiredOption(parsed.values.reason, 'reason')
+  )
+
+  const selectedDisposition = disposeDisposition(
+    requiredOption(parsed.values.disposition, 'disposition')
+  )
+
+  const incidentExpiresAt = parsed.values['incident-expires-at']
+
+  validateDisposeCliOptions(
+    selectedReason,
+    selectedDisposition,
+    selectedCredentialAction,
+    incidentExpiresAt
+  )
+
+  const confirmRunId = requiredOption(
+    parsed.values['confirm-run-id'],
+    'confirm-run-id'
+  )
+
+  let disposeOptions: DisposeRunOptions
+
+  if (selectedCredentialAction !== undefined && incidentExpiresAt !== undefined) {
+    disposeOptions = {
+      confirmRunId,
+      credentialAction: selectedCredentialAction,
+      disposition: selectedDisposition,
+      incidentExpiresAt,
+      reason: selectedReason
+    }
+  } else if (selectedCredentialAction !== undefined) {
+    disposeOptions = {
+      confirmRunId,
+      credentialAction: selectedCredentialAction,
+      disposition: selectedDisposition,
+      reason: selectedReason
+    }
+  } else if (incidentExpiresAt !== undefined) {
+    disposeOptions = {
+      confirmRunId,
+      disposition: selectedDisposition,
+      incidentExpiresAt,
+      reason: selectedReason
+    }
+  } else {
+    disposeOptions = {
+      confirmRunId,
+      disposition: selectedDisposition,
+      reason: selectedReason
+    }
+  }
+
+  const result = await disposeRun(parsed.positionals[0], disposeOptions)
+
+  writeJson(io, {
+    status: result.record.disposition === 'delete'
+      ? 'deleted'
+      : 'incident-retained',
+
+    run_id: result.record.identity.run_id,
+    digest: result.digest,
+    record_path: result.recordPath
+  })
+
+  return 0
+}
+
 async function dispatch(arguments_: readonly string[], io: CliIo): Promise<number> {
   const normalizedArguments =
     arguments_[0] === '--' ? arguments_.slice(1) : arguments_
@@ -372,8 +621,24 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
     return run(normalizedArguments.slice(1), io)
   }
 
+  if (group === 'results') {
+    if (command === 'normalize') {
+      return normalizeResult(rest, io)
+    }
+
+    if (command === 'export') {
+      return exportResult(rest, io)
+    }
+
+    if (command === 'dispose') {
+      return disposeResult(rest, io)
+    }
+
+    throw new CliUsageError('Expected normalize, export, or dispose')
+  }
+
   if (group !== 'harness') {
-    throw new CliUsageError('Expected the harness command group')
+    throw new CliUsageError('Expected run, harness, or results command group')
   }
 
   if (command === 'capture') {
@@ -415,6 +680,8 @@ export async function runCli(
     return await dispatch(arguments_, io)
   } catch (error) {
     if (isRunError(error)) {
+      io.stderr(`${error.code}: ${error.message}\n`)
+    } else if (isResultError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)
     } else if (isHarnessError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)

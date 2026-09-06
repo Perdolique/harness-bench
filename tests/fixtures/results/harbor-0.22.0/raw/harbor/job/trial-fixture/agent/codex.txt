@@ -1,0 +1,1 @@
+fixture stdout and stderr are irreversibly merged here

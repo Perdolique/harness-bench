@@ -20,11 +20,23 @@ export {
 } from './run-errors.ts'
 export {
   resolveRunPlan,
+  runDispositionReservationPath,
   type ResolvedRunPlan,
   type ResolveRunPlanOptions,
   type RunExecutionResult
 } from './run.ts'
 export { executeRunPlan } from './run-execution.ts'
+export {
+  CREDENTIAL_PATTERN_CATEGORIES,
+  CREDENTIAL_PATTERN_SCANNER_REVISION,
+  scanCredentialBytes,
+  scanCredentialTree,
+  type CredentialPatternCategory,
+  type CredentialPatternFinding,
+  type CredentialTreeScanResult,
+  type ScanCredentialBytesOptions,
+  type ScanCredentialTreeOptions
+} from './secret-scan.ts'
 export {
   inspectMaterializedTaskWorkspace,
   inspectTaskSource,
