@@ -17,6 +17,7 @@
     "lint:markdown": "markdownlint-cli2",
     "schemas:check": "node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts --check",
     "schemas:generate": "node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts",
+    "run:integration:check": "node --experimental-strip-types scripts/run-integration-check.ts",
     "spike:issue-2": "node --experimental-strip-types spikes/harbor-codex-subscription/run.ts",
     "spike:issue-2:check": "vitest run spikes/harbor-codex-subscription/__tests__ && node --experimental-strip-types spikes/harbor-codex-subscription/check.ts",
     "task:canonical:check": "node --experimental-strip-types scripts/canonical-task-check.ts",

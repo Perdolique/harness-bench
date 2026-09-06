@@ -113,6 +113,47 @@ The first command validates local documents and the issue graph without network 
 
 Canonical task materialization creates an agent-visible local Git repository with one deterministic base commit. It does not copy the source object database, refs, remotes, hooks, credentials, alternates, or future history and retains only objects reachable from the new commit. The trusted collector snapshots the stopped workspace twice, ignores agent-controlled Git metadata, and emits exactly `workspace.patch` and `workspace-metadata.json`. Replay checks the exact inventory, hashes, source identity, base commit, safe paths, regular-file types, and final tree before grading. The completed issue 2 spike remains Git-free; issue 14 owns the later private-import path.
 
+## One-run orchestration
+
+Issue 7 adds one deliberately narrow execution command. It consumes a frozen experiment assignment; it does not generate a matrix, schedule another run, resume an existing directory, or retry a failure:
+
+```sh
+vp run benchctl -- run \
+  --experiment /absolute/experiment.json \
+  --run-id assigned-run-id \
+  --stack /absolute/stack-a.json \
+  --stack /absolute/stack-b.json \
+  --harness-document /absolute/harness-a.json \
+  --harness-document /absolute/harness-b.json \
+  --suite /absolute/suite.json \
+  --task /absolute/task-a.json \
+  --task-source /absolute/task-source \
+  --task-package /absolute/harbor-task \
+  --harness-bundle /absolute/harness-store/<selected-digest> \
+  --runs-dir /absolute/local-runs \
+  --dry-run
+```
+
+Repeat `--stack` for every experiment arm, `--harness-document` for every arm harness, and `--task` for every suite task. The resolver applies all v1 schemas and cross-document relationships, then requires exactly one unselected assignment in an `in_progress` block and checks the immutable bundle and source bytes, ready task package, exact runner projection, telemetry, concurrency, retries, resources, and pins. Budget values come only from the experiment and stacks. A known token or turn cap is rejected because the pinned subscription path cannot enforce one. Dry-run prints the safe immutable resolved plan and stops without reading authentication, creating the run directory, or starting Harbor, Docker, or Codex.
+
+A real local execution uses the same command without `--dry-run` and requires an external mode-`0600` regular file selected only through `CODEX_AUTH_JSON_PATH`. The credential must be outside the repository, run storage, documents, harness, task source, and task package; hard links to any input are rejected. The selected path and bytes are absent from arguments, configs, standard output, and records. The runner validates and retains one read-only descriptor, gives Harbor that descriptor as `/dev/fd/3`, and never reopens the pathname. It also supplies a fresh run-local `HOME`, a strict environment allowlist, and no ambient Codex home, API key, or fallback credential. Authentication failure is a provider failure and stops the assigned attempt; issue 10 owns any later retry or resume policy.
+
+The command requires a clean benchmark checkout, a supported macOS Apple Silicon/Docker Desktop host, and locally resolved Linux/arm64 image IDs matching the TaskDocument. It creates `<runs-dir>/<run-id>` exactly once at mode `0700`; an existing ID is never resumed or overwritten. It copies and rehashes only identified input bytes, materializes the selected harness, compiles `AGENTS.override.md` (or `AGENTS.md` when no override exists) after any existing `developer_instructions`, and repeats the pinned Codex doctor and strict-config checks. A separate derived task package replaces mutable image references with the verified immutable image IDs while the copied input package remains unchanged. Task Compose files are parsed structurally and restricted to the exact main/collector/verifier service and named-volume contract; bind mounts, Docker sockets, extra sidecars, build/image overrides, resource overrides, privilege controls, host namespaces, and interpolation are rejected. Policy files under `rules/*.rules` are rejected because Harbor's Codex adapter uses bypass mode and cannot enforce those policies faithfully. The run-local Harbor job uses one task, one attempt, one concurrent trial and agent, zero retries, telemetry off, enforced CPU/RAM overrides, native config/skill/MCP inputs, and Harbor-owned Docker lifecycle.
+
+`initial.json` is atomically written read-only before Harbor starts. Harbor stdout, stderr, job tree, native trajectory, collected artifacts, and verifier files remain under restricted raw evidence. A valid grade requires ordered main-service stop and collector completion evidence, the exact successful Harbor artifact manifest, declared artifact hashes, successful host replay, and a separate credential-free verifier with networking disabled. Every score evidence item must bind to exactly one verifier check with the same facet, outcome, and digest; gates and scope violations must match that evidence. `completion.json` is a second immutable record; the initial record is never extended. Before host replay and grading, and again before completion, the raw tree is checked for the selected credential, credential leaves, and known credential patterns, listed in a canonical manifest, and made read-only. A secret finding moves the raw tree to `quarantine/raw`; a symlink or special entry moves the untouched tree to `quarantine/invalid-raw` and manifests only safe terminal diagnostics. Both cases produce an ungraded runner failure without printing secret bytes. General publication, redaction, expiry, and tombstone workflows remain issue 8.
+
+Harbor `0.22.0` does not provide a host-controlled pause between its collector hook and built-in separate verifier. Consequently, the host scan cannot prove it ran before Harbor exposed collected bytes to that verifier. Issue 7 instead requires the offline verifier's own credential-absence evidence and performs the host scan immediately after Harbor returns, before host replay or grading. This limitation must remain explicit until a later Harbor/adapter revision re-proves a stronger ordering boundary.
+
+Exit `0` means dry-run or `task_success`; exit `1` means a valid graded `task_failure`; exit `2` means usage/input rejection or an ungraded agent, provider, runner, verifier, infrastructure, or cancellation outcome. Never reuse an existing run ID. Recovery starts from the unchanged frozen assignment with a new policy-authorized attempt in issue 10; it does not delete, overwrite, or continue the failed directory.
+
+The ordinary check uses fake process, clock, and host adapters and never needs Docker. The separate supported-host integration uses real Harbor `0.22.0`, locally built deterministic fake Codex `0.153.2`, a public fixture, and no provider:
+
+```sh
+vp run run:integration:check
+```
+
+It covers successful collection and offline verification, controlled agent failure, cancellation, concurrency one, one attempt, zero retries, telemetry off, immutable image-ID materialization, and `provider_calls: 0`. The last value comes from a host-side provider canary that counts every request to the fake agent's configured API base; it is not an agent self-report. Disposable raw records remain under the printed `/tmp/harness-bench-issue-7-integration-*` path.
+
 ## Canonical task calibration
 
 The ordinary aggregate check covers source materialization, artifact validation and replay, task contracts, and all formatted negative-control mutators without Docker or provider calls:

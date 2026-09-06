@@ -12,6 +12,20 @@ export {
   type HarnessErrorOptions
 } from './errors.ts'
 export {
+  RUN_ERROR_CODES,
+  RunError,
+  isRunError,
+  type RunErrorCode,
+  type RunErrorOptions
+} from './run-errors.ts'
+export {
+  resolveRunPlan,
+  type ResolvedRunPlan,
+  type ResolveRunPlanOptions,
+  type RunExecutionResult
+} from './run.ts'
+export { executeRunPlan } from './run-execution.ts'
+export {
   inspectMaterializedTaskWorkspace,
   inspectTaskSource,
   materializeTaskWorkspace

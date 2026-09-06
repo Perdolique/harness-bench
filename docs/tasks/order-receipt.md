@@ -2,7 +2,7 @@
 
 ## Owner decision requested
 
-Review whether the short prompt is realistic, each latent requirement is fairly inferable from the pristine repository, both accepted implementation shapes are legitimate, and the scope rules do not reward resemblance to either solution. Issue 7 remains blocked until this issue 6 gate is recorded.
+The owner accepted the realism and fairness review in [PR #34](https://github.com/Perdolique/harness-bench/pull/34): the short prompt is realistic, each latent requirement is fairly inferable from the pristine repository, both implementation shapes are legitimate, and the scope rules do not reward resemblance to either solution. This records the issue 6 gate required by issue 7.
 
 ## Frozen task
 

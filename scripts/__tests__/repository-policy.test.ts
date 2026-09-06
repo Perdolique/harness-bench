@@ -48,6 +48,9 @@ const expectedScripts = {
   'spike:issue-2:check':
     'vitest run spikes/harbor-codex-subscription/__tests__ && node --experimental-strip-types spikes/harbor-codex-subscription/check.ts',
 
+  'run:integration:check':
+    'node --experimental-strip-types scripts/run-integration-check.ts',
+
   'task:canonical:check':
     'node --experimental-strip-types scripts/canonical-task-check.ts',
 
@@ -216,7 +219,7 @@ describe('repository skeleton', () => {
     }
   })
 
-  it('exposes only the issue 5 harness core and thin CLI surfaces', () => {
+  it('exposes the issue 7 core dependencies and thin CLI surface', () => {
     expect(readJson('packages/core/package.json')).toEqual({
       name: '@harness-bench/core',
       version: '0.0.0',
@@ -227,7 +230,8 @@ describe('repository skeleton', () => {
       dependencies: {
         '@harness-bench/schemas': 'workspace:*',
         'smol-toml': '1.8.0',
-        valibot: '1.4.2'
+        valibot: '1.4.2',
+        yaml: '2.9.0'
       }
     })
 
