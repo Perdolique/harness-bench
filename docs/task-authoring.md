@@ -10,6 +10,14 @@ Materialize those frozen bytes as a new local repository with exactly one base c
 
 The first task is a small synthetic TypeScript/Vue repository: a secondary UI action with established analytics, localization, accessibility, and test precedents. The prompt requests behavior without listing those obligations. Issue 6 authors this task after the accepted feasibility review and proves that ordinary Git commands work without exposing future history locally. Because this repository and its checked-in fixtures are public, that fixture cannot by itself prove online secrecy or support a hidden-material quality claim.
 
+The canonical implementation is split across three boundaries:
+
+- `fixtures/order-receipt/` contains only the pristine standalone application and its public regressions.
+- `benchmark/tasks/order-receipt/` contains the Harbor package templates, trusted collector, separate verifier, calibration solutions, and negative controls. Solution and verifier material are copied only into their dedicated image or oracle contexts.
+- `packages/core/src/task.ts` and `packages/core/src/task-artifacts.ts` provide source inspection, one-commit materialization, trusted capture, and fail-closed replay. The caller supplies a frozen source and expected digest; materialization returns the workspace path, verified digest, and deterministic base commit.
+
+The task package builds its `TaskDocument` v1 from the actual source, prompt, and local image digests. Task, environment, collector, verifier, scoring, and rubric revisions remain independent. Its six equally weighted repository contracts and their pristine evidence are recorded in the [calibration evidence card](tasks/order-receipt.md). The fixture has `online_reachability.status: ineligible`; use it to calibrate mechanics and grading, not for a comparison that depends on hidden checks or future solutions.
+
 ## Harbor package and visibility
 
 Harbor task packages contain `instruction.md`, `task.toml`, an `environment/`, `tests/`, and optionally `solution/`. Select an explicit separate verifier image whose build context contains the hidden checks. In separate mode the image itself must supply `/tests/test.sh`; do not expect runtime test upload. Both images start from the declared base, but only the verifier image has hidden checks. Public regression tests already present in the base remain visible to the agent. [Pinned task format](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/docs/content/docs/tasks/index.mdx).
@@ -44,6 +52,15 @@ Allowed zones are directly relevant files/behaviors. Conditional zones require d
 5. Repeat verification with no network or credentials and identical artifacts; verify deterministic outcomes and absence of hidden material from agent access.
 6. Record the online-reachability assessment. Fail the secrecy gate if the exact checks, solution, later history, or identifiable source are publicly reachable.
 7. Obtain the issue 6 owner review using the evidence from steps 1–6 before downstream orchestration uses the canonical task.
+
+For the canonical fixture, run ordinary repository checks first and the complete Docker calibration separately:
+
+```sh
+vp run check
+vp run task:canonical:check
+```
+
+The second command builds all pinned images before evaluation, runs Harbor with `nop` for pristine and deterministic `oracle` controls, and requires an explicit oracle completion marker. It uses one concurrent run, zero automatic retries, no model calls, and Harbor telemetry off. It validates the generated score documents, the expected failed check for every negative control, and equal results for a repeated reference artifact.
 
 After issue 12 implements `benchctl doctor`, run it and retain its evidence for subsequent task calibration. Doctor is not a prerequisite for the initial issue 6 owner review.
 

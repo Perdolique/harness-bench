@@ -23,7 +23,7 @@ const expectedScripts = {
   benchctl: 'node apps/benchctl/src/cli.ts',
 
   check:
-    'worsier --check . && markdownlint-cli2 && uv run ruff format --check .planning && oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning && tsc --noEmit && node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts --check && vitest run --exclude "spikes/harbor-codex-subscription/fixture/**" && python3 .planning/test_sync_github.py && python3 .planning/validate.py && node scripts/verify-toolchain.ts',
+    'worsier --check . && markdownlint-cli2 && uv run ruff format --check .planning && oxlint --deny-warnings . && uv run ruff check --select E4,E7,E9,F,I .planning && tsc --noEmit && node --experimental-strip-types packages/schemas/scripts/generate-json-schemas.ts --check && vitest run --exclude ".pnpm-store/**" --exclude "spikes/harbor-codex-subscription/fixture/**" --exclude "fixtures/order-receipt/**" --exclude "benchmark/tasks/order-receipt/solutions/**" --exclude "benchmark/tasks/order-receipt/verifier/**" && python3 .planning/test_sync_github.py && python3 .planning/validate.py && node scripts/verify-toolchain.ts',
 
   format:
     'worsier --write . && uv run ruff format .planning',
@@ -48,7 +48,12 @@ const expectedScripts = {
   'spike:issue-2:check':
     'vitest run spikes/harbor-codex-subscription/__tests__ && node --experimental-strip-types spikes/harbor-codex-subscription/check.ts',
 
-  test: 'vitest run --exclude "spikes/harbor-codex-subscription/fixture/**"',
+  'task:canonical:check':
+    'node --experimental-strip-types scripts/canonical-task-check.ts',
+
+  test:
+    'vitest run --exclude ".pnpm-store/**" --exclude "spikes/harbor-codex-subscription/fixture/**" --exclude "fixtures/order-receipt/**" --exclude "benchmark/tasks/order-receipt/solutions/**" --exclude "benchmark/tasks/order-receipt/verifier/**"',
+
   'test:planning': 'python3 .planning/test_sync_github.py',
   typecheck: 'tsc --noEmit',
   'validate:planning': 'python3 .planning/validate.py',
@@ -119,6 +124,7 @@ describe('repository skeleton', () => {
         {
           filter: [
             '.github/pull_request_template.md',
+            'benchmark/tasks/order-receipt/instruction.md',
             'spikes/harbor-codex-subscription/task/instruction.md'
           ],
 
@@ -256,6 +262,8 @@ describe('repository skeleton', () => {
       '.agent-stack-bench/environments/example/config.json',
       'packages/core/dist/index.js',
       'coverage/index.html',
+      'fixtures/order-receipt/playwright-report/index.html',
+      'fixtures/order-receipt/test-results/receipt/trace.zip',
       '.env.production'
     ]
 

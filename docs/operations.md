@@ -111,7 +111,27 @@ python3 .planning/sync-github.py --check
 
 The first command validates local documents and the issue graph without network or providers. The second reads GitHub and checks publication state without mutation. Publication uses `python3 .planning/sync-github.py --apply`; see [planning maintenance](../.planning/README.md). The implemented `benchctl harness` commands above do not run Harbor; run orchestration remains issue 7.
 
-Future task materialization creates an agent-visible local Git repository with one base commit. It does not copy the source object database, refs, remotes, hooks, credentials, or future history and retains only objects reachable from the new commit. The completed issue 2 spike remains Git-free; issue 6 and issue 14 own implementation and verification of the accepted Git shape.
+Canonical task materialization creates an agent-visible local Git repository with one deterministic base commit. It does not copy the source object database, refs, remotes, hooks, credentials, alternates, or future history and retains only objects reachable from the new commit. The trusted collector snapshots the stopped workspace twice, ignores agent-controlled Git metadata, and emits exactly `workspace.patch` and `workspace-metadata.json`. Replay checks the exact inventory, hashes, source identity, base commit, safe paths, regular-file types, and final tree before grading. The completed issue 2 spike remains Git-free; issue 14 owns the later private-import path.
+
+## Canonical task calibration
+
+The ordinary aggregate check covers source materialization, artifact validation and replay, task contracts, and all formatted negative-control mutators without Docker or provider calls:
+
+```sh
+vp run check
+```
+
+Run the complete issue 6 calibration locally on the supported Apple Silicon Docker environment:
+
+```sh
+vp run task:canonical:check
+```
+
+The command builds the pinned agent, collector, and verifier images first. Image builds may install the locked packages; every subsequent Harbor evaluation runs from those images without downloading dependencies or browsers. Playwright package `1.62.1` and the Chromium/WebKit revisions come from the same official image, pinned by OCI digest.
+
+The command then runs pristine with Harbor `nop`, two valid solutions and every negative control with deterministic `oracle`, and an identical reference replay. Effective concurrency is one, attempts are one, automatic retries are zero, provider calls are zero, and `HARBOR_TELEMETRY` is `off`. The verifier runs in a fresh separate container with `network_mode: none`, no credentials, its own immutable base, and only the two validated declared artifacts. Harbor's implicit `/logs/artifacts` transfer must remain empty. A verifier or integrity failure produces an invalid score and no numeric reward; an ordinary task failure remains a valid graded result.
+
+The command writes its complete local jobs and generated `TaskDocument` to the printed `/tmp/harness-bench-issue-6-*` directory. These are disposable local calibration records, not committed benchmark results. The checked-in [evidence card](tasks/order-receipt.md) records the accepted command shape and latest calibration identities for owner review.
 
 Issue 2 has an isolated historical spike surface outside `benchctl`. The provider-free check remains usable. **Do not run the second command:** all four authorized provider invocations are consumed, and changing the run root does not renew authorization.
 

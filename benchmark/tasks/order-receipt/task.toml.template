@@ -1,0 +1,48 @@
+schema_version = "1.4"
+
+[metadata]
+issue = 6
+fixture = "order-receipt"
+provider_calls = 0
+automatic_retries = 0
+harbor_telemetry = "off"
+
+[agent]
+timeout_sec = 600.0
+network_mode = "public"
+
+[environment]
+docker_image = "__AGENT_IMAGE__"
+os = "linux"
+cpus = 2
+memory_mb = 4096
+build_timeout_sec = 1200.0
+network_mode = "public"
+workdir = "/app"
+
+[verifier]
+timeout_sec = 600.0
+environment_mode = "separate"
+network_mode = "no-network"
+
+[verifier.env]
+TASK_BASE_COMMIT = "__TASK_BASE_COMMIT__"
+TASK_SOURCE_DIGEST = "__TASK_SOURCE_DIGEST__"
+
+[[verifier.collect]]
+service = "collector"
+command = "node --experimental-strip-types /opt/collector/container-collector.ts"
+timeout_sec = 120.0
+
+[verifier.environment]
+docker_image = "__VERIFIER_IMAGE__"
+os = "linux"
+cpus = 2
+memory_mb = 4096
+build_timeout_sec = 1200.0
+network_mode = "no-network"
+
+[[artifacts]]
+source = "/evidence"
+destination = "trusted-collector"
+service = "collector"

@@ -9,6 +9,7 @@
     {
       "filter": [
         ".github/pull_request_template.md",
+        "benchmark/tasks/order-receipt/instruction.md",
         "spikes/harbor-codex-subscription/task/instruction.md"
       ],
       "config": {
