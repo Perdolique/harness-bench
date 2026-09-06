@@ -8,12 +8,16 @@ import {
   captureHarnessBundle,
   diffHarnessBundles,
   isHarnessError,
+  isRunError,
   materializeHarnessBundle,
+  resolveRunPlan,
+  executeRunPlan,
   validateHarnessBundle,
   type HarnessBundleDiff
 } from '@harness-bench/core'
 
 const USAGE = `Usage:
+  benchctl run --experiment FILE --run-id ID --stack FILE --harness-document FILE --suite FILE --task FILE --task-source DIR --task-package DIR --harness-bundle DIR --runs-dir ABSOLUTE_DIR [--dry-run]
   benchctl harness capture --source DIR --store DIR --id ID --revision REV
   benchctl harness validate BUNDLE
   benchctl harness materialize BUNDLE --destination DIR
@@ -45,6 +49,33 @@ function requiredOption(
   }
 
   return value
+}
+
+function requiredOptions(
+  value: string[] | undefined,
+  name: string
+): readonly string[] {
+  if (
+    value === undefined ||
+    value.length === 0 ||
+    value.some((entry) => entry === '')
+  ) {
+    throw new CliUsageError(`Missing required option: --${name}`)
+  }
+
+  return value
+}
+
+function runExitCode(classification: string): number {
+  if (classification === 'task_success') {
+    return 0
+  }
+
+  if (classification === 'task_failure') {
+    return 1
+  }
+
+  return 2
 }
 
 function shortDigest(digest: string): string {
@@ -239,6 +270,89 @@ async function diff(arguments_: readonly string[], io: CliIo): Promise<number> {
   return result.different ? 1 : 0
 }
 
+async function run(arguments_: readonly string[], io: CliIo): Promise<number> {
+  const parsed = parseArgs({
+    args: [...arguments_],
+    allowPositionals: false,
+
+    options: {
+      'dry-run': {
+        type: 'boolean',
+        default: false
+      },
+
+      experiment: { type: 'string' },
+      'harness-bundle': { type: 'string' },
+
+      'harness-document': {
+        type: 'string',
+        multiple: true
+      },
+
+      'run-id': { type: 'string' },
+      'runs-dir': { type: 'string' },
+
+      stack: {
+        type: 'string',
+        multiple: true
+      },
+
+      suite: { type: 'string' },
+
+      task: {
+        type: 'string',
+        multiple: true
+      },
+
+      'task-package': { type: 'string' },
+      'task-source': { type: 'string' }
+    },
+
+    strict: true
+  })
+
+  const plan = await resolveRunPlan({
+    experiment: requiredOption(parsed.values.experiment, 'experiment'),
+
+    harnessBundle: requiredOption(
+      parsed.values['harness-bundle'],
+      'harness-bundle'
+    ),
+
+    harnessDocuments: requiredOptions(
+      parsed.values['harness-document'],
+      'harness-document'
+    ),
+
+    runId: requiredOption(parsed.values['run-id'], 'run-id'),
+    runsDirectory: requiredOption(parsed.values['runs-dir'], 'runs-dir'),
+    stackDocuments: requiredOptions(parsed.values.stack, 'stack'),
+    suite: requiredOption(parsed.values.suite, 'suite'),
+    taskDocuments: requiredOptions(parsed.values.task, 'task'),
+    taskPackage: requiredOption(parsed.values['task-package'], 'task-package'),
+    taskSource: requiredOption(parsed.values['task-source'], 'task-source')
+  })
+
+  if (parsed.values['dry-run']) {
+    writeJson(io, {
+      dry_run: true,
+      plan,
+      status: 'resolved'
+    })
+
+    return 0
+  }
+
+  io.stderr('RUNNING: Harbor execution started\n')
+
+  const result = await executeRunPlan(plan)
+
+  io.stderr(`COMPLETED: ${result.classification}\n`)
+  writeJson(io, result)
+
+  return runExitCode(result.classification)
+}
+
 async function dispatch(arguments_: readonly string[], io: CliIo): Promise<number> {
   const normalizedArguments =
     arguments_[0] === '--' ? arguments_.slice(1) : arguments_
@@ -253,6 +367,10 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
   }
 
   const [group, command, ...rest] = normalizedArguments
+
+  if (group === 'run') {
+    return run(normalizedArguments.slice(1), io)
+  }
 
   if (group !== 'harness') {
     throw new CliUsageError('Expected the harness command group')
@@ -296,12 +414,14 @@ export async function runCli(
   try {
     return await dispatch(arguments_, io)
   } catch (error) {
-    if (isHarnessError(error)) {
+    if (isRunError(error)) {
+      io.stderr(`${error.code}: ${error.message}\n`)
+    } else if (isHarnessError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)
     } else if (error instanceof CliUsageError || isParseArgsError(error)) {
       io.stderr(`USAGE_ERROR: ${error.message}\n${USAGE}`)
     } else {
-      io.stderr(`UNEXPECTED_ERROR: harness command failed\n`)
+      io.stderr(`UNEXPECTED_ERROR: command failed\n`)
     }
 
     return 2

@@ -21,13 +21,13 @@ This threat model was accepted on 2026-09-05 from the issue 2 evidence and issue
 
 ## Credential lifecycle
 
-Use a dedicated directory outside the repository, such as `~/.agent-stack-bench/credentials/codex/`. The accepted flow uses file storage and passes the absolute `auth.json` path explicitly. Never inspect or copy the owner's ambient Codex credential store.
+Use a dedicated directory outside the repository, such as `~/.agent-stack-bench/credentials/codex/`. The accepted flow uses file storage and passes the absolute `auth.json` path explicitly. Issue 7 rejects a selected file inside the repository, run storage, documents, harness, task source, or task package, including hard-link aliases to those inputs. Never inspect or copy the owner's ambient Codex credential store.
 
 File-based `auth.json` contains plaintext access tokens and is password-equivalent. Do not commit it or attach it to issues, tickets, chat, logs, or artifacts. Do not put its directory under uncontrolled cloud sync, backup, shared folders, or another copying mechanism. Grant access only to the owner and the explicit local run that needs it.
 
 Official Codex supports file or keyring storage and token refresh. The pinned Harbor path used a specified `auth.json` in temporary state and cleanup succeeded in all three public runs. No token expired, so the evidence does not prove refresh, read-only refresh compatibility, or persistence across runs. On authentication or refresh failure, retain safe diagnostics, stop, and require owner login; never silently fall back to ambient credentials or API auth. [Codex authentication](https://learn.chatgpt.com/docs/auth) and [Harbor adapter](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/src/harbor/agents/installed/codex.py).
 
-Credentials must never be committed, bundled, logged, persisted in run artifacts, or exposed to the verifier. Read-only access may be introduced only after compatible refresh behavior is proved. Any future controlled update of the dedicated store stays outside artifacts. No blanket mount of a user home is allowed.
+Credentials must never be committed, bundled, logged, persisted in run artifacts, or exposed to the verifier. Issue 7 opens the explicit mode-`0600` file once, validates the same descriptor, inherits it into Harbor as `/dev/fd/3`, and never reopens the pathname. Harbor receives a run-local home and no ambient Codex home or API credential. Read-only access may be introduced only after compatible refresh behavior is proved. Any future controlled update of the dedicated store stays outside artifacts. No blanket mount of a user home is allowed.
 
 ## Network and host exposure
 
@@ -43,7 +43,9 @@ The default policy is `HARBOR_TELEMETRY=off` for every local benchmark command. 
 
 ## Capture, retention, and publication
 
-Collect only declared patch/artifact paths and necessary execution evidence. Credential directories are never collection roots. Raw output first enters a mode-0700 restricted staging root. Secret checks run over that complete staged record before hashing and read-only finalization. A suspected credential leaves the record quarantined and blocks durable finalization or publication while preserving safe diagnostic metadata. The issue 2 positive and negative controls demonstrated this boundary, including logs generated before normalization.
+Collect only declared patch/artifact paths and necessary execution evidence. Credential directories are never collection roots. Raw output first enters a mode-0700 restricted staging root. After Harbor returns, secret checks run over that complete staged record before host replay, grading, hashing, and read-only finalization. A suspected credential leaves the record quarantined and blocks a valid grade or publication while preserving safe diagnostic metadata. A symlink or special raw entry is likewise quarantined without following or changing that entry. The issue 2 positive and negative controls demonstrated the general boundary, including logs generated before normalization; issue 7 adds leaf-value, special-entry, and terminal-completion controls.
+
+Harbor `0.22.0` does not expose a host pause between sidecar collection and its built-in separate verifier. The host scan therefore cannot prove that it preceded verifier access. The offline verifier must independently inspect its received artifacts and report credential absence, and issue 7 rechecks the raw tree before host replay or grading. This is a known ordering limitation, not a claim that host scanning protects the verifier.
 
 On any positive credential finding, immediately restrict access to the staged record, identify the affected credential without copying its secret bytes into a report, notify the owner, and rotate or revoke it. Then either delete the staged content under the declared disposal policy or retain it only in explicitly approved incident storage. In both cases keep an immutable redacted tombstone linked to the run intent, with identifiers, hashes, timestamps, response status, and reason but no source or secret bytes.
 
@@ -71,7 +73,7 @@ Errors identify a safe path and rule category but do not echo matched values. Ra
 
 Capture reads regular files without following symlinks, compares two complete source snapshots around config validation, stages under the target store, verifies the staged manifest and inventory, applies read-only modes, and atomically renames the result to its digest address. Recapturing an existing address validates and returns it; a corrupt or conflicting address is never repaired or overwritten. Read-only modes and hashes detect accidental or later observed mutation but do not defend against a malicious local owner with permission to change them.
 
-Materialization revalidates all bundle bytes before creating a new destination. The destination has a fresh Codex home, user skill home, and empty workspace, with no authentication, history, session, or cache files. Issue 7 must inject the separate owner-controlled authentication path through Harbor without weakening this boundary.
+Materialization revalidates all bundle bytes before creating a new destination. The destination has a fresh Codex home, user skill home, and empty workspace, with no authentication, history, session, or cache files. Issue 7 preserves this boundary by sending the separately selected credential only through Harbor's inherited descriptor and by rejecting any credential alias inside materialized inputs.
 
 ## Feasibility security gate
 

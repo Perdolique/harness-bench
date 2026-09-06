@@ -327,7 +327,7 @@ describe(runCli, () => {
     const errorOutput = output.stderr.join('')
 
     expect(exitCode).toBe(2)
-    expect(errorOutput).toBe('UNEXPECTED_ERROR: harness command failed\n')
+    expect(errorOutput).toBe('UNEXPECTED_ERROR: command failed\n')
     expect(errorOutput).not.toContain(destination)
     expect(errorOutput).not.toContain('ENOTDIR')
     expect(errorOutput).not.toContain('ENOENT')

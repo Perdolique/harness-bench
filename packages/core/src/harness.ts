@@ -38,6 +38,11 @@ interface LoadedHarnessBundle {
   readonly manifest: HarnessDocument;
 }
 
+interface InspectedHarnessBundle {
+  readonly bundlePath: string;
+  readonly manifest: HarnessDocument;
+}
+
 interface LoadBundleOptions {
   readonly requireAddressName: boolean;
   readonly requireEffectiveConfig: boolean;
@@ -888,6 +893,25 @@ export async function validateHarnessBundle(
   const loaded = await loadBundle(bundle, {
     requireAddressName: true,
     requireEffectiveConfig: true,
+    requireImmutable: true
+  })
+
+  return {
+    bundlePath: loaded.bundlePath,
+    manifest: loaded.manifest
+  }
+}
+
+/**
+ * Performs the immutable bundle checks used by run planning without starting
+ * Codex. Execution validates the effective configuration again before Harbor.
+ */
+export async function inspectHarnessBundleForRun(
+  bundle: string
+): Promise<InspectedHarnessBundle> {
+  const loaded = await loadBundle(bundle, {
+    requireAddressName: true,
+    requireEffectiveConfig: false,
     requireImmutable: true
   })
 
