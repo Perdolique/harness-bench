@@ -1,5 +1,5 @@
 import { lstat, readdir } from 'node:fs/promises'
-import { basename, dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { CREDENTIAL_PATTERN_SCANNER_REVISION, scanCredentialBytes } from '@harness-bench/core'
 import type { ScoreDocument } from '@harness-bench/schemas'
 import * as v from 'valibot'
@@ -12,7 +12,13 @@ import {
   type SanitizedRunExportV1
 } from './schemas.ts'
 
-import { readStoredRecord, serializeRecord, writeContentAddressedRecord } from './storage.ts'
+import {
+  parseManagedRecordPath,
+  readStoredRecord,
+  serializeRecord,
+  withRunResultLock,
+  writeContentAddressedRecord
+} from './storage.ts'
 
 export interface ExportSanitizedResultOptions {
   readonly now?: Date;
@@ -22,34 +28,6 @@ export interface ExportSanitizedResultResult {
   readonly digest: string;
   readonly record: SanitizedRunExportV1;
   readonly recordPath: string;
-}
-
-function managedLocation(recordPath: string): {
-  readonly runId: string;
-  readonly runsRoot: string;
-} {
-  const absolutePath = resolve(recordPath)
-  const addressRoot = dirname(absolutePath)
-  const categoryRoot = dirname(addressRoot)
-  const runRoot = dirname(categoryRoot)
-  const resultsRoot = dirname(runRoot)
-
-  if (
-    basename(absolutePath) !== 'record.json' ||
-    basename(categoryRoot) !== 'normalized' ||
-    basename(resultsRoot) !== '.results'
-  ) {
-    throw new ResultError(
-      'INVALID_INPUT',
-      'Normalized record is outside the managed results layout',
-      { stage: 'export' }
-    )
-  }
-
-  return {
-    runId: basename(runRoot),
-    runsRoot: dirname(resultsRoot)
-  }
 }
 
 async function hasRestriction(runsRoot: string, runId: string): Promise<boolean> {
@@ -151,16 +129,80 @@ function sanitizedKnownInteger(
 function sanitizedIdentities(
   identities: NormalizedRunRecordV1['identities']
 ): SanitizedRunExportV1['identities'] {
+  const observedProviderIdentity =
+    identities.agent.observed_provider_identity.status === 'known'
+      ? {
+          status: 'known' as const,
+          value: identities.agent.observed_provider_identity.value
+        }
+      : { status: 'unknown' as const }
+
   return {
-    ...identities,
+    benchmark_repo_commit: identities.benchmark_repo_commit,
+
+    run: {
+      run_id: identities.run.run_id,
+      attempt_id: identities.run.attempt_id,
+      attempt: identities.run.attempt
+    },
+
+    stack: {
+      id: identities.stack.id,
+      revision: identities.stack.revision,
+      digest: identities.stack.digest
+    },
+
+    suite: {
+      id: identities.suite.id,
+      revision: identities.suite.revision,
+      digest: identities.suite.digest
+    },
+
+    task: {
+      id: identities.task.id,
+      revision: identities.task.revision,
+      base_commit: identities.task.base_commit,
+      source_digest: identities.task.source_digest,
+      environment_image_digest: identities.task.environment_image_digest
+    },
+
+    harness: {
+      id: identities.harness.id,
+      revision: identities.harness.revision,
+      digest: identities.harness.digest
+    },
+
+    experiment: {
+      experiment_id: identities.experiment.experiment_id,
+      experiment_revision: identities.experiment.experiment_revision,
+      plan_digest: identities.experiment.plan_digest,
+      arm_id: identities.experiment.arm_id,
+      block_id: identities.experiment.block_id,
+      replicate: identities.experiment.replicate
+    },
 
     agent: {
-      ...identities.agent,
+      product: identities.agent.product,
+      cli_version: identities.agent.cli_version,
+      requested_model: identities.agent.requested_model,
+      observed_provider_identity: observedProviderIdentity,
+      effort: identities.agent.effort,
+      auth_mode: identities.agent.auth_mode
+    },
 
-      observed_provider_identity:
-        identities.agent.observed_provider_identity.status === 'known'
-          ? identities.agent.observed_provider_identity
-          : { status: 'unknown' }
+    network_policy_digest: identities.network_policy_digest,
+    effective_permissions_digest: identities.effective_permissions_digest,
+    mcp_tools_digest: identities.mcp_tools_digest,
+
+    host: {
+      os: identities.host.os,
+      os_version: identities.host.os_version,
+      architecture: identities.host.architecture,
+      apple_silicon_model: identities.host.apple_silicon_model,
+      docker_desktop_version: identities.host.docker_desktop_version,
+      docker_engine_version: identities.host.docker_engine_version,
+      linuxkit_kernel: identities.host.linuxkit_kernel,
+      container_architecture: identities.host.container_architecture
     }
   }
 }
@@ -168,13 +210,24 @@ function sanitizedIdentities(
 function sanitizedRevisions(
   revisions: NormalizedRunRecordV1['revisions']
 ): SanitizedRunExportV1['revisions'] {
-  return {
-    ...revisions,
+  const sidecarDigest =
+    revisions.verifier_network_enforcement_sidecar_digest.status === 'known'
+      ? {
+          status: 'known' as const,
+          value: revisions.verifier_network_enforcement_sidecar_digest.value
+        }
+      : { status: 'not_applicable' as const }
 
-    verifier_network_enforcement_sidecar_digest:
-      revisions.verifier_network_enforcement_sidecar_digest.status === 'known'
-        ? revisions.verifier_network_enforcement_sidecar_digest
-        : { status: 'not_applicable' }
+  return {
+    runner_name: revisions.runner_name,
+    runner_version: revisions.runner_version,
+    runner_config_digest: revisions.runner_config_digest,
+    collector_revision: revisions.collector_revision,
+    collector_image_digest: revisions.collector_image_digest,
+    verifier_revision: revisions.verifier_revision,
+    verifier_image_digest: revisions.verifier_image_digest,
+    verifier_network_enforcement_sidecar_digest: sidecarDigest,
+    scoring_revision: revisions.scoring_revision
   }
 }
 
@@ -220,91 +273,114 @@ export async function exportSanitizedResult(
   normalizedRecordPath: string,
   options: ExportSanitizedResultOptions = {}
 ): Promise<ExportSanitizedResultResult> {
-  const location = managedLocation(normalizedRecordPath)
+  const location = parseManagedRecordPath(normalizedRecordPath, 'normalized')
 
-  const normalized = await readStoredRecord(
-    normalizedRecordPath,
-    'normalized',
-    NormalizedRunRecordV1Schema
-  )
-
-  if (
-    normalized.record.identities.run.run_id !== location.runId ||
-    await hasRestriction(location.runsRoot, location.runId)
-  ) {
-    throw new ResultError(
-      'EXPORT_BLOCKED',
-      'This run is restricted and cannot be exported',
-      { stage: 'export' }
-    )
-  }
-
-  const record = v.parse(SanitizedRunExportV1Schema, {
-    document_type: 'sanitized_run_export',
-    schema_version: 1,
-    normalization_revision: '1',
-    record_type: 'sanitized_export',
-    created_at: exportTimestamp(options.now),
-    source_normalized_digest: normalized.digest,
-    identities: sanitizedIdentities(normalized.record.identities),
-    revisions: sanitizedRevisions(normalized.record.revisions),
-    source_digests: normalized.record.source_digests,
-
-    outcome: {
-      classification: normalized.record.outcome.classification,
-      valid_grade: normalized.record.outcome.valid_grade
-    },
-
-    score: sanitizedScore(normalized.record.score),
-
-    timings: {
-      total_seconds: normalized.record.timings.total_seconds,
-
-      agent_seconds: sanitizedKnownInteger(
-        normalized.record.timings.agent_seconds
-      ),
-
-      verifier_seconds: sanitizedKnownInteger(
-        normalized.record.timings.verifier_seconds
-      )
-    },
-
-    usage: sanitizedUsage(normalized.record.usage),
-    retention: sanitizedRetention(normalized.record.retention),
-
-    evidence: normalized.record.references.map((reference) => ({
-      digest: reference.digest,
-      size: reference.size,
-      executable: reference.executable,
-      format: reference.format,
-      role: reference.role
-    })),
-
-    redaction_report: {
-      scanner_revision: CREDENTIAL_PATTERN_SCANNER_REVISION,
-      credential_findings: 0,
-      content_bytes_included: false,
-      local_paths_included: false,
-      publication_authorized: false
-    }
-  })
-
-  const findings = scanCredentialBytes(serializeRecord(record), {
-    path: 'record.json'
-  })
-
-  if (findings.length > 0) {
-    throw new ResultError(
-      'EXPORT_BLOCKED',
-      'Sanitized export failed the credential-pattern scan',
-      { stage: 'export' }
-    )
-  }
-
-  return writeContentAddressedRecord(
+  return withRunResultLock(
     location.runsRoot,
     location.runId,
-    'exports',
-    record
+    async () => {
+      const normalized = await readStoredRecord(
+        normalizedRecordPath,
+        'normalized',
+        NormalizedRunRecordV1Schema
+      )
+
+      if (normalized.record.identities.run.run_id !== location.runId) {
+        throw new ResultError(
+          'EXPORT_BLOCKED',
+          'Normalized record identity does not match its managed path',
+          { stage: 'export' }
+        )
+      }
+
+      const restricted = await hasRestriction(location.runsRoot, location.runId)
+
+      if (restricted) {
+        throw new ResultError(
+          'EXPORT_BLOCKED',
+          'This run is restricted and cannot be exported',
+          { stage: 'export' }
+        )
+      }
+
+      const candidate = {
+        document_type: 'sanitized_run_export',
+        schema_version: 1,
+        normalization_revision: '1',
+        record_type: 'sanitized_export',
+        created_at: exportTimestamp(options.now),
+        source_normalized_digest: normalized.digest,
+        identities: sanitizedIdentities(normalized.record.identities),
+        revisions: sanitizedRevisions(normalized.record.revisions),
+        source_digests: normalized.record.source_digests,
+
+        outcome: {
+          classification: normalized.record.outcome.classification,
+          valid_grade: normalized.record.outcome.valid_grade
+        },
+
+        score: sanitizedScore(normalized.record.score),
+
+        timings: {
+          total_seconds: normalized.record.timings.total_seconds,
+
+          agent_seconds: sanitizedKnownInteger(
+            normalized.record.timings.agent_seconds
+          ),
+
+          verifier_seconds: sanitizedKnownInteger(
+            normalized.record.timings.verifier_seconds
+          )
+        },
+
+        usage: sanitizedUsage(normalized.record.usage),
+        retention: sanitizedRetention(normalized.record.retention),
+
+        evidence: normalized.record.references.map((reference) => ({
+          digest: reference.digest,
+          size: reference.size,
+          executable: reference.executable,
+          format: reference.format,
+          role: reference.role
+        })),
+
+        redaction_report: {
+          scanner_revision: CREDENTIAL_PATTERN_SCANNER_REVISION,
+          credential_findings: 0,
+          content_bytes_included: false,
+          local_paths_included: false,
+          publication_authorized: false
+        }
+      }
+
+      const parsed = v.safeParse(SanitizedRunExportV1Schema, candidate)
+
+      if (!parsed.success) {
+        throw new ResultError(
+          'EXPORT_BLOCKED',
+          'Normalized metadata does not satisfy the sanitized export allowlist',
+          { stage: 'export' }
+        )
+      }
+
+      const record = parsed.output
+      const serialized = serializeRecord(record)
+      const findings = scanCredentialBytes(serialized, { path: 'record.json' })
+
+      if (findings.length > 0) {
+        throw new ResultError(
+          'EXPORT_BLOCKED',
+          'Sanitized export failed the credential-pattern scan',
+          { stage: 'export' }
+        )
+      }
+
+      return writeContentAddressedRecord(
+        location.runsRoot,
+        location.runId,
+        'exports',
+        record
+      )
+    }
   )
 }

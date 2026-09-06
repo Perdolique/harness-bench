@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { constants } from 'node:fs'
+import { constants, type Stats } from 'node:fs'
 import { chmod, lstat, mkdir, open, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 import type * as v from 'valibot'
@@ -19,12 +19,53 @@ export interface StoredResultRecord<TRecord> {
   readonly recordPath: string;
 }
 
+export interface ManagedRecordLocation {
+  readonly absolutePath: string;
+  readonly address: string;
+  readonly categoryRoot: string;
+  readonly leaf: string;
+  readonly resultsRoot: string;
+  readonly runId: string;
+  readonly runRoot: string;
+  readonly runsRoot: string;
+}
+
+export interface StableFileDigest {
+  readonly digest: string;
+  readonly size: number;
+}
+
 export function sha256(contents: Uint8Array | string): string {
   return `${SHA256_PREFIX}${createHash('sha256').update(contents).digest('hex')}`
 }
 
 export function serializeRecord(record: unknown): Buffer {
   return Buffer.from(`${JSON.stringify(record, null, 2)}\n`)
+}
+
+function stableFileMetadataMatches(
+  before: Stats,
+  after: Stats,
+  current: Stats
+): boolean {
+  return (
+    before.isFile() &&
+    after.isFile() &&
+    !current.isSymbolicLink() &&
+    current.isFile() &&
+    before.dev === after.dev &&
+    before.ino === after.ino &&
+    before.size === after.size &&
+    before.mtimeMs === after.mtimeMs &&
+    before.ctimeMs === after.ctimeMs &&
+    before.mode === after.mode &&
+    after.dev === current.dev &&
+    after.ino === current.ino &&
+    after.size === current.size &&
+    after.mtimeMs === current.mtimeMs &&
+    after.ctimeMs === current.ctimeMs &&
+    after.mode === current.mode
+  )
 }
 
 export async function readStableFile(path: string): Promise<Buffer> {
@@ -39,18 +80,7 @@ export async function readStableFile(path: string): Promise<Buffer> {
     const after = await handle.stat()
     const current = await lstat(absolutePath)
 
-    if (
-      !before.isFile() ||
-      !after.isFile() ||
-      current.isSymbolicLink() ||
-      !current.isFile() ||
-      before.dev !== after.dev ||
-      before.ino !== after.ino ||
-      before.size !== after.size ||
-      before.mtimeMs !== after.mtimeMs ||
-      after.dev !== current.dev ||
-      after.ino !== current.ino
-    ) {
+    if (!stableFileMetadataMatches(before, after, current)) {
       throw new ResultError(
         'INTEGRITY_MISMATCH',
         'Source changed while it was read',
@@ -59,6 +89,50 @@ export async function readStableFile(path: string): Promise<Buffer> {
     }
 
     return contents
+  } catch (error) {
+    if (error instanceof ResultError) {
+      throw error
+    }
+
+    throw new ResultError('INVALID_INPUT', 'Required input is unavailable', {
+      cause: error,
+      stage: 'input'
+    })
+  } finally {
+    await handle?.close()
+  }
+}
+
+export async function hashStableFile(path: string): Promise<StableFileDigest> {
+  const absolutePath = resolve(path)
+  let handle
+
+  try {
+    handle = await open(absolutePath, constants.O_RDONLY | constants.O_NOFOLLOW)
+
+    const before = await handle.stat()
+    const hash = createHash('sha256')
+    const stream = handle.createReadStream({ autoClose: false })
+
+    for await (const chunk of stream) {
+      hash.update(chunk)
+    }
+
+    const after = await handle.stat()
+    const current = await lstat(absolutePath)
+
+    if (!stableFileMetadataMatches(before, after, current)) {
+      throw new ResultError(
+        'INTEGRITY_MISMATCH',
+        'Source changed while it was hashed',
+        { stage: 'normalization' }
+      )
+    }
+
+    return {
+      digest: `${SHA256_PREFIX}${hash.digest('hex')}`,
+      size: before.size
+    }
   } catch (error) {
     if (error instanceof ResultError) {
       throw error
@@ -100,6 +174,106 @@ async function ensureManagedDirectory(path: string): Promise<void> {
       'Managed results directory has an unexpected mode',
       { stage: 'normalization' }
     )
+  }
+}
+
+export function parseManagedRecordPath(
+  recordPath: string,
+  category: ResultRecordCategory
+): ManagedRecordLocation {
+  const absolutePath = resolve(recordPath)
+  const leaf = dirname(absolutePath)
+  const categoryRoot = dirname(leaf)
+  const runRoot = dirname(categoryRoot)
+  const resultsRoot = dirname(runRoot)
+  const address = basename(leaf)
+  const runId = basename(runRoot)
+
+  if (
+    basename(absolutePath) !== 'record.json' ||
+    basename(categoryRoot) !== category ||
+    basename(resultsRoot) !== '.results' ||
+    !/^[a-f0-9]{64}$/.test(address) ||
+    !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(runId)
+  ) {
+    throw new ResultError(
+      'INVALID_INPUT',
+      'Result record path does not match the managed layout',
+      { stage: 'input' }
+    )
+  }
+
+  return {
+    absolutePath,
+    address,
+    categoryRoot,
+    leaf,
+    resultsRoot,
+    runId,
+    runRoot,
+    runsRoot: dirname(resultsRoot)
+  }
+}
+
+// Serializes publication and restriction commits for one managed run.
+export async function withRunResultLock<T>(
+  runsRoot: string,
+  runId: string,
+  operation: () => Promise<T>
+): Promise<T> {
+  if (!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(runId)) {
+    throw new ResultError('INVALID_INPUT', 'Run ID is invalid', {
+      stage: 'input'
+    })
+  }
+
+  const resultsRoot = resolve(runsRoot, '.results')
+  const locksRoot = resolve(resultsRoot, '.locks')
+
+  await ensureManagedDirectory(resultsRoot)
+  await ensureManagedDirectory(locksRoot)
+
+  const lockPath = resolve(locksRoot, `${runId}.lock`)
+  let handle
+
+  try {
+    handle = await open(
+      lockPath,
+      constants.O_CREAT |
+        constants.O_EXCL |
+        constants.O_WRONLY |
+        constants.O_NOFOLLOW,
+      0o600
+    )
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+
+    if (code === 'EEXIST') {
+      throw new ResultError(
+        'RECORD_CONFLICT',
+        'Another result operation is active for this run',
+        {
+          cause: error,
+          stage: 'normalization'
+        }
+      )
+    }
+
+    throw new ResultError(
+      'RECORD_CONFLICT',
+      'Could not acquire the result operation lock',
+      {
+        cause: error,
+        stage: 'normalization'
+      }
+    )
+  }
+
+  try {
+    return await operation()
+  } finally {
+    await handle.close()
+    await rm(lockPath, { force: true })
   }
 }
 
@@ -249,24 +423,14 @@ export async function readStoredRecord<
   category: ResultRecordCategory,
   schema: TSchema
 ): Promise<StoredResultRecord<v.InferOutput<TSchema>>> {
-  const absolutePath = resolve(recordPath)
-  const leaf = dirname(absolutePath)
-  const categoryRoot = dirname(leaf)
-  const runRoot = dirname(categoryRoot)
-  const resultsRoot = dirname(runRoot)
-  const address = basename(leaf)
-
-  if (
-    basename(absolutePath) !== 'record.json' ||
-    basename(categoryRoot) !== category ||
-    !/^[a-f0-9]{64}$/.test(address)
-  ) {
-    throw new ResultError(
-      'INVALID_INPUT',
-      'Result record path does not match the managed layout',
-      { stage: 'input' }
-    )
-  }
+  const location = parseManagedRecordPath(recordPath, category)
+  const resultsMetadataPromise = lstat(location.resultsRoot)
+  const runMetadataPromise = lstat(location.runRoot)
+  const categoryMetadataPromise = lstat(location.categoryRoot)
+  const leafMetadataPromise = lstat(location.leaf)
+  const leafEntriesPromise = readdir(location.leaf)
+  const recordMetadataPromise = lstat(location.absolutePath)
+  const sourcePromise = readStableFile(location.absolutePath)
 
   const [
     resultsMetadata,
@@ -276,35 +440,51 @@ export async function readStoredRecord<
     leafEntries,
     recordMetadata,
     source
-  ] = await Promise.all([
-    lstat(resultsRoot),
-    lstat(runRoot),
-    lstat(categoryRoot),
-    lstat(leaf),
-    readdir(leaf),
-    lstat(absolutePath),
-    readStableFile(absolutePath)
-  ])
+  ] = await Promise.all(
+    [
+      resultsMetadataPromise,
+      runMetadataPromise,
+      categoryMetadataPromise,
+      leafMetadataPromise,
+      leafEntriesPromise,
+      recordMetadataPromise,
+      sourcePromise
+    ] as const
+  ).catch((error: unknown) => {
+    if (error instanceof ResultError) {
+      throw error
+    }
 
-  if (
-    resultsMetadata.isSymbolicLink() ||
-    !resultsMetadata.isDirectory() ||
-    (resultsMetadata.mode & 0o777) !== 0o700 ||
-    runMetadata.isSymbolicLink() ||
-    !runMetadata.isDirectory() ||
-    (runMetadata.mode & 0o777) !== 0o700 ||
-    categoryMetadata.isSymbolicLink() ||
-    !categoryMetadata.isDirectory() ||
-    (categoryMetadata.mode & 0o777) !== 0o700 ||
-    leafMetadata.isSymbolicLink() ||
-    !leafMetadata.isDirectory() ||
-    (leafMetadata.mode & 0o777) !== 0o500 ||
-    leafEntries.length !== 1 ||
-    leafEntries[0] !== 'record.json' ||
-    recordMetadata.isSymbolicLink() ||
-    !recordMetadata.isFile() ||
-    (recordMetadata.mode & 0o777) !== 0o400
-  ) {
+    throw new ResultError('INVALID_INPUT', 'Result record is unavailable', {
+      cause: error,
+      stage: 'input'
+    })
+  })
+
+  const managedParentsValid =
+    !resultsMetadata.isSymbolicLink() &&
+    resultsMetadata.isDirectory() &&
+    (resultsMetadata.mode & 0o777) === 0o700 &&
+    !runMetadata.isSymbolicLink() &&
+    runMetadata.isDirectory() &&
+    (runMetadata.mode & 0o777) === 0o700 &&
+    !categoryMetadata.isSymbolicLink() &&
+    categoryMetadata.isDirectory() &&
+    (categoryMetadata.mode & 0o777) === 0o700
+
+  const sealedLeafValid =
+    !leafMetadata.isSymbolicLink() &&
+    leafMetadata.isDirectory() &&
+    (leafMetadata.mode & 0o777) === 0o500 &&
+    leafEntries.length === 1 &&
+    leafEntries[0] === 'record.json'
+
+  const sealedRecordValid =
+    !recordMetadata.isSymbolicLink() &&
+    recordMetadata.isFile() &&
+    (recordMetadata.mode & 0o777) === 0o400
+
+  if (!managedParentsValid || !sealedLeafValid || !sealedRecordValid) {
     throw new ResultError(
       'INTEGRITY_MISMATCH',
       'Result record is not sealed',
@@ -314,7 +494,7 @@ export async function readStoredRecord<
 
   const digest = sha256(source)
 
-  if (digest.slice(SHA256_PREFIX.length) !== address) {
+  if (digest.slice(SHA256_PREFIX.length) !== location.address) {
     throw new ResultError(
       'INTEGRITY_MISMATCH',
       'Result record does not match its content address',
@@ -346,6 +526,6 @@ export async function readStoredRecord<
   return {
     digest,
     record: parsed.output,
-    recordPath: absolutePath
+    recordPath: location.absolutePath
   }
 }

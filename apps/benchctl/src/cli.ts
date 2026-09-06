@@ -23,7 +23,8 @@ import {
   normalizeRun,
   type CredentialAction,
   type DisposeDisposition,
-  type DisposeReason
+  type DisposeReason,
+  type DisposeRunOptions
 } from '@harness-bench/results'
 
 const USAGE = `Usage:
@@ -465,6 +466,46 @@ function credentialAction(
   throw new CliUsageError('Invalid --credential-action value')
 }
 
+function validateDisposeCliOptions(
+  reason: DisposeReason,
+  disposition: DisposeDisposition,
+  selectedCredentialAction: CredentialAction | undefined,
+  incidentExpiresAt: string | undefined
+): void {
+  const credentialDisposition = reason === 'credential-detected'
+  const incidentRetention = disposition === 'incident-retain'
+
+  if (credentialDisposition && selectedCredentialAction === undefined) {
+    throw new CliUsageError(
+      'credential-detected requires --credential-action rotated|revoked'
+    )
+  }
+
+  if (!credentialDisposition && selectedCredentialAction !== undefined) {
+    throw new CliUsageError(
+      '--credential-action is only valid with --reason credential-detected'
+    )
+  }
+
+  if (incidentRetention && !credentialDisposition) {
+    throw new CliUsageError(
+      'incident-retain is only valid with --reason credential-detected'
+    )
+  }
+
+  if (incidentRetention && incidentExpiresAt === undefined) {
+    throw new CliUsageError(
+      'incident-retain requires --incident-expires-at ISO_TIMESTAMP'
+    )
+  }
+
+  if (!incidentRetention && incidentExpiresAt !== undefined) {
+    throw new CliUsageError(
+      '--incident-expires-at is only valid with --disposition incident-retain'
+    )
+  }
+}
+
 async function disposeResult(
   arguments_: readonly string[],
   io: CliIo
@@ -500,41 +541,53 @@ async function disposeResult(
     requiredOption(parsed.values.disposition, 'disposition')
   )
 
-  if (
-    selectedReason === 'credential-detected' &&
-    selectedCredentialAction === undefined
-  ) {
-    throw new CliUsageError(
-      'credential-detected requires --credential-action rotated|revoked'
-    )
+  const incidentExpiresAt = parsed.values['incident-expires-at']
+
+  validateDisposeCliOptions(
+    selectedReason,
+    selectedDisposition,
+    selectedCredentialAction,
+    incidentExpiresAt
+  )
+
+  const confirmRunId = requiredOption(
+    parsed.values['confirm-run-id'],
+    'confirm-run-id'
+  )
+
+  let disposeOptions: DisposeRunOptions
+
+  if (selectedCredentialAction !== undefined && incidentExpiresAt !== undefined) {
+    disposeOptions = {
+      confirmRunId,
+      credentialAction: selectedCredentialAction,
+      disposition: selectedDisposition,
+      incidentExpiresAt,
+      reason: selectedReason
+    }
+  } else if (selectedCredentialAction !== undefined) {
+    disposeOptions = {
+      confirmRunId,
+      credentialAction: selectedCredentialAction,
+      disposition: selectedDisposition,
+      reason: selectedReason
+    }
+  } else if (incidentExpiresAt !== undefined) {
+    disposeOptions = {
+      confirmRunId,
+      disposition: selectedDisposition,
+      incidentExpiresAt,
+      reason: selectedReason
+    }
+  } else {
+    disposeOptions = {
+      confirmRunId,
+      disposition: selectedDisposition,
+      reason: selectedReason
+    }
   }
 
-  if (
-    selectedDisposition === 'incident-retain' &&
-    parsed.values['incident-expires-at'] === undefined
-  ) {
-    throw new CliUsageError(
-      'incident-retain requires --incident-expires-at ISO_TIMESTAMP'
-    )
-  }
-
-  const result = await disposeRun(parsed.positionals[0], {
-    confirmRunId: requiredOption(
-      parsed.values['confirm-run-id'],
-      'confirm-run-id'
-    ),
-
-    disposition: selectedDisposition,
-    reason: selectedReason,
-
-    ...(selectedCredentialAction === undefined
-      ? {}
-      : { credentialAction: selectedCredentialAction }),
-
-    ...(parsed.values['incident-expires-at'] === undefined
-      ? {}
-      : { incidentExpiresAt: parsed.values['incident-expires-at'] })
-  })
+  const result = await disposeRun(parsed.positionals[0], disposeOptions)
 
   writeJson(io, {
     status: result.record.disposition === 'delete'

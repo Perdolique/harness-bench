@@ -5,6 +5,7 @@ import { isAbsolute, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ResultError } from '../src/errors.ts'
 import { normalizeRun as normalizeRunImplementation, normalizeRunWithRuntime } from '../src/normalize.ts'
+import { withRunResultLock } from '../src/storage.ts'
 import { createResultFixture, makeWritable, type FixtureClassification } from './fixture.ts'
 
 let testRoot: string
@@ -430,6 +431,101 @@ describe('normalizeRun', () => {
   })
 
   it.each([
+    ['name', 'another-agent'],
+    ['version', '0.154.0'],
+    ['model_name', 'different-model']
+  ] as const)('rejects ATIF agent %s drift', async (field, value) => {
+    const fixture = await createResultFixture(testRoot, {
+      rawMutator: async (rawRoot) => {
+        await rewriteJson(
+          resolve(rawRoot, 'harbor/job/trial-fixture/agent/trajectory.json'),
+          (trajectory) => {
+            const agent = trajectory.agent as Record<string, unknown>
+
+            agent[field] = value
+          }
+        )
+      }
+    })
+
+    await expect(normalizeRun(fixture.runDirectory)).rejects.toMatchObject({
+      code: 'INCOMPATIBLE_EVIDENCE'
+    })
+  })
+
+  it.each([
+    'quiescence',
+    'collection',
+    'exact_manifest',
+    'hashes'
+  ] as const)('rejects a mismatched %s evidence digest', async (field) => {
+    const fixture = await createResultFixture(testRoot)
+    const completionPath = resolve(fixture.runDirectory, 'completion.json')
+
+    await rewriteJson(completionPath, (completion) => {
+      const collection = completion.collection as Record<
+        string,
+        { evidence_digest: { value: string } }
+      >
+
+      const proof = collection[field]
+
+      if (proof === undefined) {
+        throw new Error(`Missing ${field} fixture proof`)
+      }
+
+      proof.evidence_digest.value = `sha256:${'f'.repeat(64)}`
+    })
+
+    await expect(normalizeRun(fixture.runDirectory)).rejects.toMatchObject({
+      code: 'INCOMPATIBLE_EVIDENCE'
+    })
+  })
+
+  it('rejects a valid grade after collected patch evidence is removed', async () => {
+    const fixture = await createResultFixture(testRoot)
+
+    const patchPath = resolve(
+      fixture.runDirectory,
+      'raw/harbor/job/trial-fixture/artifacts/trusted-collector/workspace.patch'
+    )
+
+    const collectorRoot = resolve(patchPath, '..')
+
+    await chmod(collectorRoot, 0o700)
+    await rm(patchPath)
+    await chmod(collectorRoot, 0o500)
+
+    const manifestPath = resolve(fixture.runDirectory, 'raw-manifest.json')
+
+    await chmod(manifestPath, 0o600)
+
+    const entries = JSON.parse(await readFile(manifestPath, 'utf8')) as Array<{
+      path: string;
+    }>
+
+    const updatedEntries = entries.filter(
+      (entry) => !entry.path.endsWith('/workspace.patch')
+    )
+
+    await writeFile(manifestPath, `${JSON.stringify(updatedEntries, null, 2)}\n`)
+    await chmod(manifestPath, 0o400)
+
+    await rewriteJson(
+      resolve(fixture.runDirectory, 'completion.json'),
+      (completion) => {
+        const source = Buffer.from(`${JSON.stringify(updatedEntries, null, 2)}\n`)
+
+        completion.raw_artifact_manifest_digest = `sha256:${hash(source)}`
+      }
+    )
+
+    await expect(normalizeRun(fixture.runDirectory)).rejects.toMatchObject({
+      code: 'INCOMPATIBLE_EVIDENCE'
+    })
+  })
+
+  it.each([
     ['malformed timestamp', async (rawRoot: string) => {
       await rewriteJson(
         resolve(rawRoot, 'harbor/job/trial-fixture/result.json'),
@@ -645,6 +741,63 @@ describe('normalizeRun', () => {
     const derived = await readFile(result.recordPath, 'utf8')
 
     expect(derived).not.toContain(sentinel)
+  })
+
+  it('restricts scanner-detectable credentials in immutable run metadata', async () => {
+    const sentinel = 'sk-fixtureMetadataSentinel1234567890'
+
+    const fixture = await createResultFixture(testRoot, {
+      requestedModel: sentinel
+    })
+
+    const result = await normalizeRun(fixture.runDirectory)
+
+    expect(result.kind).toBe('restricted')
+
+    if (result.kind !== 'restricted') {
+      throw new Error('Expected metadata restriction')
+    }
+
+    expect(result.record.restriction.findings).toContainEqual({
+      category: 'provider_token',
+      path: 'initial.json'
+    })
+
+    expect(await readFile(result.recordPath, 'utf8')).not.toContain(sentinel)
+  })
+
+  it('does not seal a restriction while the run result lock is held', async () => {
+    const fixture = await createResultFixture(testRoot, {
+      requestedModel: 'sk-fixtureLockedSentinel1234567890'
+    })
+
+    let finalSnapshotReached = false
+
+    await withRunResultLock(
+      fixture.runsDirectory,
+      'fixture-run',
+      async () => {
+        await expect(
+          normalizeRunWithRuntime(
+            fixture.runDirectory,
+            { runsDirectory: fixture.runsDirectory },
+            {
+              now: () => new Date('2026-09-06T13:00:00Z'),
+
+              beforeFinalSnapshot: async () => {
+                finalSnapshotReached = true
+              }
+            }
+          )
+        ).rejects.toMatchObject({ code: 'RECORD_CONFLICT' })
+      }
+    )
+
+    expect(finalSnapshotReached).toBe(false)
+
+    await expect(
+      readdir(resolve(fixture.runsDirectory, '.results/fixture-run'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('turns an issue-7 quarantined source into a restriction', async () => {

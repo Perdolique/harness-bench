@@ -2,10 +2,13 @@ import { createHash } from 'node:crypto'
 import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, relative, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { runDispositionReservationPath } from '@harness-bench/core'
+import * as v from 'valibot'
 import { disposeRun, disposeRunWithRuntime } from '../src/dispose.ts'
 import { exportSanitizedResult as exportSanitizedResultImplementation } from '../src/export.ts'
 import { normalizeRun } from '../src/normalize.ts'
-import { writeContentAddressedRecord } from '../src/storage.ts'
+import { RunTombstoneV1Schema } from '../src/schemas.ts'
+import { sha256, withRunResultLock, writeContentAddressedRecord } from '../src/storage.ts'
 import { createResultFixture, makeWritable } from './fixture.ts'
 
 let testRoot: string
@@ -210,10 +213,30 @@ describe('exportSanitizedResult', () => {
 
   it('scans the finished export bytes before sealing', async () => {
     const sentinel = 'sk-exportCredentialSentinel1234567890'
-    const { normalized } = await normalizedFixture({ requestedModel: sentinel })
+    const { fixture, normalized } = await normalizedFixture()
+
+    const unsafeRecord = {
+      ...normalized.record,
+
+      identities: {
+        ...normalized.record.identities,
+
+        agent: {
+          ...normalized.record.identities.agent,
+          requested_model: sentinel
+        }
+      }
+    }
+
+    const stored = await writeContentAddressedRecord(
+      fixture.runsDirectory,
+      'fixture-run',
+      'normalized',
+      unsafeRecord
+    )
 
     await expect(
-      exportSanitizedResult(normalized.recordPath)
+      exportSanitizedResult(stored.recordPath)
     ).rejects.toMatchObject({ code: 'EXPORT_BLOCKED' })
 
     const exportRoot = resolve(
@@ -222,6 +245,72 @@ describe('exportSanitizedResult', () => {
     )
 
     await expect(readdir(exportRoot)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('rejects path-bearing metadata before claiming local paths are absent', async () => {
+    const { fixture, normalized } = await normalizedFixture()
+
+    const pathBearingRecord = {
+      ...normalized.record,
+
+      identities: {
+        ...normalized.record.identities,
+
+        agent: {
+          ...normalized.record.identities.agent,
+          requested_model: '/Users/alice/private/model'
+        }
+      }
+    }
+
+    const stored = await writeContentAddressedRecord(
+      fixture.runsDirectory,
+      'fixture-run',
+      'normalized',
+      pathBearingRecord
+    )
+
+    await expect(
+      exportSanitizedResult(stored.recordPath)
+    ).rejects.toMatchObject({ code: 'EXPORT_BLOCKED' })
+
+    const exportRoot = resolve(stored.recordPath, '../../../exports')
+
+    await expect(readdir(exportRoot)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('does not seal an export while the run result lock is held', async () => {
+    const { fixture, normalized } = await normalizedFixture()
+
+    await withRunResultLock(
+      fixture.runsDirectory,
+      'fixture-run',
+      async () => {
+        await chmod(dirname(normalized.recordPath), 0o700)
+        await chmod(normalized.recordPath, 0o600)
+        await rm(normalized.recordPath)
+
+        await expect(
+          exportSanitizedResult(normalized.recordPath)
+        ).rejects.toMatchObject({ code: 'RECORD_CONFLICT' })
+      }
+    )
+
+    const exportRoot = resolve(normalized.recordPath, '../../../exports')
+
+    await expect(readdir(exportRoot)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('reports a vanished normalized record as invalid input', async () => {
+    const { normalized } = await normalizedFixture()
+
+    await chmod(dirname(normalized.recordPath), 0o700)
+    await chmod(normalized.recordPath, 0o600)
+    await rm(normalized.recordPath)
+
+    await expect(
+      exportSanitizedResult(normalized.recordPath)
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
   })
 })
 
@@ -264,6 +353,23 @@ describe('disposeRun', () => {
         reason: 'owner-request'
       })
     ).rejects.toMatchObject({ code: 'LIFECYCLE_REJECTED' })
+  })
+
+  it('rejects credential disposition without restriction state', async () => {
+    const fixture = await createResultFixture(testRoot)
+
+    await expect(
+      disposeRun(fixture.runDirectory, {
+        confirmRunId: 'fixture-run',
+        credentialAction: 'revoked',
+        disposition: 'delete',
+        reason: 'credential-detected'
+      })
+    ).rejects.toMatchObject({ code: 'LIFECYCLE_REJECTED' })
+  })
+
+  it('rejects an impossible incident expiry before normalization', async () => {
+    const fixture = await createResultFixture(testRoot)
 
     await expect(
       disposeRun(fixture.runDirectory, {
@@ -275,6 +381,71 @@ describe('disposeRun', () => {
         reason: 'credential-detected'
       })
     ).rejects.toMatchObject({ code: 'LIFECYCLE_REJECTED' })
+
+    await expect(
+      lstat(resolve(fixture.runsDirectory, '.results'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('fails closed before deletion when a derived record is tampered', async () => {
+    const { fixture, normalized } = await normalizedFixture()
+
+    await chmod(normalized.recordPath, 0o600)
+    await writeFile(normalized.recordPath, '{}\n')
+    await chmod(normalized.recordPath, 0o400)
+
+    await expect(
+      disposeRun(fixture.runDirectory, {
+        confirmRunId: 'fixture-run',
+        disposition: 'delete',
+        now: new Date('2026-09-06T14:00:00Z'),
+        reason: 'owner-request'
+      })
+    ).rejects.toMatchObject({ code: 'DISPOSITION_FAILED' })
+
+    expect(await readdir(fixture.runDirectory)).toContain('initial.json')
+    expect(await readFile(normalized.recordPath, 'utf8')).toBe('{}\n')
+  })
+
+  it('rejects unexpected managed derived inventory before deletion', async () => {
+    const { fixture, normalized } = await normalizedFixture()
+    const runResults = resolve(normalized.recordPath, '../../../')
+
+    await writeFile(resolve(runResults, 'unexpected.txt'), 'unexpected\n', {
+      mode: 0o600
+    })
+
+    await expect(
+      disposeRun(fixture.runDirectory, {
+        confirmRunId: 'fixture-run',
+        disposition: 'delete',
+        reason: 'owner-request'
+      })
+    ).rejects.toMatchObject({ code: 'DISPOSITION_FAILED' })
+
+    expect(await readdir(fixture.runDirectory)).toContain('initial.json')
+  })
+
+  it('rejects an unsealed empty managed category before deletion', async () => {
+    const { fixture } = await normalizedFixture()
+
+    const exportRoot = resolve(
+      fixture.runsDirectory,
+      '.results/fixture-run/exports'
+    )
+
+    await mkdir(exportRoot, { mode: 0o700 })
+    await chmod(exportRoot, 0o755)
+
+    await expect(
+      disposeRun(fixture.runDirectory, {
+        confirmRunId: 'fixture-run',
+        disposition: 'delete',
+        reason: 'owner-request'
+      })
+    ).rejects.toMatchObject({ code: 'DISPOSITION_FAILED' })
+
+    await expect(lstat(fixture.runDirectory)).resolves.toMatchObject({})
   })
 
   it.each([
@@ -392,6 +563,65 @@ describe('disposeRun', () => {
 
     expect((await lstat(fixture.runDirectory)).mode & 0o777).toBe(0o500)
     expect((await lstat(result.recordPath)).mode & 0o777).toBe(0o400)
+
+    const ownerIncident = {
+      ...result.record,
+      reason: 'owner-request',
+
+      owner_attestation: {
+        ...result.record.owner_attestation,
+        credential_action: 'not_applicable'
+      }
+    }
+
+    const expiredIncident = {
+      ...result.record,
+
+      incident_expires_at: {
+        status: 'known',
+        value: '2026-01-01T00:00:00Z'
+      }
+    }
+
+    expect(v.safeParse(RunTombstoneV1Schema, ownerIncident).success).toBe(false)
+    expect(v.safeParse(RunTombstoneV1Schema, expiredIncident).success).toBe(false)
+  })
+
+  it('installs the durable reservation before moving the canonical run', async () => {
+    const fixture = await createResultFixture(testRoot)
+
+    const reservationPath = runDispositionReservationPath(
+      fixture.runsDirectory,
+      'fixture-run'
+    )
+
+    let reservationObserved = false
+
+    await expect(
+      disposeRunWithRuntime(
+        fixture.runDirectory,
+        {
+          confirmRunId: 'fixture-run',
+          disposition: 'delete',
+          reason: 'owner-request'
+        },
+        {
+          afterSourceStage: async () => {
+            reservationObserved = (await lstat(reservationPath)).isFile()
+
+            await expect(lstat(fixture.runDirectory)).rejects.toMatchObject({
+              code: 'ENOENT'
+            })
+
+            throw new Error('injected source-stage failure')
+          }
+        }
+      )
+    ).rejects.toMatchObject({ code: 'DISPOSITION_FAILED' })
+
+    expect(reservationObserved).toBe(true)
+    expect(await readdir(fixture.runDirectory)).toContain('initial.json')
+    await expect(lstat(reservationPath)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('restores restricted state and emits no false tombstone after a staged failure', async () => {
@@ -424,9 +654,10 @@ describe('disposeRun', () => {
 
   it('reserves the run ID and preserves sealed recovery state after a final install failure', async () => {
     const fixture = await createResultFixture(testRoot)
+    let failure: unknown
 
-    await expect(
-      disposeRunWithRuntime(
+    try {
+      await disposeRunWithRuntime(
         fixture.runDirectory,
         {
           confirmRunId: 'fixture-run',
@@ -440,7 +671,18 @@ describe('disposeRun', () => {
           }
         }
       )
-    ).rejects.toMatchObject({ code: 'DISPOSITION_FAILED' })
+    } catch (error) {
+      failure = error
+    }
+
+    expect(failure).toMatchObject({
+      code: 'DISPOSITION_FAILED',
+
+      recoveryPaths: expect.arrayContaining([
+        'fixture-run',
+        '.run-reservations/fixture-run'
+      ])
+    })
 
     expect(await readdir(fixture.runDirectory)).toEqual([])
     expect((await lstat(fixture.runDirectory)).mode & 0o777).toBe(0o500)
@@ -459,5 +701,34 @@ describe('disposeRun', () => {
       (await lstat(resolve(fixture.runsDirectory, recoveryDirectory))).mode &
         0o777
     ).toBe(0o500)
+
+    const recoveryRoot = resolve(fixture.runsDirectory, recoveryDirectory)
+    const addresses = await readdir(recoveryRoot)
+
+    expect(addresses).toHaveLength(1)
+
+    const address = addresses[0]
+
+    if (address === undefined) {
+      throw new Error('Expected one sealed tombstone address')
+    }
+
+    const leaf = resolve(recoveryRoot, address)
+    const recordPath = resolve(leaf, 'record.json')
+    const source = await readFile(recordPath)
+    const parsed = v.parse(RunTombstoneV1Schema, JSON.parse(source.toString('utf8')))
+
+    expect((await lstat(leaf)).mode & 0o777).toBe(0o500)
+    expect((await lstat(recordPath)).mode & 0o777).toBe(0o400)
+    expect(sha256(source)).toBe(`sha256:${address}`)
+    expect(parsed.identity.run_id).toBe('fixture-run')
+    expect(parsed.deleted_from_managed_storage).toBe(true)
+
+    const reservationPath = runDispositionReservationPath(
+      fixture.runsDirectory,
+      'fixture-run'
+    )
+
+    expect((await lstat(reservationPath)).mode & 0o777).toBe(0o400)
   })
 })

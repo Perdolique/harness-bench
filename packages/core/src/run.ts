@@ -150,6 +150,14 @@ export interface ResolvedRunPlan {
   readonly runs_directory: string;
 }
 
+// Shared sentinel used by result disposition to prevent run-ID reuse.
+export function runDispositionReservationPath(
+  runsDirectory: string,
+  runId: string
+): string {
+  return resolve(runsDirectory, '.run-reservations', runId)
+}
+
 export type RunExecutionResult =
   | {
       readonly classification: 'task_success' | 'task_failure';
@@ -1203,6 +1211,27 @@ async function assertRunDestination(
 
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       throw new RunError('DESTINATION_EXISTS', 'Run destination is unavailable', {
+        cause: error
+      })
+    }
+  }
+
+  const reservationPath = runDispositionReservationPath(runsDirectory, runId)
+
+  try {
+    await lstat(reservationPath)
+
+    throw new RunError(
+      'DESTINATION_EXISTS',
+      'Run ID is reserved by an incomplete or completed disposition'
+    )
+  } catch (error) {
+    if (error instanceof RunError) {
+      throw error
+    }
+
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw new RunError('DESTINATION_EXISTS', 'Run reservation is unavailable', {
         cause: error
       })
     }

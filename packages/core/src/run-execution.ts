@@ -25,6 +25,7 @@ import {
   buildInitialRunRecord,
   inspectRunTree,
   readStableRunFile,
+  runDispositionReservationPath,
   type ResolvedRunPlan,
   type RunExecutionResult,
   type RunHostIdentity
@@ -1871,6 +1872,29 @@ async function executeSealedRunPlan(
     }
 
     throw error
+  }
+
+  const reservationPath = runDispositionReservationPath(
+    plan.runs_directory,
+    plan.run_id
+  )
+
+  try {
+    await lstat(reservationPath)
+    await rm(runDirectory, { recursive: true })
+
+    throw new RunError(
+      'DESTINATION_EXISTS',
+      'Run ID is reserved by an incomplete or completed disposition'
+    )
+  } catch (error) {
+    if (error instanceof RunError) {
+      throw error
+    }
+
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error
+    }
   }
 
   await chmod(runDirectory, 0o700)

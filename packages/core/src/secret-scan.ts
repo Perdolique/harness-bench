@@ -109,6 +109,16 @@ export async function scanCredentialTree(
   const findings: CredentialPatternFinding[] = []
   const invalidEntries: string[] = []
 
+  const exactMatchOptions = {
+    ...(options.exactBytes === undefined
+      ? {}
+      : { exactBytes: options.exactBytes }),
+
+    ...(options.exactTexts === undefined
+      ? {}
+      : { exactTexts: options.exactTexts })
+  }
+
   async function visit(directory: string): Promise<void> {
     const entries = await readdir(directory, { withFileTypes: true })
 
@@ -120,14 +130,7 @@ export async function scanCredentialTree(
       const relativePath = relative(root, path).split('\\').join('/')
 
       const pathFindings = scanCredentialBytes(Buffer.from(relativePath), {
-        ...(options.exactBytes === undefined
-          ? {}
-          : { exactBytes: options.exactBytes }),
-
-        ...(options.exactTexts === undefined
-          ? {}
-          : { exactTexts: options.exactTexts }),
-
+        ...exactMatchOptions,
         path: '[redacted-path]'
       })
 
@@ -152,19 +155,14 @@ export async function scanCredentialTree(
         continue
       }
 
-      findings.push(
-        ...scanCredentialBytes(await readFile(path), {
-          ...(options.exactBytes === undefined
-            ? {}
-            : { exactBytes: options.exactBytes }),
+      const contents = await readFile(path)
 
-          ...(options.exactTexts === undefined
-            ? {}
-            : { exactTexts: options.exactTexts }),
+      const contentFindings = scanCredentialBytes(contents, {
+        ...exactMatchOptions,
+        path: reportedPath
+      })
 
-          path: reportedPath
-        })
-      )
+      findings.push(...contentFindings)
     }
   }
 

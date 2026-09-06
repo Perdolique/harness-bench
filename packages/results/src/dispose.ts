@@ -1,11 +1,28 @@
 import { randomUUID } from 'node:crypto'
 import { chmod, lstat, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises'
-import { basename, dirname, resolve } from 'node:path'
+import { basename, dirname, relative, resolve } from 'node:path'
+import { runDispositionReservationPath } from '@harness-bench/core'
 import * as v from 'valibot'
 import { ResultError } from './errors.ts'
 import { normalizeRunWithRuntime, type NormalizeRunResult } from './normalize.ts'
-import { ResultTimestampSchema, RunTombstoneV1Schema, type RunTombstoneV1 } from './schemas.ts'
-import { serializeRecord, sha256, writeContentAddressedRecord } from './storage.ts'
+
+import {
+  NormalizedRunRecordV1Schema,
+  RestrictedRunRecordV1Schema,
+  ResultTimestampSchema,
+  RunTombstoneV1Schema,
+  SanitizedRunExportV1Schema,
+  type RunTombstoneV1
+} from './schemas.ts'
+
+import {
+  readStoredRecord,
+  serializeRecord,
+  sha256,
+  withRunResultLock,
+  writeContentAddressedRecord,
+  type ResultRecordCategory
+} from './storage.ts'
 
 export type DisposeReason =
   | 'credential-detected'
@@ -31,6 +48,7 @@ export interface DisposeRunResult {
 }
 
 export interface DisposeRuntime {
+  readonly afterSourceStage?: () => Promise<void>;
   readonly afterStage?: () => Promise<void>;
   readonly beforeTombstoneInstall?: () => Promise<void>;
 }
@@ -47,80 +65,22 @@ function clock(options: DisposeRunOptions): Date {
   return now
 }
 
-function validateDisposition(
-  normalized: NormalizeRunResult,
+function validateDispositionOptions(
   options: DisposeRunOptions,
   now: Date
 ): void {
-  const runId = normalized.record.record_type === 'normalized'
-    ? normalized.record.identities.run.run_id
-    : normalized.record.identity.run_id
+  const credentialDisposition = options.reason === 'credential-detected'
+  const incidentRetention = options.disposition === 'incident-retain'
 
-  if (options.confirmRunId !== runId) {
+  if (credentialDisposition && options.credentialAction === undefined) {
     throw new ResultError(
       'LIFECYCLE_REJECTED',
-      'Run ID confirmation does not match the selected run',
+      'Credential disposition requires owner rotation or revocation attestation',
       { stage: 'disposition' }
     )
   }
 
-  if (
-    normalized.kind === 'restricted' &&
-    options.reason !== 'credential-detected'
-  ) {
-    throw new ResultError(
-      'LIFECYCLE_REJECTED',
-      'Restricted evidence requires the credential-detected owner-response flow',
-      { stage: 'disposition' }
-    )
-  }
-
-  if (options.reason !== 'credential-detected') {
-    if (
-      normalized.kind !== 'normalized' ||
-      normalized.record.retention.classification !== 'private'
-    ) {
-      throw new ResultError(
-        'LIFECYCLE_REJECTED',
-        'Public run records cannot be deleted by the private retention workflow',
-        { stage: 'disposition' }
-      )
-    }
-
-    if (
-      options.reason === 'retention-expired' &&
-      Date.parse(normalized.record.retention.expires_at) > now.getTime()
-    ) {
-      throw new ResultError(
-        'LIFECYCLE_REJECTED',
-        'Private retention has not expired',
-        { stage: 'disposition' }
-      )
-    }
-  }
-
-  if (options.reason === 'credential-detected') {
-    if (
-      normalized.kind !== 'restricted' ||
-      !['credential_detected', 'raw_quarantined'].includes(
-        normalized.record.restriction.category
-      )
-    ) {
-      throw new ResultError(
-        'LIFECYCLE_REJECTED',
-        'Credential disposition requires an existing restriction record',
-        { stage: 'disposition' }
-      )
-    }
-
-    if (!['rotated', 'revoked'].includes(options.credentialAction ?? '')) {
-      throw new ResultError(
-        'LIFECYCLE_REJECTED',
-        'Credential disposition requires owner rotation or revocation attestation',
-        { stage: 'disposition' }
-      )
-    }
-  } else if (options.credentialAction !== undefined) {
+  if (!credentialDisposition && options.credentialAction !== undefined) {
     throw new ResultError(
       'LIFECYCLE_REJECTED',
       'Credential action is only valid for credential-detected disposition',
@@ -128,20 +88,24 @@ function validateDisposition(
     )
   }
 
-  if (options.disposition === 'incident-retain') {
-    if (options.reason !== 'credential-detected' || normalized.kind !== 'restricted') {
-      throw new ResultError(
-        'LIFECYCLE_REJECTED',
-        'Incident retention is only valid for restricted credential evidence',
-        { stage: 'disposition' }
-      )
-    }
+  if (incidentRetention && !credentialDisposition) {
+    throw new ResultError(
+      'LIFECYCLE_REJECTED',
+      'Incident retention is only valid for restricted credential evidence',
+      { stage: 'disposition' }
+    )
+  }
 
+  if (incidentRetention) {
     const expiresAt = options.incidentExpiresAt
 
+    const timestampValid =
+      expiresAt !== undefined &&
+      v.safeParse(ResultTimestampSchema, expiresAt).success
+
     if (
+      !timestampValid ||
       expiresAt === undefined ||
-      !v.safeParse(ResultTimestampSchema, expiresAt).success ||
       Date.parse(expiresAt) <= now.getTime()
     ) {
       throw new ResultError(
@@ -159,6 +123,147 @@ function validateDisposition(
   }
 }
 
+function validateDisposition(
+  normalizationResult: NormalizeRunResult,
+  options: DisposeRunOptions,
+  now: Date
+): void {
+  const runId = normalizationResult.record.record_type === 'normalized'
+    ? normalizationResult.record.identities.run.run_id
+    : normalizationResult.record.identity.run_id
+
+  if (options.confirmRunId !== runId) {
+    throw new ResultError(
+      'LIFECYCLE_REJECTED',
+      'Run ID confirmation does not match the selected run',
+      { stage: 'disposition' }
+    )
+  }
+
+  if (
+    normalizationResult.kind === 'restricted' &&
+    options.reason !== 'credential-detected'
+  ) {
+    throw new ResultError(
+      'LIFECYCLE_REJECTED',
+      'Restricted evidence requires the credential-detected owner-response flow',
+      { stage: 'disposition' }
+    )
+  }
+
+  if (options.reason !== 'credential-detected') {
+    if (
+      normalizationResult.kind !== 'normalized' ||
+      normalizationResult.record.retention.classification !== 'private'
+    ) {
+      throw new ResultError(
+        'LIFECYCLE_REJECTED',
+        'Public run records cannot be deleted by the private retention workflow',
+        { stage: 'disposition' }
+      )
+    }
+
+    if (
+      options.reason === 'retention-expired' &&
+      Date.parse(normalizationResult.record.retention.expires_at) > now.getTime()
+    ) {
+      throw new ResultError(
+        'LIFECYCLE_REJECTED',
+        'Private retention has not expired',
+        { stage: 'disposition' }
+      )
+    }
+  }
+
+  if (options.reason === 'credential-detected') {
+    if (
+      normalizationResult.kind !== 'restricted' ||
+      !['credential_detected', 'raw_quarantined'].includes(
+        normalizationResult.record.restriction.category
+      )
+    ) {
+      throw new ResultError(
+        'LIFECYCLE_REJECTED',
+        'Credential disposition requires an existing restriction record',
+        { stage: 'disposition' }
+      )
+    }
+  }
+}
+
+const StoredRestrictionSchema = v.union([
+  RestrictedRunRecordV1Schema,
+  RunTombstoneV1Schema
+])
+
+async function validateStoredRecord(
+  runsRoot: string,
+  runId: string,
+  category: ResultRecordCategory,
+  address: string
+): Promise<string> {
+  const recordPath = resolve(
+    runsRoot,
+    '.results',
+    runId,
+    category,
+    address,
+    'record.json'
+  )
+
+  if (category === 'normalized') {
+    const stored = await readStoredRecord(
+      recordPath,
+      category,
+      NormalizedRunRecordV1Schema
+    )
+
+    if (stored.record.identities.run.run_id !== runId) {
+      throw new ResultError(
+        'DISPOSITION_FAILED',
+        'Managed result identity does not match its run directory',
+        { stage: 'disposition' }
+      )
+    }
+
+    return stored.digest
+  }
+
+  if (category === 'exports') {
+    const stored = await readStoredRecord(
+      recordPath,
+      category,
+      SanitizedRunExportV1Schema
+    )
+
+    if (stored.record.identities.run.run_id !== runId) {
+      throw new ResultError(
+        'DISPOSITION_FAILED',
+        'Managed result identity does not match its run directory',
+        { stage: 'disposition' }
+      )
+    }
+
+    return stored.digest
+  }
+
+  const stored = await readStoredRecord(
+    recordPath,
+    category,
+    StoredRestrictionSchema
+  )
+
+  if (stored.record.identity.run_id !== runId) {
+    throw new ResultError(
+      'DISPOSITION_FAILED',
+      'Managed result identity does not match its run directory',
+      { stage: 'disposition' }
+    )
+  }
+
+  return stored.digest
+}
+
 async function derivedRecordDigests(
   runsRoot: string,
   runId: string
@@ -166,26 +271,102 @@ async function derivedRecordDigests(
   const runResults = resolve(runsRoot, '.results', runId)
   const digests = new Set<string>()
 
-  try {
-    for (const category of ['exports', 'normalized', 'restrictions']) {
-      const categoryRoot = resolve(runResults, category)
+  const categories: readonly ResultRecordCategory[] = [
+    'exports',
+    'normalized',
+    'restrictions'
+  ]
 
-      try {
-        for (const entry of await readdir(categoryRoot)) {
-          if (/^[a-f0-9]{64}$/.test(entry)) {
-            digests.add(`sha256:${entry}`)
-          }
+  let runMetadata
+
+  try {
+    runMetadata = await lstat(runResults)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return []
+    }
+
+    throw new ResultError(
+      'DISPOSITION_FAILED',
+      'Managed derived run directory is unavailable',
+      {
+        cause: error,
+        stage: 'disposition'
+      }
+    )
+  }
+
+  try {
+    if (
+      runMetadata.isSymbolicLink() ||
+      !runMetadata.isDirectory() ||
+      (runMetadata.mode & 0o777) !== 0o700
+    ) {
+      throw new ResultError(
+        'DISPOSITION_FAILED',
+        'Managed derived run directory is not sealed',
+        { stage: 'disposition' }
+      )
+    }
+
+    const categoryEntries = await readdir(runResults, { withFileTypes: true })
+
+    for (const categoryEntry of categoryEntries) {
+      if (
+        !categoryEntry.isDirectory() ||
+        !categories.includes(categoryEntry.name as ResultRecordCategory)
+      ) {
+        throw new ResultError(
+          'DISPOSITION_FAILED',
+          'Managed derived run directory contains an unexpected entry',
+          { stage: 'disposition' }
+        )
+      }
+
+      const category = categoryEntry.name as ResultRecordCategory
+      const categoryRoot = resolve(runResults, category)
+      const categoryMetadata = await lstat(categoryRoot)
+
+      if (
+        categoryMetadata.isSymbolicLink() ||
+        !categoryMetadata.isDirectory() ||
+        (categoryMetadata.mode & 0o777) !== 0o700
+      ) {
+        throw new ResultError(
+          'DISPOSITION_FAILED',
+          'Managed result category is not sealed',
+          { stage: 'disposition' }
+        )
+      }
+
+      const addresses = await readdir(categoryRoot, { withFileTypes: true })
+
+      for (const addressEntry of addresses) {
+        if (
+          !addressEntry.isDirectory() ||
+          !/^[a-f0-9]{64}$/.test(addressEntry.name)
+        ) {
+          throw new ResultError(
+            'DISPOSITION_FAILED',
+            'Managed result category contains an unexpected entry',
+            { stage: 'disposition' }
+          )
         }
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-          throw error
-        }
+
+        const digest = await validateStoredRecord(
+          runsRoot,
+          runId,
+          category,
+          addressEntry.name
+        )
+
+        digests.add(digest)
       }
     }
   } catch (error) {
     throw new ResultError(
       'DISPOSITION_FAILED',
-      'Could not inspect managed derived records',
+      'Managed derived records failed validation before disposition',
       {
         cause: error,
         stage: 'disposition'
@@ -197,14 +378,14 @@ async function derivedRecordDigests(
 }
 
 function tombstoneRecord(
-  normalized: NormalizeRunResult,
+  normalizationResult: NormalizeRunResult,
   options: DisposeRunOptions,
   now: Date,
   digests: readonly string[]
 ): RunTombstoneV1 {
-  const identity = normalized.kind === 'normalized'
-    ? normalized.record.identities.run
-    : normalized.record.identity
+  const identity = normalizationResult.kind === 'normalized'
+    ? normalizationResult.record.identities.run
+    : normalizationResult.record.identity
 
   return v.parse(RunTombstoneV1Schema, {
     document_type: 'run_tombstone',
@@ -228,7 +409,7 @@ function tombstoneRecord(
     }
       : { status: 'not_applicable' },
 
-    source_digests: normalized.record.source_digests,
+    source_digests: normalizationResult.record.source_digests,
     derived_record_digests: digests,
     retention_classification: 'private',
     deleted_from_managed_storage: options.disposition === 'delete',
@@ -359,11 +540,94 @@ async function restoreDerivedModes(path: string): Promise<void> {
   }
 }
 
+type SourceDispositionState = 'canonical' | 'deleted' | 'staged'
+type DerivedDispositionState = 'absent' | 'canonical' | 'deleted' | 'staged'
+type TombstoneDispositionState = 'absent' | 'installed' | 'sealed' | 'staging'
+type ReservationDispositionState = 'absent' | 'installed'
+
+async function createDispositionReservation(
+  runsRoot: string,
+  runId: string
+): Promise<string> {
+  const reservationPath = runDispositionReservationPath(runsRoot, runId)
+  const reservationRoot = dirname(reservationPath)
+
+  try {
+    await mkdir(reservationRoot, { mode: 0o700 })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+      throw error
+    }
+  }
+
+  const rootMetadata = await lstat(reservationRoot)
+
+  if (
+    rootMetadata.isSymbolicLink() ||
+    !rootMetadata.isDirectory() ||
+    (rootMetadata.mode & 0o777) !== 0o700
+  ) {
+    throw new ResultError(
+      'DISPOSITION_FAILED',
+      'Run reservation root is not a real mode-0700 directory',
+      { stage: 'disposition' }
+    )
+  }
+
+  try {
+    await writeFile(reservationPath, `${runId}\n`, {
+      flag: 'wx',
+      mode: 0o400
+    })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      throw new ResultError(
+        'LIFECYCLE_REJECTED',
+        'Run ID already has a disposition reservation',
+        {
+          cause: error,
+          stage: 'disposition'
+        }
+      )
+    }
+
+    throw error
+  }
+
+  return reservationPath
+}
+
+async function removeDispositionReservation(path: string): Promise<void> {
+  if (!(await pathExists(path))) {
+    return
+  }
+
+  await chmod(path, 0o600)
+  await rm(path)
+}
+
+async function existingRecoveryPaths(
+  runsRoot: string,
+  paths: readonly string[]
+): Promise<readonly string[]> {
+  const existing: string[] = []
+
+  for (const path of paths) {
+    const exists = await pathExists(path).catch(() => false)
+
+    if (exists) {
+      existing.push(relative(runsRoot, path).split('\\').join('/'))
+    }
+  }
+
+  return existing.sort()
+}
+
 async function deleteWithTombstone(
   runDirectory: string,
   runsRoot: string,
   runId: string,
-  record: RunTombstoneV1,
+  createRecord: () => RunTombstoneV1,
   runtime: DisposeRuntime
 ): Promise<DisposeRunResult> {
   const nonce = randomUUID()
@@ -372,38 +636,55 @@ async function deleteWithTombstone(
   const resultsRoot = resolve(runsRoot, '.results')
   const resultsSource = resolve(resultsRoot, runId)
   const resultsStaging = resolve(resultsRoot, `.dispose-${runId}-${nonce}`)
-  let sourceMoved = false
-  let resultsMoved = false
-  let privateDeletionCompleted = false
-  let tombstoneInstalled = false
+  const reservationPath = runDispositionReservationPath(runsRoot, runId)
+  let sourceState: SourceDispositionState = 'canonical'
+
+  let derivedState: DerivedDispositionState = await pathExists(resultsSource)
+    ? 'canonical'
+    : 'absent'
+
+  let tombstoneState: TombstoneDispositionState = 'absent'
+  let reservationState: ReservationDispositionState = 'absent'
   let sealed: Awaited<ReturnType<typeof sealTombstoneStaging>> | undefined
 
   try {
+    await createDispositionReservation(runsRoot, runId)
+
+    reservationState = 'installed'
+
     await mkdir(tombstoneStaging, { mode: 0o700 })
 
-    sealed = await sealTombstoneStaging(tombstoneStaging, record)
+    tombstoneState = 'staging'
 
     await rename(runDirectory, sourceStaging)
 
-    sourceMoved = true
+    sourceState = 'staged'
 
+    await runtime.afterSourceStage?.()
     await mkdir(runDirectory, { mode: 0o700 })
 
-    if (await pathExists(resultsSource)) {
+    if (derivedState === 'canonical') {
       await rename(resultsSource, resultsStaging)
 
-      resultsMoved = true
+      derivedState = 'staged'
     }
 
     await runtime.afterStage?.()
     await deleteStaged(sourceStaging)
 
-    sourceMoved = false
+    sourceState = 'deleted'
 
-    await deleteStaged(resultsStaging)
+    if (derivedState === 'staged') {
+      await deleteStaged(resultsStaging)
 
-    resultsMoved = false
-    privateDeletionCompleted = true
+      derivedState = 'deleted'
+    }
+
+    const record = createRecord()
+
+    sealed = await sealTombstoneStaging(tombstoneStaging, record)
+
+    tombstoneState = 'sealed'
 
     await runtime.beforeTombstoneInstall?.()
 
@@ -412,10 +693,13 @@ async function deleteWithTombstone(
     await chmod(sealed.leafPath, 0o700)
     await rename(sealed.leafPath, finalLeaf)
 
-    tombstoneInstalled = true
+    tombstoneState = 'installed'
 
     await chmod(finalLeaf, 0o500)
     await chmod(runDirectory, 0o500)
+    await removeDispositionReservation(reservationPath)
+
+    reservationState = 'absent'
 
     return {
       digest: sealed.digest,
@@ -429,7 +713,7 @@ async function deleteWithTombstone(
     }
   } catch (error) {
     try {
-      if (sourceMoved) {
+      if (sourceState === 'staged') {
         if (await pathExists(runDirectory)) {
           await makeWritable(runDirectory)
           await rm(runDirectory, { recursive: true })
@@ -438,26 +722,23 @@ async function deleteWithTombstone(
         await restrictRemaining(sourceStaging)
         await rename(sourceStaging, runDirectory)
 
-        sourceMoved = false
+        sourceState = 'canonical'
       }
 
-      if (resultsMoved && !(await pathExists(resultsSource))) {
+      if (derivedState === 'staged' && !(await pathExists(resultsSource))) {
         await restoreDerivedModes(resultsStaging)
         await rename(resultsStaging, resultsSource)
 
-        resultsMoved = false
+        derivedState = 'canonical'
       }
 
-      if (privateDeletionCompleted && await pathExists(runDirectory)) {
+      if (sourceState === 'canonical' || sourceState === 'deleted') {
         await restrictRemaining(runDirectory)
       }
 
-      if (privateDeletionCompleted) {
+      if (sourceState === 'deleted') {
+        await restrictRemaining(resultsStaging)
         await restrictRemaining(tombstoneStaging)
-      }
-
-      if (!sourceMoved && await pathExists(runDirectory)) {
-        await restrictRemaining(runDirectory)
       }
     } catch {
       await restrictRemaining(runDirectory).catch(() => undefined)
@@ -466,17 +747,50 @@ async function deleteWithTombstone(
       await restrictRemaining(tombstoneStaging).catch(() => undefined)
     }
 
+    if (
+      reservationState === 'installed' &&
+      (sourceState === 'canonical' || tombstoneState === 'installed')
+    ) {
+      await removeDispositionReservation(reservationPath).catch(() => undefined)
+
+      reservationState = 'absent'
+    }
+
+    const preserveTombstoneRecovery =
+      sourceState === 'deleted' && tombstoneState !== 'installed'
+
+    const recoveryCandidates = [
+      runDirectory,
+      sourceStaging,
+      resultsStaging,
+      reservationPath
+    ]
+
+    if (preserveTombstoneRecovery) {
+      recoveryCandidates.push(tombstoneStaging)
+    }
+
+    const recoveryPaths = await existingRecoveryPaths(
+      runsRoot,
+      recoveryCandidates
+    )
+
     throw new ResultError(
       'DISPOSITION_FAILED',
       'Run disposition did not complete safely; inspect restricted recovery state',
       {
         cause: error,
+        recoveryPaths,
         stage: 'disposition'
       }
     )
   } finally {
+    const sourceDeleted = sourceState === 'deleted'
+    const tombstoneInstalled = tombstoneState === 'installed'
+    const removeTombstoneStaging = !sourceDeleted || tombstoneInstalled
+
     if (
-      (!privateDeletionCompleted || tombstoneInstalled) &&
+      removeTombstoneStaging &&
       await pathExists(tombstoneStaging).catch(() => false)
     ) {
       await makeWritable(tombstoneStaging).catch(() => undefined)
@@ -487,6 +801,13 @@ async function deleteWithTombstone(
       }).catch(
         () => undefined
       )
+    }
+
+    if (
+      reservationState === 'installed' &&
+      (sourceState === 'canonical' || tombstoneInstalled)
+    ) {
+      await removeDispositionReservation(reservationPath).catch(() => undefined)
     }
   }
 }
@@ -507,39 +828,56 @@ export async function disposeRunWithRuntime(
     )
   }
 
+  validateDispositionOptions(options, now)
+
   const runsRoot = resolve(options.runsDirectory ?? dirname(resolvedRunDirectory))
 
-  const normalized = await normalizeRunWithRuntime(
+  const normalizationResult = await normalizeRunWithRuntime(
     resolvedRunDirectory,
     { runsDirectory: runsRoot },
     { now: () => now }
   )
 
-  validateDisposition(normalized, options, now)
+  validateDisposition(normalizationResult, options, now)
 
-  const runId = normalized.kind === 'normalized'
-    ? normalized.record.identities.run.run_id
-    : normalized.record.identity.run_id
+  const runId = normalizationResult.kind === 'normalized'
+    ? normalizationResult.record.identities.run.run_id
+    : normalizationResult.record.identity.run_id
 
-  const digests = await derivedRecordDigests(runsRoot, runId)
-  const record = tombstoneRecord(normalized, options, now, digests)
+  return withRunResultLock(runsRoot, runId, async () => {
+    const digests = await derivedRecordDigests(runsRoot, runId)
 
-  if (options.disposition === 'incident-retain') {
-    return writeContentAddressedRecord(
+    if (options.disposition === 'incident-retain') {
+      const record = tombstoneRecord(
+        normalizationResult,
+        options,
+        now,
+        digests
+      )
+
+      return writeContentAddressedRecord(
+        runsRoot,
+        runId,
+        'restrictions',
+        record
+      )
+    }
+
+    const createRecord = () => tombstoneRecord(
+      normalizationResult,
+      options,
+      clock(options),
+      digests
+    )
+
+    return deleteWithTombstone(
+      resolvedRunDirectory,
       runsRoot,
       runId,
-      'restrictions',
-      record
+      createRecord,
+      runtime
     )
-  }
-
-  return deleteWithTombstone(
-    resolvedRunDirectory,
-    runsRoot,
-    runId,
-    record,
-    runtime
-  )
+  })
 }
 
 export async function disposeRun(

@@ -259,14 +259,14 @@ function initialRecord(
   }
 }
 
-function evidence(status: 'missing' | 'passed') {
+function evidence(status: 'missing' | 'passed', evidenceDigest: string) {
   return status === 'passed'
     ? {
         status: 'passed' as const,
 
         evidence_digest: {
           status: 'known' as const,
-          value: digestA
+          value: evidenceDigest
         }
       }
     : {
@@ -392,6 +392,23 @@ export async function createResultFixture(
     classification === 'task_success' || classification === 'task_failure'
 
   const status = validGrade ? 'passed' : 'missing'
+  const trialRoot = resolve(rawRoot, 'harbor/job/trial-fixture')
+
+  const collectionDigests = {
+    collection: digest(await readFile(
+      resolve(trialRoot, 'artifacts/trusted-collector/workspace-metadata.json')
+    )),
+
+    exactManifest: digest(await readFile(
+      resolve(trialRoot, 'artifacts/manifest.json')
+    )),
+
+    hashes: digest(await readFile(
+      resolve(trialRoot, 'artifacts/trusted-collector/workspace.patch')
+    )),
+
+    quiescence: digest(await readFile(resolve(trialRoot, 'trial.log')))
+  }
 
   const completion: CompletionRunRecord = {
     document_type: 'run',
@@ -406,10 +423,10 @@ export async function createResultFixture(
     collection: {
       collector_revision: initial.collector.revision,
       collector_image_digest: initial.collector.image_digest,
-      quiescence: evidence(status),
-      collection: evidence(status),
-      exact_manifest: evidence(status),
-      hashes: evidence(status)
+      quiescence: evidence(status, collectionDigests.quiescence),
+      collection: evidence(status, collectionDigests.collection),
+      exact_manifest: evidence(status, collectionDigests.exactManifest),
+      hashes: evidence(status, collectionDigests.hashes)
     },
 
     verifier: {
@@ -419,9 +436,9 @@ export async function createResultFixture(
       network_enforcement_sidecar_digest:
         initial.verifier.network_enforcement_sidecar_digest,
 
-      separate_environment: evidence(status),
-      network_disabled: evidence(status),
-      credential_free: evidence(status),
+      separate_environment: evidence(status, digestA),
+      network_disabled: evidence(status, digestA),
+      credential_free: evidence(status, digestA),
 
       result_digest: validGrade
         ? {

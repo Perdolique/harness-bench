@@ -20,6 +20,7 @@ export {
 } from './run-errors.ts'
 export {
   resolveRunPlan,
+  runDispositionReservationPath,
   type ResolvedRunPlan,
   type ResolveRunPlanOptions,
   type RunExecutionResult

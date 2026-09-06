@@ -29,6 +29,22 @@ const RelativePathSchema = v.pipe(
   )
 )
 
+const SanitizedLocalPathPattern = new RegExp([
+  String.raw`(?:^|[\s"'\x60(\[])/(?!/)`,
+  String.raw`(?:^|[\s"'\x60(\[])~[\\/]`,
+  String.raw`(?:^|[\s"'\x60(\[])(?:[A-Za-z]:[\\/]|\\\\)`,
+  String.raw`(?:^|[\s"'\x60(\[])\.\.?[\\/]`
+].join('|'))
+
+function excludesLocalPath(value: string): boolean {
+  return !SanitizedLocalPathPattern.test(value)
+}
+
+const SanitizedMetadataStringSchema = v.pipe(
+  NonEmptyStringSchema,
+  v.check(excludesLocalPath, 'Sanitized metadata cannot contain a local path')
+)
+
 function hasValidCalendarDate(timestamp: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})T/.exec(timestamp)
 
@@ -395,9 +411,13 @@ export const NormalizedRunRecordV1Schema = v.pipe(
       record.evidence_availability.merged_agent_output ===
         (roles.has('merged_agent_output') ? 'available' : 'unavailable') &&
       (!qualityOutcome || (
+        roles.has('artifact_manifest') &&
         roles.has('native_rollout') &&
         roles.has('atif_trajectory') &&
-        roles.has('merged_agent_output')
+        roles.has('merged_agent_output') &&
+        roles.has('harbor_trial_log') &&
+        roles.has('collected_patch') &&
+        roles.has('collector_metadata')
       ))
     )
   }, 'Normalized result relationships are inconsistent')
@@ -436,7 +456,7 @@ export const RestrictedRunRecordV1Schema = v.strictObject({
 })
 
 const SanitizedFacetEvidenceSchema = v.strictObject({
-  check_id: NonEmptyStringSchema,
+  check_id: SanitizedMetadataStringSchema,
   outcome: v.picklist(['passed', 'failed']),
   evidence_digest: Sha256Schema
 })
@@ -490,24 +510,78 @@ const SanitizedRetentionSchema = v.union([
   })
 ])
 
+const SanitizedIdentityReferenceSchema = v.strictObject({
+  id: IdentifierSchema,
+  revision: SanitizedMetadataStringSchema,
+  digest: Sha256Schema
+})
+
 const SanitizedIdentitiesSchema = v.strictObject({
-  ...NormalizedIdentitiesSchema.entries,
+  benchmark_repo_commit: GitCommitSchema,
+  run: RunIdentitySchema,
+  stack: SanitizedIdentityReferenceSchema,
+  suite: SanitizedIdentityReferenceSchema,
+
+  task: v.strictObject({
+    id: IdentifierSchema,
+    revision: SanitizedMetadataStringSchema,
+    base_commit: GitCommitSchema,
+    source_digest: Sha256Schema,
+    environment_image_digest: Sha256Schema
+  }),
+
+  harness: SanitizedIdentityReferenceSchema,
+
+  experiment: v.strictObject({
+    experiment_id: IdentifierSchema,
+    experiment_revision: SanitizedMetadataStringSchema,
+    plan_digest: Sha256Schema,
+    arm_id: IdentifierSchema,
+    block_id: IdentifierSchema,
+    replicate: v.pipe(v.number(), v.integer(), v.minValue(1))
+  }),
 
   agent: v.strictObject({
-    ...NormalizedIdentitiesSchema.entries.agent.entries,
+    product: v.literal('codex'),
+    cli_version: SanitizedMetadataStringSchema,
+    requested_model: SanitizedMetadataStringSchema,
 
     observed_provider_identity: v.union([
       v.strictObject({
         status: v.literal('known'),
-        value: NonEmptyStringSchema
+        value: SanitizedMetadataStringSchema
       }),
       SanitizedUnknownSchema
-    ])
+    ]),
+
+    effort: v.picklist(['low', 'medium', 'high', 'xhigh', 'max', 'ultra']),
+    auth_mode: v.literal('chatgpt_subscription')
+  }),
+
+  network_policy_digest: Sha256Schema,
+  effective_permissions_digest: Sha256Schema,
+  mcp_tools_digest: Sha256Schema,
+
+  host: v.strictObject({
+    os: v.literal('macos'),
+    os_version: SanitizedMetadataStringSchema,
+    architecture: v.literal('arm64'),
+    apple_silicon_model: SanitizedMetadataStringSchema,
+    docker_desktop_version: SanitizedMetadataStringSchema,
+    docker_engine_version: SanitizedMetadataStringSchema,
+    linuxkit_kernel: SanitizedMetadataStringSchema,
+    container_architecture: v.literal('linux/arm64')
   })
 })
 
 const SanitizedRevisionSchema = v.strictObject({
-  ...RevisionSchema.entries,
+  runner_name: v.literal('harbor'),
+  runner_version: v.literal('0.22.0'),
+  runner_config_digest: Sha256Schema,
+  collector_revision: SanitizedMetadataStringSchema,
+  collector_image_digest: Sha256Schema,
+  verifier_revision: SanitizedMetadataStringSchema,
+  verifier_image_digest: Sha256Schema,
 
   verifier_network_enforcement_sidecar_digest: v.union([
     v.strictObject({
@@ -515,7 +589,9 @@ const SanitizedRevisionSchema = v.strictObject({
       value: Sha256Schema
     }),
     v.strictObject({ status: v.literal('not_applicable') })
-  ])
+  ]),
+
+  scoring_revision: SanitizedMetadataStringSchema
 })
 
 const SanitizedFacetSchema = v.union([
@@ -536,9 +612,9 @@ const SanitizedScoreSchema = v.union([
   }),
   v.strictObject({
     status: v.literal('known'),
-    score_id: NonEmptyStringSchema,
+    score_id: SanitizedMetadataStringSchema,
     verifier_result_digest: Sha256Schema,
-    rubric_revision: NonEmptyStringSchema,
+    rubric_revision: SanitizedMetadataStringSchema,
 
     gates: v.strictObject({
       direct_behavior_pass: v.boolean(),
@@ -558,7 +634,7 @@ const SanitizedScoreSchema = v.union([
 
     harbor_reward: v.strictObject({
       status: v.picklist(['retained_upstream', 'not_available']),
-      numeric_values: v.record(NonEmptyStringSchema, v.number())
+      numeric_values: v.record(SanitizedMetadataStringSchema, v.number())
     }),
 
     composite: v.union([
@@ -597,7 +673,7 @@ const SanitizedRunExportV1StructureSchema = v.strictObject({
     digest: Sha256Schema,
     size: NonNegativeIntegerSchema,
     executable: v.boolean(),
-    format: NonEmptyStringSchema,
+    format: EvidenceReferenceSchema.entries.format,
     role: EvidenceReferenceSchema.entries.role
   })),
 
@@ -670,18 +746,24 @@ export const RunTombstoneV1Schema = v.pipe(
   v.check((record) => {
     const credentialDisposition = record.reason === 'credential-detected'
     const deleted = record.disposition === 'delete'
+    const incidentRetained = record.disposition === 'incident-retain'
+    const credentialAction = record.owner_attestation.credential_action
+
+    const credentialActionValid = credentialDisposition
+      ? ['rotated', 'revoked'].includes(credentialAction)
+      : credentialAction === 'not_applicable'
+
+    const incidentExpiryValid = incidentRetained
+      ? record.incident_expires_at.status === 'known' &&
+        Date.parse(record.incident_expires_at.value) > Date.parse(record.created_at)
+      : record.incident_expires_at.status === 'not_applicable'
 
     return (
       record.owner_attestation.confirmed_run_id === record.identity.run_id &&
-      (credentialDisposition
-        ? ['rotated', 'revoked'].includes(
-          record.owner_attestation.credential_action
-        )
-        : record.owner_attestation.credential_action === 'not_applicable') &&
+      credentialActionValid &&
+      (!incidentRetained || credentialDisposition) &&
       record.deleted_from_managed_storage === deleted &&
-      (deleted
-        ? record.incident_expires_at.status === 'not_applicable'
-        : record.incident_expires_at.status === 'known')
+      incidentExpiryValid
     )
   }, 'Run tombstone relationships are inconsistent')
 )

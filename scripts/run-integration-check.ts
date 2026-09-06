@@ -860,17 +860,27 @@ async function main(): Promise<void> {
     if (mode === 'success') {
       const normalized = await normalizeRun(result.run_directory)
 
-      if (
-        normalized.kind !== 'normalized' ||
-        normalized.record.evidence_availability.native_rollout !== 'available' ||
-        normalized.record.evidence_availability.atif_trajectory !== 'available' ||
-        normalized.record.evidence_availability.merged_agent_output !== 'available' ||
-        normalized.record.usage.input_tokens.status !== 'known' ||
-        normalized.record.usage.input_tokens.value !== 0 ||
-        normalized.record.usage.output_tokens.status !== 'known' ||
-        normalized.record.usage.output_tokens.value !== 0
-      ) {
-        throw new Error('Integration result normalization drifted')
+      if (normalized.kind !== 'normalized') {
+        throw new Error('Integration result was unexpectedly restricted')
+      }
+
+      const hasCompleteEvidence =
+        normalized.record.evidence_availability.native_rollout === 'available' &&
+        normalized.record.evidence_availability.atif_trajectory === 'available' &&
+        normalized.record.evidence_availability.merged_agent_output === 'available'
+
+      if (!hasCompleteEvidence) {
+        throw new Error('Integration normalized evidence availability drifted')
+      }
+
+      const hasKnownZeroUsage =
+        normalized.record.usage.input_tokens.status === 'known' &&
+        normalized.record.usage.input_tokens.value === 0 &&
+        normalized.record.usage.output_tokens.status === 'known' &&
+        normalized.record.usage.output_tokens.value === 0
+
+      if (!hasKnownZeroUsage) {
+        throw new Error('Integration normalized usage drifted')
       }
 
       console.log(`normalized: ${normalized.digest}`)

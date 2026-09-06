@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { chmod, link, lstat, mkdir, mkdtemp, open, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { parse as parseToml } from 'smol-toml'
 import { parse as parseYaml } from 'yaml'
@@ -13,7 +13,13 @@ import {
   type RunRuntime
 } from '../src/run-execution.ts'
 
-import { inspectRunTree, resolveRunPlan, type ResolveRunPlanOptions } from '../src/run.ts'
+import {
+  inspectRunTree,
+  resolveRunPlan,
+  runDispositionReservationPath,
+  type ResolveRunPlanOptions
+} from '../src/run.ts'
+
 import { inspectTaskSource, materializeTaskWorkspace } from '../src/task.ts'
 import { captureWorkspaceArtifacts } from '../src/task-artifacts.ts'
 
@@ -720,6 +726,30 @@ describe(resolveRunPlan, () => {
     }
   })
 
+  it('rejects a run ID reserved by disposition', async () => {
+    const test = await fixture()
+
+    const reservationPath = runDispositionReservationPath(
+      test.options.runsDirectory,
+      'run-a'
+    )
+
+    try {
+      await mkdir(dirname(reservationPath), {
+        recursive: true,
+        mode: 0o700
+      })
+
+      await writeFile(reservationPath, 'run-a\n', { mode: 0o400 })
+
+      await expect(resolveRunPlan(test.options)).rejects.toMatchObject({
+        code: 'DESTINATION_EXISTS'
+      })
+    } finally {
+      await removeFixture(test.root)
+    }
+  })
+
   it('rejects a completed or selected assignment', async () => {
     const test = await fixture()
     const experimentPath = test.options.experiment
@@ -1370,6 +1400,52 @@ async function mutateSemanticEvidence(
 }
 
 describe(executeRunPlanWithRuntime, () => {
+  it('rechecks a disposition reservation after creating the run directory', async () => {
+    const test = await fixture()
+    const authPath = resolve(test.root, 'selected-auth.json')
+
+    await writeCredential(authPath, '{"tokens":{"access_token":"fixture-token"}}\n')
+
+    process.env.CODEX_AUTH_JSON_PATH = authPath
+
+    try {
+      const plan = await resolveRunPlan(test.options)
+
+      const reservationPath = runDispositionReservationPath(
+        test.options.runsDirectory,
+        'run-a'
+      )
+
+      await mkdir(dirname(reservationPath), {
+        recursive: true,
+        mode: 0o700
+      })
+
+      await writeFile(reservationPath, 'run-a\n', { mode: 0o400 })
+
+      const runHarbor = vi.fn(async () => ({
+        cancelled: false,
+        exitCode: 0,
+        signal: null,
+        timedOut: false
+      }))
+
+      await expect(
+        executeRunPlanWithRuntime(plan, runtime(runHarbor))
+      ).rejects.toMatchObject({ code: 'DESTINATION_EXISTS' })
+
+      expect(runHarbor).not.toHaveBeenCalled()
+
+      await expect(
+        lstat(resolve(test.options.runsDirectory, 'run-a'))
+      ).rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      delete process.env.CODEX_AUTH_JSON_PATH
+
+      await removeFixture(test.root)
+    }
+  })
+
   it('writes separate immutable records and seals a valid provider-free grade', async () => {
     const test = await fixture()
     const authPath = resolve(test.root, 'selected-auth.json')

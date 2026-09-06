@@ -10,7 +10,7 @@ import {
   type ScoreDocument
 } from '@harness-bench/schemas'
 
-import { scanCredentialBytes, scanCredentialTree } from '@harness-bench/core'
+import { scanCredentialBytes, scanCredentialTree, type CredentialPatternFinding } from '@harness-bench/core'
 import * as v from 'valibot'
 import { ResultError } from './errors.ts'
 
@@ -23,7 +23,14 @@ import {
   type RestrictedRunRecordV1
 } from './schemas.ts'
 
-import { readStableFile, sha256, writeContentAddressedRecord } from './storage.ts'
+import {
+  hashStableFile,
+  readStableFile,
+  serializeRecord,
+  sha256,
+  withRunResultLock,
+  writeContentAddressedRecord
+} from './storage.ts'
 
 const HARBOR_VERSION = '0.22.0'
 const ATIF_VERSION = 'ATIF-v1.7'
@@ -46,7 +53,6 @@ interface RawEntry {
 
 interface RawSnapshot {
   readonly entries: readonly RawEntry[];
-  readonly files: ReadonlyMap<string, Buffer>;
   readonly signature: string;
 }
 
@@ -56,6 +62,7 @@ interface SourceRecords {
   readonly initial: InitialRunRecord;
   readonly initialDigest: string;
   readonly manifestDigest: string;
+  readonly metadataFindings: readonly CredentialPatternFinding[];
   readonly raw: RawSnapshot;
   readonly rawPath: string;
   readonly rawRoot: string;
@@ -219,7 +226,6 @@ async function resolveRunDirectory(
 
 async function inspectRawTree(root: string): Promise<RawSnapshot> {
   const entries: RawEntry[] = []
-  const files = new Map<string, Buffer>()
   const directories: string[] = []
 
   async function visit(directory: string): Promise<void> {
@@ -301,16 +307,14 @@ async function inspectRawTree(root: string): Promise<RawSnapshot> {
         )
       }
 
-      const contents = await readStableFile(path)
+      const stableDigest = await hashStableFile(path)
 
       entries.push({
-        digest: sha256(contents),
+        digest: stableDigest.digest,
         executable,
         path: relativePath,
-        size: contents.byteLength
+        size: stableDigest.size
       })
-
-      files.set(relativePath, contents)
     }
   }
 
@@ -320,7 +324,6 @@ async function inspectRawTree(root: string): Promise<RawSnapshot> {
 
   return {
     entries,
-    files,
 
     signature: sha256(JSON.stringify({
       directories,
@@ -501,6 +504,12 @@ async function loadSourceRecords(runDirectory: string): Promise<SourceRecords> {
   const completionDigest = sha256(completionSource)
   const manifestDigest = sha256(manifestSource)
 
+  const metadataFindings = [
+    ...scanCredentialBytes(initialSource, { path: 'initial.json' }),
+    ...scanCredentialBytes(completionSource, { path: 'completion.json' }),
+    ...scanCredentialBytes(manifestSource, { path: 'raw-manifest.json' })
+  ]
+
   assertSourceRelationships(
     initial,
     completion,
@@ -514,6 +523,7 @@ async function loadSourceRecords(runDirectory: string): Promise<SourceRecords> {
     initial,
     initialDigest,
     manifestDigest,
+    metadataFindings,
     raw,
     rawPath: completion.raw_artifact_path,
     rawRoot: physicalRawRoot,
@@ -549,8 +559,17 @@ function findTrialPrefix(raw: RawSnapshot): string | undefined {
   return [...trials][0]
 }
 
-function file(raw: RawSnapshot, path: string): Buffer | undefined {
-  return raw.files.get(path)
+async function readRawFile(
+  records: SourceRecords,
+  path: string
+): Promise<Buffer | undefined> {
+  const entry = records.raw.entries.find((candidate) => candidate.path === path)
+
+  if (entry === undefined) {
+    return undefined
+  }
+
+  return readStableFile(resolve(records.rawRoot, entry.path))
 }
 
 function requireJsonRecord(
@@ -733,10 +752,10 @@ function reference(
   }
 }
 
-function normalizedScore(
+async function normalizedScore(
   records: SourceRecords,
   trialPrefix: string | undefined
-): NormalizedRunRecordV1['score'] {
+): Promise<NormalizedRunRecordV1['score']> {
   if (!records.completion.valid_grade) {
     return {
       status: 'unavailable',
@@ -752,7 +771,10 @@ function normalizedScore(
     )
   }
 
-  const scoreSource = file(records.raw, `${trialPrefix}/verifier/score.json`)
+  const scoreSource = await readRawFile(
+    records,
+    `${trialPrefix}/verifier/score.json`
+  )
 
   if (scoreSource === undefined) {
     throw new ResultError(
@@ -792,7 +814,7 @@ function normalizedScore(
     )
   }
 
-  validateReward(records, trialPrefix, score)
+  await validateReward(records, trialPrefix, score)
 
   return {
     status: 'known',
@@ -800,12 +822,15 @@ function normalizedScore(
   }
 }
 
-function validateReward(
+async function validateReward(
   records: SourceRecords,
   trialPrefix: string,
   score: ScoreDocument
-): void {
-  const rewardSource = file(records.raw, `${trialPrefix}/verifier/reward.json`)
+): Promise<void> {
+  const rewardSource = await readRawFile(
+    records,
+    `${trialPrefix}/verifier/reward.json`
+  )
 
   if (rewardSource === undefined) {
     if (score.harbor_reward.status === 'retained_upstream') {
@@ -854,15 +879,15 @@ function validateReward(
   }
 }
 
-function parseAtif(
+async function parseAtif(
   records: SourceRecords,
   atifPath: string | undefined
-): Record<string, unknown> | undefined {
+): Promise<Record<string, unknown> | undefined> {
   if (atifPath === undefined) {
     return undefined
   }
 
-  const source = file(records.raw, atifPath)
+  const source = await readRawFile(records, atifPath)
 
   if (source === undefined) {
     return undefined
@@ -874,6 +899,21 @@ function parseAtif(
     throw new ResultError(
       'INCOMPATIBLE_VERSION',
       'Only ATIF-v1.7 trajectories are supported',
+      { stage: 'normalization' }
+    )
+  }
+
+  const agent = atif.agent
+
+  if (
+    !isRecord(agent) ||
+    agent.name !== records.initial.agent.product ||
+    agent.version !== records.initial.agent.cli_version ||
+    agent.model_name !== records.initial.agent.requested_model
+  ) {
+    throw new ResultError(
+      'INCOMPATIBLE_EVIDENCE',
+      'ATIF agent identity does not match the immutable run identity',
       { stage: 'normalization' }
     )
   }
@@ -924,14 +964,56 @@ function crossCheckAtif(
   }
 }
 
-function parseEvidence(records: SourceRecords): Pick<
+function assertTrustedCollectionEvidence(
+  records: SourceRecords,
+  trialPrefix: string
+): void {
+  const proofs = [
+    [
+      records.completion.collection.quiescence,
+      `${trialPrefix}/trial.log`
+    ],
+    [
+      records.completion.collection.collection,
+      `${trialPrefix}/artifacts/trusted-collector/workspace-metadata.json`
+    ],
+    [
+      records.completion.collection.exact_manifest,
+      `${trialPrefix}/artifacts/manifest.json`
+    ],
+    [
+      records.completion.collection.hashes,
+      `${trialPrefix}/artifacts/trusted-collector/workspace.patch`
+    ]
+  ] as const
+
+  for (const [proof, path] of proofs) {
+    const entry = records.raw.entries.find((candidate) => candidate.path === path)
+    const evidenceDigest = proof.evidence_digest
+
+    if (
+      entry === undefined ||
+      proof.status !== 'passed' ||
+      evidenceDigest.status !== 'known' ||
+      evidenceDigest.value !== entry.digest
+    ) {
+      throw new ResultError(
+        'INCOMPATIBLE_EVIDENCE',
+        'Trusted collection proof does not match retained raw evidence',
+        { stage: 'normalization' }
+      )
+    }
+  }
+}
+
+async function parseEvidence(records: SourceRecords): Promise<Pick<
   NormalizedRunRecordV1,
   | 'evidence_availability'
   | 'references'
   | 'score'
   | 'timings'
   | 'usage'
-> {
+>> {
   const qualityOutcome = records.completion.valid_grade
   const trialPrefix = findTrialPrefix(records.raw)
   const allPaths = records.raw.entries.map(({ path }) => path)
@@ -975,8 +1057,12 @@ function parseEvidence(records: SourceRecords): Pick<
     )
   }
 
+  if (qualityOutcome && trialPrefix !== undefined) {
+    assertTrustedCollectionEvidence(records, trialPrefix)
+  }
+
   for (const path of nativeRollouts) {
-    const source = file(records.raw, path)
+    const source = await readRawFile(records, path)
 
     if (source !== undefined) {
       validateJsonLines(source)
@@ -984,7 +1070,7 @@ function parseEvidence(records: SourceRecords): Pick<
   }
 
   const atifPath = atifPaths[0]
-  const atif = parseAtif(records, atifPath)
+  const atif = await parseAtif(records, atifPath)
 
   const resultPath = trialPrefix === undefined
     ? undefined
@@ -992,7 +1078,7 @@ function parseEvidence(records: SourceRecords): Pick<
 
   const resultSource = resultPath === undefined
     ? undefined
-    : file(records.raw, resultPath)
+    : await readRawFile(records, resultPath)
 
   const result = resultSource === undefined
     ? undefined
@@ -1067,7 +1153,7 @@ function parseEvidence(records: SourceRecords): Pick<
   ] as const
 
   for (const [path, role, format] of [...runReferences, ...optionalReferences]) {
-    if (file(records.raw, path) !== undefined) {
+    if (records.raw.entries.some((entry) => entry.path === path)) {
       references.push(reference(records, path, role, format))
     }
   }
@@ -1084,7 +1170,7 @@ function parseEvidence(records: SourceRecords): Pick<
     },
 
     references,
-    score: normalizedScore(records, trialPrefix),
+    score: await normalizedScore(records, trialPrefix),
 
     timings: {
       total_seconds: records.completion.timings.total_seconds,
@@ -1190,12 +1276,52 @@ async function assertFinalSnapshot(
   }
 }
 
-export async function normalizeRunWithRuntime(
-  runDirectory: string,
-  options: NormalizeRunOptions,
+type RestrictionFinding =
+  RestrictedRunRecordV1['restriction']['findings'][number]
+
+async function storeRestriction(
+  resolved: { readonly runDirectory: string; readonly runsRoot: string },
+  records: SourceRecords,
+  createdAt: string,
+  category: RestrictedRunRecordV1['restriction']['category'],
+  findings: readonly RestrictionFinding[]
+): Promise<NormalizeRunResult> {
+  const restriction = v.parse(RestrictedRunRecordV1Schema, {
+    document_type: 'restricted_run',
+    schema_version: 1,
+    normalization_revision: '1',
+    record_type: 'restriction',
+    created_at: createdAt,
+    identity: records.initial.identity,
+    source_digests: baseRecord(records).source_digests,
+
+    restriction: {
+      category,
+      publication: 'blocked',
+      rotation_or_revocation: 'pending',
+      disposition: 'pending',
+      findings
+    }
+  })
+
+  const stored = await writeContentAddressedRecord(
+    resolved.runsRoot,
+    records.initial.identity.run_id,
+    'restrictions',
+    restriction
+  )
+
+  return {
+    kind: 'restricted',
+    ...stored,
+    runDirectory: resolved.runDirectory
+  }
+}
+
+async function normalizeResolvedRunWithRuntime(
+  resolved: { readonly runDirectory: string; readonly runsRoot: string },
   runtime: NormalizeRuntime
 ): Promise<NormalizeRunResult> {
-  const resolved = await resolveRunDirectory(runDirectory, options)
   const records = await loadSourceRecords(resolved.runDirectory)
   const quarantined = records.rawPath.startsWith('quarantine/')
 
@@ -1211,57 +1337,50 @@ export async function normalizeRunWithRuntime(
     )
   }
 
-  if (quarantined || scan?.credentialFound) {
+  const rawFindings = scan?.findings.map((finding) => ({
+    category: finding.category,
+    path: `${records.rawPath}/${finding.path}`
+  })) ?? []
+
+  const credentialFindings = [
+    ...records.metadataFindings,
+    ...rawFindings
+  ]
+
+  if (quarantined || credentialFindings.length > 0) {
     await assertFinalSnapshot(resolved.runDirectory, records, runtime)
 
-    const quarantinePath = scanCredentialBytes(Buffer.from(records.rawPath), {
-      path: '[redacted-path]'
-    }).length > 0
-      ? '[redacted-path]'
-      : records.rawPath
+    if (quarantined) {
+      const pathFindings = scanCredentialBytes(Buffer.from(records.rawPath), {
+        path: '[redacted-path]'
+      })
 
-    const restriction = v.parse(RestrictedRunRecordV1Schema, {
-      document_type: 'restricted_run',
-      schema_version: 1,
-      normalization_revision: '1',
-      record_type: 'restriction',
-      created_at: timestamp(runtime.now()),
-      identity: records.initial.identity,
-      source_digests: baseRecord(records).source_digests,
+      const quarantinePath = pathFindings.length > 0
+        ? '[redacted-path]'
+        : records.rawPath
 
-      restriction: {
-        category: quarantined ? 'raw_quarantined' : 'credential_detected',
-        publication: 'blocked',
-        rotation_or_revocation: 'pending',
-        disposition: 'pending',
-
-        findings: quarantined
-          ? [{
-              category: 'source_quarantined',
-              path: quarantinePath
-            }]
-          : scan?.findings.map((finding) => ({
-              category: finding.category,
-              path: `${records.rawPath}/${finding.path}`
-            })) ?? []
-      }
-    })
-
-    const stored = await writeContentAddressedRecord(
-      resolved.runsRoot,
-      records.initial.identity.run_id,
-      'restrictions',
-      restriction
-    )
-
-    return {
-      kind: 'restricted',
-      ...stored,
-      runDirectory: resolved.runDirectory
+      return storeRestriction(
+        resolved,
+        records,
+        timestamp(runtime.now()),
+        'raw_quarantined',
+        [{
+          category: 'source_quarantined',
+          path: quarantinePath
+        }]
+      )
     }
+
+    return storeRestriction(
+      resolved,
+      records,
+      timestamp(runtime.now()),
+      'credential_detected',
+      credentialFindings
+    )
   }
 
-  const evidence = parseEvidence(records)
+  const evidence = await parseEvidence(records)
 
   await assertFinalSnapshot(resolved.runDirectory, records, runtime)
 
@@ -1286,6 +1405,20 @@ export async function normalizeRunWithRuntime(
     merged_output_semantics: 'irreversibly_merged_stdout_stderr'
   })
 
+  const normalizedFindings = scanCredentialBytes(serializeRecord(normalized), {
+    path: 'derived/normalized-record.json'
+  })
+
+  if (normalizedFindings.length > 0) {
+    return storeRestriction(
+      resolved,
+      records,
+      normalized.created_at,
+      'credential_detected',
+      normalizedFindings
+    )
+  }
+
   const stored = await writeContentAddressedRecord(
     resolved.runsRoot,
     records.initial.identity.run_id,
@@ -1305,6 +1438,21 @@ export async function normalizeRunWithRuntime(
 
     runDirectory: resolved.runDirectory
   }
+}
+
+export async function normalizeRunWithRuntime(
+  runDirectory: string,
+  options: NormalizeRunOptions,
+  runtime: NormalizeRuntime
+): Promise<NormalizeRunResult> {
+  const resolved = await resolveRunDirectory(runDirectory, options)
+  const runId = basename(resolved.runDirectory)
+
+  return withRunResultLock(
+    resolved.runsRoot,
+    runId,
+    () => normalizeResolvedRunWithRuntime(resolved, runtime)
+  )
 }
 
 export async function normalizeRun(
