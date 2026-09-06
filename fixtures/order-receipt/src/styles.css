@@ -1,0 +1,27 @@
+:root {
+  color: #1b2336;
+  background: #f5f3ef;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+  --color-accent: #5c4ce8;
+  --color-accent-dark: #4336bd;
+  --color-border: #ddd8cf;
+  --color-focus: #ffbf47;
+  --color-muted: #687083;
+  --color-surface: #fff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 20rem;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}

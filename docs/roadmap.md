@@ -101,4 +101,4 @@ M4 item dependencies are in the table rather than speculative parallel tracks. I
 
 ## Current boundary
 
-M0 is complete after issue 3 and its focused PR merged. Issues 4 and 5 are closed; the versioned v1 schemas are frozen and immutable-harness tooling is merged. Issue 6 is the next M1 slice. GitHub keeps issue 7 dependent on issues 4–6, and the issue 6 owner calibration gate must also be recorded before issue 7 starts. No canonical task packaging or run orchestration is implemented yet.
+M0 is complete after issue 3 and its focused PR merged. Issues 4 and 5 are closed; the versioned v1 schemas are frozen and immutable-harness tooling is merged. Issue 6 now has an implemented canonical task package and a passing provider-free local calibration, recorded in the [order receipt evidence card](tasks/order-receipt.md). The issue 6 owner realism and fairness review remains pending. GitHub keeps issue 7 dependent on issues 4–6, and work on issue 7 must not start until issue 6 is merged and that owner gate is recorded.

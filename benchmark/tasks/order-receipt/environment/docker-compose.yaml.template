@@ -1,0 +1,15 @@
+services:
+  main:
+    volumes:
+      - workspace:/app
+  collector:
+    image: __COLLECTOR_IMAGE__
+    environment:
+      TASK_BASE_COMMIT: __TASK_BASE_COMMIT__
+      TASK_SOURCE_DIGEST: __TASK_SOURCE_DIGEST__
+    network_mode: none
+    volumes:
+      - workspace:/workspace:ro
+
+volumes:
+  workspace:

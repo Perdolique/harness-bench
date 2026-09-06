@@ -1,0 +1,15 @@
+{
+  "access-key-in-analytics": ["analytics"],
+  "candidate-tests-deleted": ["candidate-tests"],
+  "candidate-unit-trivial": ["candidate-tests"],
+  "dependency-churn": ["scope"],
+  "duplicate-analytics": ["analytics"],
+  "hardcoded-copy": ["localization"],
+  "ineligible-action": ["availability"],
+  "keyboard-inaccessible": ["keyboard"],
+  "missing-analytics": ["analytics"],
+  "missing-navigation-key": ["direct-behavior"],
+  "regression-disabled": ["regression", "scope"],
+  "stale-selection": ["selected-context"],
+  "wrong-order": ["selected-context"]
+}

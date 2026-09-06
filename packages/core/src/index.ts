@@ -11,6 +11,15 @@ export {
   type HarnessErrorCode,
   type HarnessErrorOptions
 } from './errors.ts'
+export {
+  inspectMaterializedTaskWorkspace,
+  inspectTaskSource,
+  materializeTaskWorkspace
+} from './task.ts'
+export {
+  captureWorkspaceArtifacts,
+  verifyWorkspaceArtifacts
+} from './task-artifacts.ts'
 export type {
   CaptureHarnessBundleOptions,
   CaptureHarnessBundleResult,
@@ -26,3 +35,14 @@ export type {
   MaterializeHarnessBundleResult,
   ValidateHarnessBundleResult
 } from './types.ts'
+export type {
+  MaterializeTaskWorkspaceOptions,
+  MaterializeTaskWorkspaceResult,
+  TaskSourceSnapshot,
+  TaskTreeEntry
+} from './task.ts'
+export type {
+  CaptureWorkspaceArtifactsOptions,
+  VerifyWorkspaceArtifactsOptions,
+  WorkspaceArtifactMetadata
+} from './task-artifacts.ts'
