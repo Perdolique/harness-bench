@@ -1,0 +1,7 @@
+{
+  "fixture_kind": "deterministic-fake-codex-integration",
+  "harbor_version": "0.22.0",
+  "harbor_source_revision": "4407eb5227a2ff4f0d3f16b2eb48849382fdf276",
+  "provider_calls": 0,
+  "contains_subscription_trajectory": false
+}

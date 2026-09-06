@@ -1,0 +1,26 @@
+{
+  "checks": {
+    "direct": {
+      "facet": "direct_behavior",
+      "passed": true
+    },
+    "contracts": {
+      "facet": "repository_contracts",
+      "passed": true
+    },
+    "regression": {
+      "facet": "regression",
+      "passed": true
+    },
+    "scope": {
+      "facet": "scope_integrity",
+      "passed": true
+    }
+  },
+  "integrity": {
+    "passed": true,
+    "credentialsAbsent": true,
+    "networkIsolated": true
+  },
+  "scopeViolations": []
+}

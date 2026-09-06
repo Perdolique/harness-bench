@@ -7,7 +7,6 @@ import { EXPECTED_TOOLCHAIN, TOOL_COMMANDS, type ToolCommand } from '../toolchai
 const root = resolve(import.meta.dirname, '../..')
 
 const manifestOnlyWorkspaceManifests = [
-  ['packages/results/package.json', '@harness-bench/results'],
   ['packages/statistics/package.json', '@harness-bench/statistics'],
   ['packages/reporting/package.json', '@harness-bench/reporting']
 ] as const
@@ -219,7 +218,7 @@ describe('repository skeleton', () => {
     }
   })
 
-  it('exposes the issue 7 core dependencies and thin CLI surface', () => {
+  it('exposes the issue 8 core, results, and thin CLI dependencies', () => {
     expect(readJson('packages/core/package.json')).toEqual({
       name: '@harness-bench/core',
       version: '0.0.0',
@@ -241,7 +240,25 @@ describe('repository skeleton', () => {
       private: true,
       type: 'module',
       bin: { benchctl: './src/cli.ts' },
-      dependencies: { '@harness-bench/core': 'workspace:*' }
+
+      dependencies: {
+        '@harness-bench/core': 'workspace:*',
+        '@harness-bench/results': 'workspace:*'
+      }
+    })
+
+    expect(readJson('packages/results/package.json')).toEqual({
+      name: '@harness-bench/results',
+      version: '0.0.0',
+      private: true,
+      type: 'module',
+      exports: './src/index.ts',
+
+      dependencies: {
+        '@harness-bench/core': 'workspace:*',
+        '@harness-bench/schemas': 'workspace:*',
+        valibot: '1.4.2'
+      }
     })
   })
 

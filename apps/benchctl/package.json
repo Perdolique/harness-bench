@@ -7,6 +7,7 @@
     "benchctl": "./src/cli.ts"
   },
   "dependencies": {
-    "@harness-bench/core": "workspace:*"
+    "@harness-bench/core": "workspace:*",
+    "@harness-bench/results": "workspace:*"
   }
 }

@@ -32,6 +32,7 @@ import {
 
 import { inspectTaskSource } from './task.ts'
 import { verifyWorkspaceArtifacts } from './task-artifacts.ts'
+import { scanCredentialTree } from './secret-scan.ts'
 
 const execFileAsync = promisify(execFile)
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024
@@ -1512,52 +1513,12 @@ async function scanRawForCredentials(
   authPath: string,
   authMaterial: Buffer,
   credentialLeaves: readonly Buffer[]
-): Promise<{
-  readonly credentialFound: boolean;
-  readonly invalidEntries: readonly string[];
-}> {
-  const materialText = authMaterial.toString('utf8')
-  let found = false
-  const invalidEntries: string[] = []
-
-  async function visit(directory: string): Promise<void> {
-    for (const entry of await readdir(directory, { withFileTypes: true })) {
-      const path = resolve(directory, entry.name)
-      const metadata = await lstat(path)
-
-      if (metadata.isSymbolicLink() || (!metadata.isDirectory() && !metadata.isFile())) {
-        invalidEntries.push(relative(rawRoot, path).split('\\').join('/'))
-
-        continue
-      }
-
-      if (metadata.isDirectory()) {
-        await visit(path)
-
-        continue
-      }
-
-      const contents = await readFile(path)
-      const source = contents.toString('utf8')
-
-      found ||= authMaterial.length > 0 && contents.includes(authMaterial)
-      found ||= authPath !== '' && source.includes(authPath)
-      found ||= materialText !== '' && source.includes(materialText)
-      found ||= credentialLeaves.some((leaf) => contents.includes(leaf))
-      found ||= /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(source)
-      found ||= /\b(?:sk-[A-Za-z0-9_-]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\b/.test(source)
-      found ||= /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/.test(source)
-      found ||= /["']?(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password)["']?\s*[:=]\s*["']?[^\s"']{8,}/i.test(source)
-    }
-  }
-
-  await visit(rawRoot)
-  invalidEntries.sort(compareText)
-
-  return {
-    credentialFound: found,
-    invalidEntries
-  }
+): ReturnType<typeof scanCredentialTree> {
+  return scanCredentialTree({
+    exactBytes: [authMaterial, ...credentialLeaves],
+    exactTexts: [authPath, authMaterial.toString('utf8')],
+    root: rawRoot
+  })
 }
 
 async function rawManifest(rawRoot: string): Promise<readonly RawManifestEntry[]> {
@@ -2061,6 +2022,7 @@ async function executeSealedRunPlan(
   } catch (error) {
     rawInspection = {
       credentialFound: false,
+      findings: [],
       invalidEntries: []
     }
 
@@ -2182,6 +2144,7 @@ async function executeSealedRunPlan(
 
     finalInspection = {
       credentialFound: false,
+      findings: [],
       invalidEntries: []
     }
   }

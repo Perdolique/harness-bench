@@ -140,7 +140,7 @@ A real local execution uses the same command without `--dry-run` and requires an
 
 The command requires a clean benchmark checkout, a supported macOS Apple Silicon/Docker Desktop host, and locally resolved Linux/arm64 image IDs matching the TaskDocument. It creates `<runs-dir>/<run-id>` exactly once at mode `0700`; an existing ID is never resumed or overwritten. It copies and rehashes only identified input bytes, materializes the selected harness, compiles `AGENTS.override.md` (or `AGENTS.md` when no override exists) after any existing `developer_instructions`, and repeats the pinned Codex doctor and strict-config checks. A separate derived task package replaces mutable image references with the verified immutable image IDs while the copied input package remains unchanged. Task Compose files are parsed structurally and restricted to the exact main/collector/verifier service and named-volume contract; bind mounts, Docker sockets, extra sidecars, build/image overrides, resource overrides, privilege controls, host namespaces, and interpolation are rejected. Policy files under `rules/*.rules` are rejected because Harbor's Codex adapter uses bypass mode and cannot enforce those policies faithfully. The run-local Harbor job uses one task, one attempt, one concurrent trial and agent, zero retries, telemetry off, enforced CPU/RAM overrides, native config/skill/MCP inputs, and Harbor-owned Docker lifecycle.
 
-`initial.json` is atomically written read-only before Harbor starts. Harbor stdout, stderr, job tree, native trajectory, collected artifacts, and verifier files remain under restricted raw evidence. A valid grade requires ordered main-service stop and collector completion evidence, the exact successful Harbor artifact manifest, declared artifact hashes, successful host replay, and a separate credential-free verifier with networking disabled. Every score evidence item must bind to exactly one verifier check with the same facet, outcome, and digest; gates and scope violations must match that evidence. `completion.json` is a second immutable record; the initial record is never extended. Before host replay and grading, and again before completion, the raw tree is checked for the selected credential, credential leaves, and known credential patterns, listed in a canonical manifest, and made read-only. A secret finding moves the raw tree to `quarantine/raw`; a symlink or special entry moves the untouched tree to `quarantine/invalid-raw` and manifests only safe terminal diagnostics. Both cases produce an ungraded runner failure without printing secret bytes. General publication, redaction, expiry, and tombstone workflows remain issue 8.
+`initial.json` is atomically written read-only before Harbor starts. Harbor stdout, stderr, job tree, native trajectory, collected artifacts, and verifier files remain under restricted raw evidence. A valid grade requires ordered main-service stop and collector completion evidence, the exact successful Harbor artifact manifest, declared artifact hashes, successful host replay, and a separate credential-free verifier with networking disabled. Every score evidence item must bind to exactly one verifier check with the same facet, outcome, and digest; gates and scope violations must match that evidence. `completion.json` is a second immutable record; the initial record is never extended. Before host replay and grading, and again before completion, the raw tree is checked for the selected credential, credential leaves, and known credential patterns, listed in a canonical manifest, and made read-only. A secret finding moves the raw tree to `quarantine/raw`; a symlink or special entry moves the untouched tree to `quarantine/invalid-raw` and manifests only safe terminal diagnostics. Both cases produce an ungraded runner failure without printing secret bytes. Issue 8 implements publication eligibility, redaction, expiry, and tombstone workflows as separate derived records without rewriting these issue-7 sources.
 
 Harbor `0.22.0` does not provide a host-controlled pause between its collector hook and built-in separate verifier. Consequently, the host scan cannot prove it ran before Harbor exposed collected bytes to that verifier. Issue 7 instead requires the offline verifier's own credential-absence evidence and performs the host scan immediately after Harbor returns, before host replay or grading. This limitation must remain explicit until a later Harbor/adapter revision re-proves a stronger ordering boundary.
 
@@ -153,6 +153,54 @@ vp run run:integration:check
 ```
 
 It covers successful collection and offline verification, controlled agent failure, cancellation, concurrency one, one attempt, zero retries, telemetry off, immutable image-ID materialization, and `provider_calls: 0`. The last value comes from a host-side provider canary that counts every request to the fake agent's configured API base; it is not an agent self-report. Disposable raw records remain under the printed `/tmp/harness-bench-issue-7-integration-*` path.
+
+## Derived result normalization and disposition
+
+Issue 8 adds an independently versioned derived layer. It never rewrites `initial.json`, `completion.json`, `raw-manifest.json`, or retained raw bytes:
+
+```sh
+vp run benchctl -- results normalize /absolute/local-runs/<run-id>
+vp run benchctl -- results export \
+  /absolute/local-runs/.results/<run-id>/normalized/<sha256>/record.json
+vp run benchctl -- results dispose /absolute/local-runs/<run-id> \
+  --confirm-run-id <run-id> \
+  --reason retention-expired \
+  --disposition delete
+```
+
+Normalization accepts only a real direct child of its mode-`0700` runs root, with a basename matching the immutable run identity. The run and raw tree must retain issue 7's read-only modes. The command validates the v1 initial and completion schemas, identity and revision links, raw path containment, exact manifest inventory, sizes, executable bits, SHA-256 values, score/reward relationships, and source stability after parsing. It rejects any nested `sha256-manifest.json`, symlink, special entry, incompatible Harbor version, or incompatible ATIF version. The supported parser pins are Harbor `0.22.0`, normalization revision `1`, and ATIF `ATIF-v1.7`; issue 2's legacy layout is not accepted.
+
+A task success or task failure requires a native rollout JSONL, ATIF trajectory, merged `codex.txt`, separate-verifier result, and structured score. Ungraded agent, provider, runner, verifier, infrastructure, or cancellation outcomes never receive a numeric zero; present evidence is referenced and absent evidence is explicit. `codex.txt` remains labelled as irreversibly merged stdout/stderr. Complete Harbor `started_at`/`finished_at` pairs produce whole seconds rounded upward, while incomplete pairs remain unknown. Trial `agent_result` supplies tokens and preserves a reported zero. ATIF totals must agree when present. Harbor `cost_usd` is stored only as an upstream Harbor/Codex/LiteLLM API-price estimate with provenance; subscription money is not applicable.
+
+Derived records use this local layout:
+
+```text
+<runs-dir>/.results/<run-id>/
+├── normalized/<sha256>/record.json
+├── exports/<sha256>/record.json
+└── restrictions/<sha256>/record.json
+```
+
+Managed parent directories are mode `0700`, address directories are `0500`, and records are `0400`. Serialized references are relative to the immutable run. APIs and CLI output may return the resolved absolute record path to the local caller, but it is not embedded in the record.
+
+A positive credential-pattern finding or an existing issue-7 quarantine produces only a restriction record and exit `2`. It reports safe category/path metadata, blocks publication, and records rotation/revocation and disposition as pending. It never copies the matched value or hashes that value. The CLI output is owner notification, not evidence that an external credential was rotated or revoked.
+
+Export revalidates the exact normalized content address, rebuilds an allowlisted metadata record, scans the completed bytes, and seals it separately. It contains identities and revisions, classifications, score/applicability states, safe evidence digests, timings, usage, and provenance. It excludes local/repository paths and prompt, source, patch, log, trajectory, traceback, and free verifier text. `publication_authorized: false` is deliberate: a passing scan does not prove that every secret is absent and does not grant publication permission. No upload is implemented.
+
+Disposition is private-record lifecycle handling, not a backup manager. `--confirm-run-id` must match exactly. `retention-expired` is allowed only after a private `expires_at`; `owner-request` is private only. Restricted evidence must use `credential-detected` and requires `--credential-action rotated|revoked`, which records an owner attestation rather than performing the external action. Incident retention additionally requires a future expiry:
+
+```sh
+vp run benchctl -- results dispose /absolute/local-runs/<run-id> \
+  --confirm-run-id <run-id> \
+  --reason credential-detected \
+  --disposition incident-retain \
+  --credential-action revoked \
+  --incident-expires-at 2026-12-05T12:00:00Z
+```
+
+Deletion stages the exact run and its managed `.results` state, removes them, then leaves a mode-`0500` run directory containing one content-addressed redacted tombstone file. The existing directory prevents run-ID reuse. Incident retention keeps restricted bytes and records the new expiry in a tombstone without changing the raw record. If staging or deletion fails, the command exits `2`, does not install a false `deleted` tombstone, and keeps remaining private bytes restricted. Recover by inspecting the safe diagnostic and exact staged path; do not fabricate completion or reuse the ID. The tool claims nothing about unknown external copies. There is no automatic expiry sweep.
+
+Successful result commands emit JSON and exit `0`. Restricted normalization and all input, integrity, version, export, or lifecycle failures exit `2` with safe diagnostics that omit raw causes. Exit `1` remains exclusive to a valid task-quality failure from `benchctl run`.
 
 ## Canonical task calibration
 

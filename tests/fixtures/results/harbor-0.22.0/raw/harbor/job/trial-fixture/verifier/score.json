@@ -1,0 +1,56 @@
+{
+  "document_type": "score",
+  "schema_version": 1,
+  "score_id": "fixture-score",
+  "run_id": "fixture-run",
+  "verifier_result_digest": "sha256:ddd7764074f73dda5d0955bd2ac1c4bb7c5b0c1a44c65f107716c5259908c05a",
+  "scoring_revision": "fixture-scoring-v1",
+  "rubric_revision": "fixture-rubric-v1",
+  "valid_grade": true,
+  "gates": {
+    "direct_behavior_pass": true,
+    "regression_pass": true,
+    "verifier_integrity_pass": true
+  },
+  "facets": {
+    "direct_behavior": {
+      "status": "value",
+      "value": 1,
+      "evidence": [{"check_id":"direct","outcome":"passed","evidence_digest":"sha256:1111111111111111111111111111111111111111111111111111111111111111"}]
+    },
+    "repository_contracts": {
+      "status": "value",
+      "value": 1,
+      "evidence": [{"check_id":"contracts","outcome":"passed","evidence_digest":"sha256:2222222222222222222222222222222222222222222222222222222222222222"}]
+    },
+    "regression": {
+      "status": "value",
+      "value": 1,
+      "evidence": [{"check_id":"regression","outcome":"passed","evidence_digest":"sha256:3333333333333333333333333333333333333333333333333333333333333333"}]
+    },
+    "scope_integrity": {
+      "status": "value",
+      "value": 1,
+      "evidence": [{"check_id":"scope","outcome":"passed","evidence_digest":"sha256:4444444444444444444444444444444444444444444444444444444444444444"}]
+    },
+    "maintainability": {
+      "status": "not_applicable",
+      "reason": "Not measured by this fixture",
+      "evidence": []
+    }
+  },
+  "scope_violations": [],
+  "harbor_reward": {
+    "status": "retained_upstream",
+    "numeric_values": {
+      "direct_behavior": 1,
+      "regression": 1,
+      "repository_contracts": 1,
+      "scope_integrity": 1
+    }
+  },
+  "composite": {
+    "status": "value",
+    "value": 1
+  }
+}

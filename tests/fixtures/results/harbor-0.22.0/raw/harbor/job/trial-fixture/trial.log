@@ -1,0 +1,4 @@
+Stopping main service before sidecar evidence collection
+Main service stopped
+Running collect hook in service 'collector'
+Collect hook in service 'collector' completed

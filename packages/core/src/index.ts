@@ -26,6 +26,17 @@ export {
 } from './run.ts'
 export { executeRunPlan } from './run-execution.ts'
 export {
+  CREDENTIAL_PATTERN_CATEGORIES,
+  CREDENTIAL_PATTERN_SCANNER_REVISION,
+  scanCredentialBytes,
+  scanCredentialTree,
+  type CredentialPatternCategory,
+  type CredentialPatternFinding,
+  type CredentialTreeScanResult,
+  type ScanCredentialBytesOptions,
+  type ScanCredentialTreeOptions
+} from './secret-scan.ts'
+export {
   inspectMaterializedTaskWorkspace,
   inspectTaskSource,
   materializeTaskWorkspace
