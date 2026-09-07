@@ -2,7 +2,14 @@ import { lstat, readdir } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 import { scanCredentialBytes } from '@harness-bench/core'
-import { CompletionRunRecordSchema, InitialRunRecordSchema } from '@harness-bench/schemas'
+
+import {
+  CompletionRunRecordSchema,
+  InitialRunRecordSchema,
+  type CompletionRunRecord,
+  type InitialRunRecord
+} from '@harness-bench/schemas'
+
 import * as v from 'valibot'
 import { ResultError } from './errors.ts'
 import { assertSourceRelationships, sourceProvenance, type ResolvedEvidenceReference } from './normalize.ts'
@@ -10,7 +17,9 @@ import { NormalizedRunRecordV1Schema, type NormalizedRunRecordV1 } from './schem
 import { hashStableFile, parseManagedRecordPath, readStableFile, readStoredRecord, sha256 } from './storage.ts'
 
 export interface ReadNormalizedRunRecordResult {
+  readonly completionRecord: CompletionRunRecord;
   readonly digest: string;
+  readonly initialRecord: InitialRunRecord;
   readonly record: NormalizedRunRecordV1;
   readonly recordPath: string;
   readonly runDirectory: string;
@@ -311,7 +320,9 @@ async function readReportSource(path: string, runtime: ReadNormalizedRunRecordRu
   }
 
   return {
+    completionRecord: completion,
     digest: stored.digest,
+    initialRecord: initial,
     record,
     recordPath: stored.recordPath,
     runDirectory,

@@ -14,8 +14,15 @@ import {
   type ExperimentRuntime
 } from '@harness-bench/core'
 
-import { readExperimentState } from '@harness-bench/results'
-import { renderExperimentPlan, renderExperimentReport } from '@harness-bench/reporting'
+import { readExperimentComparisonSource, readExperimentState } from '@harness-bench/results'
+
+import {
+  renderExperimentComparisonReport,
+  renderExperimentPlan,
+  renderExperimentReport
+} from '@harness-bench/reporting'
+
+import { analyzeExperimentComparison } from '@harness-bench/statistics'
 import { CliUsageError } from './cli-contract.ts'
 import type { CliIo } from './cli.ts'
 
@@ -55,10 +62,11 @@ function experimentOptions(
     case 'run':
     case 'resume':
     case 'report':
+    case 'compare':
       return {}
     default:
       throw new CliUsageError(
-        'Expected experiment plan, run, resume, report, rerun-block, or invalidate'
+        'Expected experiment plan, run, resume, report, compare, rerun-block, or invalidate'
       )
   }
 }
@@ -79,6 +87,20 @@ async function inspectExperiment(path: string): Promise<string> {
     const state = await readExperimentState(plan)
 
     return renderExperimentReport(state)
+  } finally {
+    await release()
+  }
+}
+
+async function compareExperiment(path: string): Promise<string> {
+  const plan = await readExperimentPlan(path)
+  const release = await lockExperiment(plan)
+
+  try {
+    const source = await readExperimentComparisonSource(plan)
+    const analysis = analyzeExperimentComparison(source)
+
+    return renderExperimentComparisonReport(analysis)
   } finally {
     await release()
   }
@@ -134,6 +156,14 @@ export async function experimentCommand(command: string | undefined, args: reado
 
   if (command === 'report') {
     const report = await inspectExperiment(path)
+
+    io.stdout(report)
+
+    return 0
+  }
+
+  if (command === 'compare') {
+    const report = await compareExperiment(path)
 
     io.stdout(report)
 

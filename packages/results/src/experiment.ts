@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { lstat, readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 import * as v from 'valibot'
 import { CompletionRunRecordSchema } from '@harness-bench/schemas'
 
@@ -23,7 +24,67 @@ import {
 } from '@harness-bench/core'
 
 import { normalizeRun } from './normalize.ts'
-import { readNormalizedRunRecord } from './read.ts'
+import { readNormalizedRunRecord, type ReadNormalizedRunRecordResult } from './read.ts'
+
+/**
+ * Integrity-verified local read model produced by `readExperimentComparisonSource`.
+ * It is not a serialized input contract; consumers must not construct it from
+ * untrusted data or persist its resolved local paths.
+ */
+export interface ExperimentComparisonSource {
+  readonly records: readonly ReadNormalizedRunRecordResult[];
+  readonly state: ExperimentState;
+}
+
+export interface ReadExperimentComparisonSourceRuntime {
+  readonly beforeRecordReread?: () => Promise<void>;
+}
+
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0
+}
+
+function assertReplacementAncestry(plan: ExperimentPlan, parent: ExperimentPlan): void {
+  const replacedBlockId = plan.replaced_block
+
+  if (replacedBlockId === null) throw new RunError('INVALID_EVIDENCE', 'Child experiment plan does not identify its replaced block')
+
+  const replacedBlock = parent.experiment.blocks.find(({ block_id }) => block_id === replacedBlockId)
+
+  if (replacedBlock === undefined) throw new RunError('INVALID_EVIDENCE', 'Replaced ancestor block is missing')
+
+  const reusedBlock = plan.experiment.blocks.some(({ block_id }) => block_id === replacedBlockId) || plan.assignments.some(({ block_id }) => block_id === replacedBlockId)
+
+  if (reusedBlock) throw new RunError('INVALID_EVIDENCE', 'Child experiment plan reuses its replaced block')
+
+  const replacements = plan.experiment.blocks.filter(({ task_id, replicate }) => task_id === replacedBlock.task_id && replicate === replacedBlock.replicate)
+  const replacement = replacements[0]
+
+  if (replacements.length !== 1 || replacement === undefined) {
+    throw new RunError('INVALID_EVIDENCE', 'Child experiment plan does not contain one fresh replacement block')
+  }
+
+  const parentAssignments = parent.assignments.filter(({ block_id }) => block_id === replacedBlockId)
+  const replacementAssignments = plan.assignments.filter(({ block_id }) => block_id === replacement.block_id)
+  const parentRunIds = new Set(parent.assignments.map(({ run_id }) => run_id))
+  const parentAttemptIds = new Set(parent.assignments.map(({ attempt_id }) => attempt_id))
+  const parentArms = parentAssignments.map(({ arm_id }) => arm_id).sort(compareText)
+  const replacementArms = replacementAssignments.map(({ arm_id }) => arm_id).sort(compareText)
+
+  const freshAssignments = replacementAssignments.every((assignment) => (
+    assignment.origin_plan === null &&
+    !parentRunIds.has(assignment.run_id) &&
+    !parentAttemptIds.has(assignment.attempt_id)
+  ))
+
+  if (
+    replacementAssignments.length !== parentAssignments.length ||
+    !freshAssignments ||
+    !isDeepStrictEqual(replacementArms, parentArms)
+  ) {
+    throw new RunError('INVALID_EVIDENCE', 'Child experiment replacement assignments are not fresh')
+  }
+}
 
 export async function experimentHistoryWithParents(plan: ExperimentPlan, visited = new Set<string>()): Promise<readonly ExperimentProgress[]> {
   const digest = plan.experiment.plan_digest
@@ -51,6 +112,8 @@ export async function experimentHistoryWithParents(plan: ExperimentPlan, visited
   if (handoff.length !== 1 || handoff[0]?.event.type !== 'superseded' || handoff[0].event.child_plan !== plan.experiment.plan_digest) {
     throw new RunError('INVALID_EVIDENCE', 'Parent-to-child plan handoff is missing or conflicted')
   }
+
+  assertReplacementAncestry(plan, parent)
 
   const completeParent = await experimentHistoryWithParents(parent, visited)
   const inheritedLength = completeParent.length - parentHistory.entries.length
@@ -95,7 +158,11 @@ async function inspectRun(plan: ExperimentPlan, assignment: ExperimentAssignment
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
   }
 
-  let address = recordedDigest?.slice(7) ?? names.sort()[0]
+  if (recordedDigest === null && names.length > 1) {
+    throw new RunError('INVALID_EVIDENCE', 'Experiment run has ambiguous normalized results')
+  }
+
+  const address = recordedDigest?.slice(7) ?? names.sort(compareText)[0]
   let recordPath: string
 
   if (address === undefined) {
@@ -167,7 +234,7 @@ function isIncompleteAttempt(run: ExperimentRunState): boolean {
 
   return !run.result.valid_grade || !isTaskClassification
 }
-function deriveBlockState(blockId: string, history: readonly ExperimentProgress[], assignedRuns: readonly ExperimentRunState[], now: Date): ExperimentBlockState {
+function deriveBlockState(blockId: string, taskId: string, replicate: number, history: readonly ExperimentProgress[], assignedRuns: readonly ExperimentRunState[], now: Date): ExperimentBlockState {
   const starts = assignedRuns.flatMap(({ started_at }) => started_at === null ? [] : [started_at]).sort()
   const first = starts[0] ?? null
   const firstTime = first === null ? null : Date.parse(first)
@@ -210,6 +277,8 @@ function deriveBlockState(blockId: string, history: readonly ExperimentProgress[
 
   return {
     block_id: blockId,
+    task_id: taskId,
+    replicate,
     first_started_at: first,
     deadline_at: deadline,
     completed_at: completedAt ?? (explicit?.at ?? null),
@@ -223,7 +292,7 @@ export function deriveExperimentState(plan: ExperimentPlan, history: readonly Ex
   const blocks = plan.experiment.blocks.map((block) => {
     const assignedRuns = runs.filter(({ assignment }) => assignment.block_id === block.block_id)
 
-    return deriveBlockState(block.block_id, history, assignedRuns, now)
+    return deriveBlockState(block.block_id, block.task_id, block.replicate, history, assignedRuns, now)
   })
 
   const superseded = history.some(({ event, plan_digest }) => plan_digest === plan.experiment.plan_digest && event.type === 'superseded')
@@ -246,8 +315,15 @@ async function readRunState(plan: ExperimentPlan, assignment: ExperimentAssignme
 
   if (start?.event.type === 'started' && start.event.block_id !== assignment.block_id) throw new RunError('INVALID_EVIDENCE', 'Run start belongs to another block')
 
+  if (finish?.event.type === 'finished' && finish.event.block_id !== assignment.block_id) throw new RunError('INVALID_EVIDENCE', 'Run finish belongs to another block')
+
+  if (start !== undefined && finish !== undefined && finish.sequence <= start.sequence) throw new RunError('INVALID_EVIDENCE', 'Run finish does not follow its recorded start')
+
   const digest = finish?.event.type === 'finished' ? finish.event.normalized_digest : null
-  const result = await inspectRun(plan, assignment, recover, digest)
+
+  const result = finish !== undefined || recover
+    ? await inspectRun(plan, assignment, recover, digest)
+    : null
 
   if (result !== null && start === undefined) throw new RunError('INVALID_EVIDENCE', 'Run exists without a recorded experiment start')
 
@@ -290,7 +366,9 @@ async function readExcludedBlocks(plan: ExperimentPlan, history: readonly Experi
 
     for (const assignment of uniqueAssignments) runs.push(await readRunState(parent, assignment, history, recover))
 
-    newestFirst.push(deriveBlockState(replacedBlock, history, runs, now))
+    const parentBlock = parent.experiment.blocks.find(({ block_id }) => block_id === replacedBlock)!
+
+    newestFirst.push(deriveBlockState(replacedBlock, parentBlock.task_id, parentBlock.replicate, history, runs, now))
 
     descendant = parent
   }
@@ -306,4 +384,70 @@ export async function readExperimentState(plan: ExperimentPlan, recover = false,
   const excludedBlocks = await readExcludedBlocks(plan, history, recover, now)
 
   return deriveExperimentState(plan, history, runs, now, excludedBlocks)
+}
+
+export async function readExperimentComparisonSource(
+  plan: ExperimentPlan,
+  now = new Date(),
+  runtime: ReadExperimentComparisonSourceRuntime = {}
+): Promise<ExperimentComparisonSource> {
+  const state = await readExperimentState(plan, false, now)
+
+  const runStates = [
+    ...state.blocks.flatMap(({ runs }) => runs),
+    ...state.excluded_blocks.flatMap(({ runs }) => runs)
+  ]
+
+  const uniqueResults = new Map<string, ExperimentRunState>()
+
+  for (const run of runStates) {
+    if (run.result === null) continue
+
+    const attemptId = run.assignment.attempt_id
+    const previous = uniqueResults.get(attemptId)
+
+    if (previous !== undefined) throw new RunError('INVALID_EVIDENCE', 'Experiment attempt appears in multiple comparison roles')
+
+    uniqueResults.set(attemptId, run)
+  }
+
+  const records: ReadNormalizedRunRecordResult[] = []
+
+  await runtime.beforeRecordReread?.()
+
+  for (const runState of uniqueResults.values()) {
+    const result = runState.result!
+    const source = await readNormalizedRunRecord(result.normalized_path)
+    const run = source.record.identities.run
+    const experiment = source.record.identities.experiment
+    const assignment = runState.assignment
+    const block = [...state.blocks, ...state.excluded_blocks].find(({ block_id }) => block_id === assignment.block_id)
+
+    const identityMatches = (
+      run.run_id === assignment.run_id &&
+      run.attempt_id === assignment.attempt_id &&
+      run.attempt === assignment.attempt &&
+      run.attempt_id === source.initialRecord.identity.attempt_id &&
+      run.run_id === source.initialRecord.identity.run_id &&
+      experiment.block_id === assignment.block_id &&
+      experiment.arm_id === assignment.arm_id &&
+      experiment.replicate === block?.replicate &&
+      source.record.identities.task.id === block?.task_id
+    )
+
+    const sourceMatches = source.digest === result.normalized_digest && source.recordPath === result.normalized_path
+
+    if (!identityMatches || !sourceMatches) {
+      throw new RunError('INVALID_EVIDENCE', 'Experiment comparison source differs from verified state')
+    }
+
+    records.push(source)
+  }
+
+  records.sort((left, right) => compareText(left.record.identities.run.attempt_id, right.record.identities.run.attempt_id))
+
+  return {
+    records,
+    state
+  }
 }

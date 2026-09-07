@@ -205,6 +205,33 @@ function fakeRuntime(results = new Map<string, VerifiedExperimentRun>()) {
 }
 
 describe('experiment planning and execution', () => {
+  it('rejects a plan whose definition and frozen experiment use different analysis revisions', async () => {
+    const { plan } = await setup()
+
+    plan.definition.analysis_revision = '2'
+    plan.experiment.plan_digest = experimentPlanDigest(plan)
+
+    await expect(saveExperimentPlan(plan)).rejects.toMatchObject({
+      code: 'INVALID_DOCUMENT'
+    })
+  })
+
+  it('rejects a child plan that keeps its replaced block current', async () => {
+    const { plan } = await setup()
+    const child = structuredClone(plan)
+
+    child.definition.revision = '2'
+    child.experiment.revision = '2'
+    child.parent_plan = experimentHash('parent-plan')
+    child.parent_progress = experimentHash('parent-progress')
+    child.replaced_block = child.experiment.blocks[0]!.block_id
+    child.experiment.plan_digest = experimentPlanDigest(child)
+
+    await expect(saveExperimentPlan(child)).rejects.toMatchObject({
+      code: 'INVALID_DOCUMENT'
+    })
+  })
+
   it.each([
     {
       seed: 42,

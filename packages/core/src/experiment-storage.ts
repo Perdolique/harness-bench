@@ -285,12 +285,13 @@ function assertExperimentPlanStructure(plan: ExperimentPlan): void {
   const assignmentsMatch = plan.assignments.length === experiment.execution_order.length && ids.size === plan.assignments.length && mappingsMatch
   const blocksPlanned = experiment.blocks.every(({ completion_status }) => completion_status === 'planned')
   const identityMatches = definition.experiment_id === experiment.experiment_id && definition.revision === experiment.revision
+  const analysisMatches = definition.analysis_revision === experiment.analysis_revision
   const orderingMatches = definition.repeats === experiment.repeats && definition.ordering_seed === experiment.ordering_seed
   const definitionBudget = experimentHash(definition.budget)
   const experimentBudget = experimentHash(experiment.budget)
   const bindingsMatch = definition.arms.length === experiment.arms.length && definition.tasks.length === experiment.tasks.length
 
-  if (!absoluteRunsDirectory || !assignmentsMatch || !blocksPlanned || !identityMatches || !orderingMatches || definitionBudget !== experimentBudget || !bindingsMatch) {
+  if (!absoluteRunsDirectory || !assignmentsMatch || !blocksPlanned || !identityMatches || !analysisMatches || !orderingMatches || definitionBudget !== experimentBudget || !bindingsMatch) {
     throw new RunError('INVALID_DOCUMENT', 'Experiment plan assignments or definition are inconsistent')
   }
 
@@ -299,7 +300,12 @@ function assertExperimentPlanStructure(plan: ExperimentPlan): void {
   const carriedAssignments = plan.assignments.some(({ origin_plan }) => origin_plan !== null)
   const rootHasAncestry = rootPlan && (plan.parent_progress !== null || carriedAssignments)
 
-  if (rootPlan !== replacementMissing || rootHasAncestry) {
+  const replacedBlockReused = plan.replaced_block !== null && (
+    experiment.blocks.some(({ block_id }) => block_id === plan.replaced_block) ||
+    plan.assignments.some(({ block_id }) => block_id === plan.replaced_block)
+  )
+
+  if (rootPlan !== replacementMissing || rootHasAncestry || replacedBlockReused) {
     throw new RunError('INVALID_DOCUMENT', 'Experiment plan ancestry is inconsistent')
   }
 }

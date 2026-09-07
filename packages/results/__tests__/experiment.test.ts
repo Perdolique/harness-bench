@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ExperimentDocumentSchema } from '@harness-bench/schemas'
@@ -13,7 +13,7 @@ import {
   type ExperimentPlan
 } from '@harness-bench/core'
 
-import { readExperimentState } from '../src/experiment.ts'
+import { readExperimentComparisonSource, readExperimentState } from '../src/experiment.ts'
 import { normalizeRun } from '../src/normalize.ts'
 import { renderExperimentReport } from '../../reporting/src/experiment.ts'
 import { createResultFixture, makeWritable } from './fixture.ts'
@@ -32,7 +32,7 @@ afterEach(async () => {
   })
 })
 
-async function prepared() {
+async function prepared(recordStart = true) {
   const examplePath = resolve(import.meta.dirname, '../../schemas/examples/valid/experiment.json')
   const raw = JSON.parse(await readFile(examplePath, 'utf8'))
 
@@ -169,11 +169,13 @@ async function prepared() {
 
   expect(initial.harness).toEqual(plan.experiment.arms[0]!.harness)
 
-  await appendExperimentProgress(plan, {
-    type: 'started',
-    run_id: 'fixture-a',
-    block_id: 'fixture-block'
-  }, '2026-09-06T12:00:00.000Z')
+  if (recordStart) {
+    await appendExperimentProgress(plan, {
+      type: 'started',
+      run_id: 'fixture-a',
+      block_id: 'fixture-block'
+    }, '2026-09-06T12:00:00.000Z')
+  }
 
   return {
     plan,
@@ -181,6 +183,24 @@ async function prepared() {
   }
 }
 async function publishRerun(parent: ExperimentPlan, revision: string): Promise<ExperimentPlan> {
+  const recovered = await readExperimentState(parent, true, now)
+  const beforeLinkage = await readExperimentHistory(parent)
+
+  for (const run of recovered.blocks.flatMap(({ runs }) => runs)) {
+    if (run.result === null) continue
+
+    const linked = beforeLinkage.entries.some(({ event }) => event.type === 'finished' && event.run_id === run.assignment.run_id)
+
+    if (linked) continue
+
+    await appendExperimentProgress(parent, {
+      type: 'finished',
+      block_id: run.assignment.block_id,
+      run_id: run.assignment.run_id,
+      normalized_digest: run.result.normalized_digest
+    }, now.toISOString())
+  }
+
   const history = await readExperimentHistory(parent)
   const child = structuredClone(parent)
   const replacedBlock = parent.experiment.blocks[0]!.block_id
@@ -232,6 +252,16 @@ async function addCompletedAttempt(plan: ExperimentPlan, classification: 'task_s
     block_id: assignment.block_id
   }, '2026-09-06T12:00:00.000Z')
 
+  const recovered = await readExperimentState(plan, true, now)
+  const result = recovered.blocks[0]!.runs[0]!.result!
+
+  await appendExperimentProgress(plan, {
+    type: 'finished',
+    block_id: assignment.block_id,
+    run_id: assignment.run_id,
+    normalized_digest: result.normalized_digest
+  }, '2026-09-06T12:00:30.000Z')
+
   await appendExperimentProgress(plan, {
     type: 'invalidated',
     block_id: assignment.block_id,
@@ -265,6 +295,117 @@ describe('verified experiment results', () => {
     expect(second.blocks[0]?.runs[0]?.result?.normalized_digest).toBe(result.normalized_digest)
     await readExperimentState(plan, false, now)
     expect(await readdir(directory)).toEqual(before)
+  })
+
+  it('keeps an unlinked normalized result out of read-only comparison evidence', async () => {
+    const { plan } = await prepared()
+    const recovered = await readExperimentState(plan, true, now)
+
+    expect(recovered.blocks[0]!.runs[0]!.status).toBe('verified')
+
+    const source = await readExperimentComparisonSource(plan, now)
+
+    expect(source.records).toStrictEqual([])
+    expect(source.state.blocks[0]!.runs[0]!.status).toBe('interrupted')
+    expect(source.state.blocks[0]!.runs[0]!.result).toBeNull()
+  })
+
+  it('rejects a finished event linked to another block', async () => {
+    const { plan, fixture } = await prepared()
+    const normalized = await normalizeRun(fixture.runDirectory)
+
+    if (normalized.kind !== 'normalized') throw new Error('Expected normalized fixture')
+
+    await appendExperimentProgress(plan, {
+      type: 'finished',
+      run_id: 'fixture-a',
+      block_id: 'different-block',
+      normalized_digest: normalized.digest
+    }, now.toISOString())
+
+    await expect(readExperimentComparisonSource(plan, now)).rejects.toMatchObject({
+      code: 'INVALID_EVIDENCE'
+    })
+  })
+
+  it('rejects a finished event recorded before its start', async () => {
+    const { plan, fixture } = await prepared(false)
+    const normalized = await normalizeRun(fixture.runDirectory)
+
+    if (normalized.kind !== 'normalized') throw new Error('Expected normalized fixture')
+
+    await appendExperimentProgress(plan, {
+      type: 'finished',
+      run_id: 'fixture-a',
+      block_id: 'fixture-block',
+      normalized_digest: normalized.digest
+    }, '2026-09-06T12:00:00.000Z')
+
+    await appendExperimentProgress(plan, {
+      type: 'started',
+      run_id: 'fixture-a',
+      block_id: 'fixture-block'
+    }, '2026-09-06T12:01:00.000Z')
+
+    await expect(readExperimentComparisonSource(plan, now)).rejects.toMatchObject({
+      code: 'INVALID_EVIDENCE'
+    })
+  })
+
+  it('rejects ambiguous normalized addresses during recovery', async () => {
+    const { plan, fixture } = await prepared()
+    const normalized = await normalizeRun(fixture.runDirectory)
+
+    if (normalized.kind !== 'normalized') throw new Error('Expected normalized fixture')
+
+    const normalizedRoot = resolve(plan.runs_directory, '.results/fixture-a/normalized')
+
+    await mkdir(resolve(normalizedRoot, 'f'.repeat(64)), { mode: 0o500 })
+
+    await expect(readExperimentState(plan, true, now)).rejects.toMatchObject({
+      code: 'INVALID_EVIDENCE'
+    })
+  })
+
+  it('returns sealed initial and completion sources for verified comparison runs', async () => {
+    const { plan } = await prepared()
+    const recovered = await readExperimentState(plan, true, now)
+    const result = recovered.blocks[0]!.runs[0]!.result!
+
+    await appendExperimentProgress(plan, {
+      type: 'finished',
+      run_id: 'fixture-a',
+      block_id: 'fixture-block',
+      normalized_digest: result.normalized_digest
+    }, now.toISOString())
+
+    const source = await readExperimentComparisonSource(plan, now)
+
+    expect(source.records).toHaveLength(1)
+    expect(source.records[0]!.initialRecord.identity.run_id).toBe('fixture-a')
+    expect(source.records[0]!.completionRecord.identity.run_id).toBe('fixture-a')
+    expect(source.records[0]!.digest).toBe(result.normalized_digest)
+  })
+
+  it('rereads the sealed normalized source after state inspection', async () => {
+    const { plan } = await prepared()
+    const recovered = await readExperimentState(plan, true, now)
+    const result = recovered.blocks[0]!.runs[0]!.result!
+
+    await appendExperimentProgress(plan, {
+      type: 'finished',
+      run_id: 'fixture-a',
+      block_id: 'fixture-block',
+      normalized_digest: result.normalized_digest
+    }, now.toISOString())
+
+    await expect(readExperimentComparisonSource(plan, now, {
+      beforeRecordReread: async () => {
+        await chmod(result.normalized_path, 0o600)
+        await writeFile(result.normalized_path, '{}')
+        await chmod(result.normalized_path, 0o400)
+      }
+    })).rejects.toMatchObject({ code: 'INTEGRITY_MISMATCH' })
   })
 
   it('rejects changed raw evidence instead of skipping the completed run', async () => {
@@ -359,6 +500,14 @@ describe('verified experiment results', () => {
     expect(excludedAttempts[2]?.result?.classification).toBe('task_failure')
     expect(excludedAttempts[2]?.result?.normalized_path).toContain(`/.results/${secondPlan.assignments[0]!.run_id}/normalized/`)
 
+    const comparisonSource = await readExperimentComparisonSource(currentPlan, now)
+    const sourceRunIds = comparisonSource.records.map(({ record }) => record.identities.run.run_id)
+
+    expect(sourceRunIds).toStrictEqual([
+      firstPlan.assignments[0]!.run_id,
+      secondPlan.assignments[0]!.run_id
+    ].sort())
+
     const report = renderExperimentReport(state)
 
     expect(report).toContain(`Excluded predecessor block ${firstPlan.experiment.blocks[0]!.block_id}: invalidated`)
@@ -374,6 +523,49 @@ describe('verified experiment results', () => {
     })
 
     expect(supersededReport).toContain('Remaining scheduled invocations: 0')
+  })
+
+  it('rejects replacement assignments that reuse sealed parent identities', async () => {
+    const { plan: parent } = await prepared()
+
+    await appendExperimentProgress(parent, {
+      type: 'invalidated',
+      block_id: parent.experiment.blocks[0]!.block_id,
+      cause: 'provider_changed',
+      reason: 'Known provider change'
+    }, '2026-09-06T12:01:00.000Z')
+
+    const parentHistory = await readExperimentHistory(parent)
+    const child = structuredClone(parent)
+    const replacedBlock = parent.experiment.blocks[0]!.block_id
+    const replacementBlock = 'fresh-block-with-stale-runs'
+
+    child.definition.revision = '2'
+    child.experiment.revision = '2'
+    child.parent_plan = parent.experiment.plan_digest
+    child.parent_progress = parentHistory.digest
+    child.replaced_block = replacedBlock
+    child.experiment.blocks[0]!.block_id = replacementBlock
+
+    for (const entry of child.experiment.execution_order) entry.block_id = replacementBlock
+
+    for (const assignment of child.assignments) {
+      assignment.block_id = replacementBlock
+      assignment.origin_plan = null
+    }
+
+    child.experiment.plan_digest = experimentPlanDigest(child)
+
+    await saveExperimentPlan(child)
+
+    await appendExperimentProgress(parent, {
+      type: 'superseded',
+      child_plan: child.experiment.plan_digest
+    }, now.toISOString())
+
+    await expect(readExperimentState(child, false, now)).rejects.toMatchObject({
+      code: 'INVALID_EVIDENCE'
+    })
   })
 
 })

@@ -36,5 +36,12 @@ export {
   type RunTombstoneV1,
   type SanitizedRunExportV1
 } from './schemas.ts'
-export { readExperimentState, deriveExperimentState, experimentHistoryWithParents } from './experiment.ts'
+export {
+  deriveExperimentState,
+  experimentHistoryWithParents,
+  readExperimentComparisonSource,
+  readExperimentState,
+  type ExperimentComparisonSource,
+  type ReadExperimentComparisonSourceRuntime
+} from './experiment.ts'
 export type { ExperimentPlan, ExperimentState } from '@harness-bench/core'

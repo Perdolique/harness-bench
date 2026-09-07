@@ -41,6 +41,9 @@ importers:
       '@harness-bench/results':
         specifier: workspace:*
         version: link:../../packages/results
+      '@harness-bench/statistics':
+        specifier: workspace:*
+        version: link:../../packages/statistics
 
   packages/core:
     dependencies:
@@ -62,6 +65,9 @@ importers:
       '@harness-bench/results':
         specifier: workspace:*
         version: link:../results
+      '@harness-bench/statistics':
+        specifier: workspace:*
+        version: link:../statistics
 
   packages/results:
     dependencies:
@@ -85,7 +91,14 @@ importers:
         specifier: 1.7.1
         version: 1.7.1(valibot@1.4.2(typescript@7.0.2))
 
-  packages/statistics: {}
+  packages/statistics:
+    dependencies:
+      '@harness-bench/core':
+        specifier: workspace:*
+        version: link:../core
+      '@harness-bench/results':
+        specifier: workspace:*
+        version: link:../results
 
 packages:
 

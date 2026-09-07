@@ -17,6 +17,8 @@ export interface ExperimentRunState {
 }
 export interface ExperimentBlockState {
   readonly block_id: string;
+  readonly task_id: string;
+  readonly replicate: number;
   readonly first_started_at: string | null;
   readonly deadline_at: string | null;
   readonly completed_at: string | null;
