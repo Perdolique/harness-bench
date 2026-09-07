@@ -3,6 +3,7 @@
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
+import { renderSingleRunReport } from '@harness-bench/reporting'
 
 import {
   captureHarnessBundle,
@@ -21,6 +22,7 @@ import {
   exportSanitizedResult,
   isResultError,
   normalizeRun,
+  readNormalizedRunRecord,
   type CredentialAction,
   type DisposeDisposition,
   type DisposeReason,
@@ -34,6 +36,7 @@ const USAGE = `Usage:
   benchctl harness materialize BUNDLE --destination DIR
   benchctl harness diff LEFT RIGHT
   benchctl results normalize RUN_DIR
+  benchctl results report NORMALIZED_RECORD
   benchctl results export NORMALIZED_RECORD
   benchctl results dispose RUN_DIR --confirm-run-id ID --reason retention-expired|owner-request|credential-detected --disposition delete|incident-retain [--credential-action rotated|revoked] [--incident-expires-at ISO_TIMESTAMP]
 `
@@ -408,6 +411,25 @@ async function normalizeResult(
   return result.kind === 'normalized' ? 0 : 2
 }
 
+async function reportResult(arguments_: readonly string[], io: CliIo): Promise<number> {
+  const parsed = parseArgs({
+    args: [...arguments_],
+    allowPositionals: true,
+    strict: true
+  })
+
+  if (parsed.positionals.length !== 1 || parsed.positionals[0] === undefined) {
+    throw new CliUsageError('results report requires exactly one NORMALIZED_RECORD')
+  }
+
+  const source = await readNormalizedRunRecord(parsed.positionals[0])
+  const report = renderSingleRunReport(source)
+
+  io.stdout(report)
+
+  return 0
+}
+
 async function exportResult(
   arguments_: readonly string[],
   io: CliIo
@@ -622,6 +644,10 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
   }
 
   if (group === 'results') {
+    if (command === 'report') {
+      return reportResult(rest, io)
+    }
+
     if (command === 'normalize') {
       return normalizeResult(rest, io)
     }
@@ -634,7 +660,7 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
       return disposeResult(rest, io)
     }
 
-    throw new CliUsageError('Expected normalize, export, or dispose')
+    throw new CliUsageError('Expected normalize, report, export, or dispose')
   }
 
   if (group !== 'harness') {
@@ -685,7 +711,9 @@ export async function runCli(
       io.stderr(`${error.code}: ${error.message}\n`)
     } else if (isHarnessError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)
-    } else if (error instanceof CliUsageError || isParseArgsError(error)) {
+    } else if (isParseArgsError(error)) {
+      io.stderr(`USAGE_ERROR: Invalid command arguments\n${USAGE}`)
+    } else if (error instanceof CliUsageError) {
       io.stderr(`USAGE_ERROR: ${error.message}\n${USAGE}`)
     } else {
       io.stderr(`UNEXPECTED_ERROR: command failed\n`)

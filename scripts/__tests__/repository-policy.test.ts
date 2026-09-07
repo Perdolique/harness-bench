@@ -7,8 +7,7 @@ import { EXPECTED_TOOLCHAIN, TOOL_COMMANDS, type ToolCommand } from '../toolchai
 const root = resolve(import.meta.dirname, '../..')
 
 const manifestOnlyWorkspaceManifests = [
-  ['packages/statistics/package.json', '@harness-bench/statistics'],
-  ['packages/reporting/package.json', '@harness-bench/reporting']
+  ['packages/statistics/package.json', '@harness-bench/statistics']
 ] as const
 
 const expectedActions = [
@@ -243,6 +242,7 @@ describe('repository skeleton', () => {
 
       dependencies: {
         '@harness-bench/core': 'workspace:*',
+        '@harness-bench/reporting': 'workspace:*',
         '@harness-bench/results': 'workspace:*'
       }
     })
@@ -259,6 +259,15 @@ describe('repository skeleton', () => {
         '@harness-bench/schemas': 'workspace:*',
         valibot: '1.4.2'
       }
+    })
+
+    expect(readJson('packages/reporting/package.json')).toEqual({
+      name: '@harness-bench/reporting',
+      version: '0.0.0',
+      private: true,
+      type: 'module',
+      exports: './src/index.ts',
+      dependencies: { '@harness-bench/results': 'workspace:*' }
     })
   })
 

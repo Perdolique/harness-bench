@@ -35,6 +35,9 @@ importers:
       '@harness-bench/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@harness-bench/reporting':
+        specifier: workspace:*
+        version: link:../../packages/reporting
       '@harness-bench/results':
         specifier: workspace:*
         version: link:../../packages/results
@@ -54,7 +57,11 @@ importers:
         specifier: 2.9.0
         version: 2.9.0
 
-  packages/reporting: {}
+  packages/reporting:
+    dependencies:
+      '@harness-bench/results':
+        specifier: workspace:*
+        version: link:../results
 
   packages/results:
     dependencies:

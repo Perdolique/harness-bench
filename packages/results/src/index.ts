@@ -1,3 +1,4 @@
+export { readNormalizedRunRecord, type ReadNormalizedRunRecordResult } from './read.ts'
 export {
   RESULT_ERROR_CODES,
   ResultError,
