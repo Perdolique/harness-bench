@@ -290,6 +290,50 @@ In pinned CLI 0.153.2, require `checks["config.load"].status=ok` in both doctor 
 
 Before the first revised inference, the owner received one redacted run card covering two identical public-network invocations; model `gpt-5.6-luna`; effort `medium`; ChatGPT file auth; exact image IDs; network policy; concurrency `1`; retries `0`; agent/verifier/build timeouts `600`/`120`/`900` seconds; CPU `2`; and RAM `2 GiB`. The owner explicitly authorized those two invocations. The earlier restricted-network approval did not reset or authorize a different protocol. Provider-backed runs are local only and never automatic CI.
 
+## Experiment matrices
+
+Issue 10 adds a controller over the existing one-assignment runner. Start from [the example definition](../benchmark/experiments/example-definition.json), replacing its illustrative `inputs/` paths with prepared v1 documents, immutable harness bundles, source trees, and task packages. Paths are relative to the definition file. Include every task from the referenced suite and a separate stack/harness binding for each arm. Budgets must match all stacks; token/turn caps remain unsupported. A third arm can represent a disabled skill alongside v1 and v2.
+
+```sh
+pnpm benchctl experiment plan /absolute/definition.json --runs-dir /absolute/runs --dry-run
+pnpm benchctl experiment plan /absolute/definition.json --runs-dir /absolute/runs
+pnpm benchctl experiment report /absolute/runs/.experiments/plans/PLAN_DIGEST/plan.json
+```
+
+Dry-run resolves the complete matrix and validates physical inputs without reading credentials, creating storage, or invoking Harbor, Docker, or Codex. It prints every task/replicate/arm assignment and run ID, the seed, invocation count, resource limits, and the sum of agent wall-clock limits. This sum excludes setup and verification and is neither an experiment-duration estimate nor a quota guarantee. It never estimates subscription money. Saving the plan seals a content-addressed record before execution. A used experiment revision cannot be published again in the same run root; changed definitions or inputs require a new revision.
+
+A provider-backed matrix requires explicit owner authorization for its displayed invocation budget and the existing dedicated `CODEX_AUTH_JSON_PATH` setup. These examples do not authorize a provider call:
+
+```sh
+pnpm benchctl experiment run /absolute/runs/.experiments/plans/PLAN_DIGEST/plan.json
+pnpm benchctl experiment resume /absolute/runs/.experiments/plans/PLAN_DIGEST/plan.json
+```
+
+`run` accepts a plan without execution history; `resume` inspects previous attempts and continues untouched assignments. Both enforce subscription concurrency one. Each native execution, including standalone `benchctl run`, takes the same per-user host lease at `/tmp/harness-bench-subscription-UID.lock`, independently of the run root. This coordinates this user's local benchctl processes, not other machines or unrelated native clients. A separate experiment-family lease serializes controller mutations in a run root. An existing lease fails closed; after a crash, inspect its owner PID and Harbor/Docker processes before trusted manual recovery. Never remove a lease to make an active invocation overlap.
+
+A valid task failure is a quality outcome and does not stop the matrix. A technical failure or cancellation stops subsequent invocations and retains its classification and evidence. There are no automatic retries. Resume does not treat a directory or completion filename as proof: it validates sealed raw and normalized evidence and the original assignment. A completion missing its normalization/progress append is recovered without another agent invocation. An interrupted ID is never reused. After confirming that no executor remains active, an explicit resume excludes its incomplete block and can continue other untouched blocks. A pause between verified arms can resume the same block only within its unchanged 24-hour window.
+
+`report` prints all assignments, verified classifications, window timestamps, exclusion reasons, retained normalized-record paths, remaining scheduled invocations, and parent/replacement provenance. Inspection exits `0` when successful even for an incomplete experiment. Execution exits `0` for a completed all-success matrix, `1` for completed valid task failures, and `2` for incomplete/invalidated matrices or command errors. A completion awaiting normalization is unverified until `resume` performs recovery; read-only reporting never writes a derived result.
+
+Record an externally known change, or prepare a whole-block replacement:
+
+```sh
+pnpm benchctl experiment invalidate /absolute/plan.json --block BLOCK_ID --cause provider_changed --reason "Owner observed a provider change"
+pnpm benchctl experiment rerun-block /absolute/plan.json --block BLOCK_ID --revision 2
+```
+
+Accepted causes are `incomplete`, `deadline_exceeded`, `model_changed`, `cli_changed`, `provider_changed`, `runner_changed`, `harbor_config_changed`, and `harness_changed`. Keep reasons free of secrets. A replacement requires an invalidated block and unchanged pinned inputs; if inputs changed, author a new definition revision and run `plan` again. It assigns new IDs to every arm of that block, freezes a child plan, and supersedes the parent without invoking an agent. Inspect the child report, then explicitly run it. Other assignments retain their original creating-plan identity, including still-pending assignments; completed results remain linked to the old immutable records. The child lists the full logical order and remaining calls. Repeating one losing arm or rerunning a healthy completed block is not supported.
+
+Plans, immutable v1 assignment snapshots, and hash-linked progress records live under `<runs-dir>/.experiments/`; directories use `0700` and sealed files `0400`. Plan identity hashes canonical sorted-key JSON with its self-referencing `experiment.plan_digest` replaced by the documented all-zero digest. Progress uses full-record canonical hashes and a previous-record digest. The frozen parent-progress boundary and explicit supersession record bind child provenance. Storage uses exclusive atomic publication and never rewrites a raw run. It contains local bindings and identity metadata, not copied source trees or credentials, and is not a public export format. These hashes and leases protect detected corruption and local concurrency; they do not defend against a malicious trusted owner.
+
+The local provider-free integration command extends the existing Harbor controls with a two-arm matrix and a deterministic controller interruption between assignments:
+
+```sh
+HARNESS_BENCH_EXPERIMENT_INTEGRATION=1 pnpm run:integration:check
+```
+
+It uses the pinned Harbor lifecycle, fake native agent, independent collector, separate offline verifier, real normalization, and a provider-call canary. Ordinary CI uses deterministic unit/fixture tests only. This proves local orchestration and recovery, not hidden provider identity changes, auth refresh, private-task online secrecy, or a live subscription comparison.
+
 ## Telemetry, artifacts, and quota
 
 All future local benchmark commands default to `HARBOR_TELEMETRY=off`, including spike and regrade commands. Record the effective setting and owner-authorized exceptions. Upstream enables usage telemetry by default. [Pinned telemetry documentation](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/docs/content/docs/usage-stats.mdx).

@@ -1,0 +1,45 @@
+{
+  "document_type": "experiment_definition",
+  "schema_version": 1,
+  "experiment_id": "harness-comparison",
+  "revision": "1",
+  "analysis_revision": "1",
+  "suite": "./inputs/suite.json",
+  "arms": [
+    {
+      "arm_id": "a",
+      "treatment": "Original harness",
+      "stack": "./inputs/stack-a.json",
+      "harness_document": "./inputs/harness-a.json",
+      "harness_bundle": "./inputs/harness-a-bundle"
+    },
+    {
+      "arm_id": "b",
+      "treatment": "Revised harness",
+      "stack": "./inputs/stack-b.json",
+      "harness_document": "./inputs/harness-b.json",
+      "harness_bundle": "./inputs/harness-b-bundle"
+    }
+  ],
+  "tasks": [
+    {
+      "document": "./inputs/task.json",
+      "source": "./inputs/task-source",
+      "package": "./inputs/task-package"
+    }
+  ],
+  "repeats": 3,
+  "ordering_seed": 42,
+  "budget": {
+    "wall_clock_seconds": 600,
+    "token_or_turn_limit": {
+      "status": "unknown",
+      "reason": "The pinned subscription path cannot enforce a token or turn cap"
+    },
+    "cpu_count": 2,
+    "cpu_enforcement_status": "enforced",
+    "memory_megabytes": 2048,
+    "memory_enforcement_status": "enforced"
+  },
+  "requested_concurrency": 1
+}

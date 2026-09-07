@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { experimentCommand } from './experiment.ts'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
@@ -30,6 +31,10 @@ import {
 } from '@harness-bench/results'
 
 const USAGE = `Usage:
+  benchctl experiment plan DEFINITION --runs-dir ABSOLUTE_DIR [--dry-run]
+  benchctl experiment run|resume|report PLAN
+  benchctl experiment rerun-block PLAN --block ID --revision REV
+  benchctl experiment invalidate PLAN --block ID --cause CAUSE --reason TEXT
   benchctl run --experiment FILE --run-id ID --stack FILE --harness-document FILE --suite FILE --task FILE --task-source DIR --task-package DIR --harness-bundle DIR --runs-dir ABSOLUTE_DIR [--dry-run]
   benchctl harness capture --source DIR --store DIR --id ID --revision REV
   benchctl harness validate BUNDLE
@@ -638,6 +643,8 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
   }
 
   const [group, command, ...rest] = normalizedArguments
+
+  if (group === 'experiment') return experimentCommand(command, rest, io)
 
   if (group === 'run') {
     return run(normalizedArguments.slice(1), io)
