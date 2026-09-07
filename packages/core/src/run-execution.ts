@@ -1,3 +1,4 @@
+import { acquireExecutionLock, subscriptionLockPath } from './execution-lock.ts'
 import { execFile, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
@@ -2311,14 +2312,21 @@ export async function executeRunPlanWithRuntime(
     throw new RunError('AUTH_REQUIRED', 'CODEX_AUTH_JSON_PATH is required for execution')
   }
 
-  const credential = await readCredential(authPathValue)
+  const lockPath = subscriptionLockPath()
+  const release = await acquireExecutionLock(lockPath)
 
   try {
-    await assertCredentialExternal(plan, credential)
+    const credential = await readCredential(authPathValue)
 
-    return await executeSealedRunPlan(plan, runtime, credential)
+    try {
+      await assertCredentialExternal(plan, credential)
+
+      return await executeSealedRunPlan(plan, runtime, credential)
+    } finally {
+      await credential.handle.close()
+    }
   } finally {
-    await credential.handle.close()
+    await release()
   }
 }
 

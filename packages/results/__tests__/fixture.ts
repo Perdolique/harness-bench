@@ -17,6 +17,7 @@ export type FixtureClassification = CompletionRunRecord['classification']
 
 export interface ResultFixtureOptions {
   readonly classification?: FixtureClassification;
+  readonly experiment?: InitialRunRecord['experiment'];
   readonly expiresAt?: string;
   readonly harborVersion?: string;
   readonly private?: boolean;
@@ -235,7 +236,7 @@ function initialRecord(
       memory_enforcement_status: 'enforced'
     },
 
-    experiment: {
+    experiment: options.experiment ?? {
       experiment_id: 'fixture-experiment',
       experiment_revision: '1',
       plan_digest: digestD,

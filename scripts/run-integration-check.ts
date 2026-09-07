@@ -1,3 +1,7 @@
+import { executeExperiment } from '../packages/core/src/experiment-execution.ts'
+import { planExperiment } from '../packages/core/src/experiment-plan.ts'
+import { readExperimentHistory, saveExperimentPlan } from '../packages/core/src/experiment-storage.ts'
+import { readExperimentState } from '../packages/results/src/experiment.ts'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { chmod, cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
@@ -888,6 +892,96 @@ async function main(): Promise<void> {
 
     console.log(`${mode}: ${result.classification}`)
   }
+
+    if (process.env.HARNESS_BENCH_EXPERIMENT_INTEGRATION === '1') {
+      const definitionPath = resolve(temporaryRoot, 'experiment-definition.json')
+
+      await writeJson(definitionPath, {
+        document_type: 'experiment_definition',
+        schema_version: 1,
+        experiment_id: 'integration-matrix',
+        revision: '1',
+        analysis_revision: '1',
+        suite: documentPaths.suite,
+        repeats: 1,
+        ordering_seed: 42,
+        budget,
+        requested_concurrency: 1,
+
+        arms: [
+          {
+          arm_id: 'a',
+          treatment: 'A instructions',
+          stack: documentPaths.stacks[0],
+          harness_document: documentPaths.harnesses[0],
+          harness_bundle: harnessA.bundlePath
+        },
+          {
+          arm_id: 'b',
+          treatment: 'B instructions',
+          stack: documentPaths.stacks[1],
+          harness_document: documentPaths.harnesses[1],
+          harness_bundle: harnessB.bundlePath
+        }
+        ],
+
+        tasks: [{
+          document: documentPaths.task,
+          source,
+          package: taskPackages.success
+        }]
+      })
+
+      const matrix = await planExperiment(definitionPath, resolve(temporaryRoot, 'runs'))
+      const matrixPath = await saveExperimentPlan(matrix)
+      let stoppedBetweenAssignments = false
+      let matrixInvocations = 0
+
+      const matrixRuntime = {
+        now: () => new Date(),
+
+        readState: async (plan: typeof matrix, recover: boolean) => {
+          const state = await readExperimentState(plan, recover)
+          const history = await readExperimentHistory(plan)
+          const finished = history.entries.filter(({ event }) => event.type === 'finished')
+
+          if (!stoppedBetweenAssignments && finished.length === 1) {
+            stoppedBetweenAssignments = true
+            throw new Error('Deterministic controller stop between assignments')
+          }
+
+          return state
+        },
+
+        execute: async (plan: Awaited<ReturnType<typeof resolveRunPlan>>) => {
+          matrixInvocations += 1
+
+          return executeRunPlanWithRuntime(plan, runtime)
+        }
+      }
+
+      try {
+        await executeExperiment(matrixPath, false, matrixRuntime)
+
+        throw new Error('Expected a deterministic matrix interruption')
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== 'Deterministic controller stop between assignments') throw error
+      }
+
+      if (matrixInvocations !== 1) throw new Error('Matrix did not stop after its first assignment')
+
+      const resumed = await executeExperiment(matrixPath, true, matrixRuntime)
+      const finalInvocations = Number(matrixInvocations)
+
+      if (finalInvocations !== 2 || resumed.blocks.some(({ status }) => status !== 'completed')) throw new Error('Matrix resume did not finish both arms exactly once')
+
+      const inspected = await readExperimentState(matrix)
+
+      if (inspected.blocks.some(({ runs }) => runs.some(({ result }) => result?.classification !== 'task_success'))) throw new Error('Matrix report lost a verified successful result')
+
+      console.log(`experiment_matrix: 2 verified arms, interrupted/resumed, ${finalInvocations} invocations`)
+      console.log(`experiment_plan: ${matrixPath}`)
+    }
 
     assertNoRunDockerResources(temporaryRoot)
 

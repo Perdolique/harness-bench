@@ -1239,14 +1239,21 @@ async function assertRunDestination(
 }
 
 export async function resolveRunPlan(
-  options: ResolveRunPlanOptions
+  options: ResolveRunPlanOptions,
+  assignedExperiment?: ExperimentDocument
 ): Promise<ResolvedRunPlan> {
   if (!isAbsolute(options.runsDirectory)) {
     throw new RunError('INVALID_DOCUMENT', 'runs-dir must be an absolute directory')
   }
 
   const [experimentInput, suiteInput, stackInputs, harnessInputs, taskInputs] = await Promise.all([
-    parseDocument(options.experiment, ExperimentDocumentSchema),
+    assignedExperiment === undefined
+      ? parseDocument(options.experiment, ExperimentDocumentSchema)
+      : {
+          output: v.parse(ExperimentDocumentSchema, assignedExperiment),
+          path: resolve(options.experiment),
+          digest: sha256(`${JSON.stringify(assignedExperiment)}\n`)
+        },
     parseDocument(options.suite, SuiteDocumentSchema),
     Promise.all(options.stackDocuments.map((path) => parseDocument(path, StackDocumentSchema))),
     Promise.all(options.harnessDocuments.map((path) => parseDocument(path, HarnessDocumentSchema))),
