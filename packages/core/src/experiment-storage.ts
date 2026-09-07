@@ -276,15 +276,30 @@ function assertExperimentPlanStructure(plan: ExperimentPlan): void {
 
   const mappingsMatch = plan.assignments.every((assignment, index) => {
     const entry = experiment.execution_order[index]
+    const attemptId = `${assignment.run_id}-attempt-1`
 
-    return entry?.block_id === assignment.block_id && entry.arm_id === assignment.arm_id && assignment.attempt_id === `${assignment.run_id}-attempt-1`
+    return entry?.block_id === assignment.block_id && entry.arm_id === assignment.arm_id && assignment.attempt_id === attemptId
   })
 
-  if (!isAbsolute(plan.runs_directory) || plan.assignments.length !== experiment.execution_order.length || ids.size !== plan.assignments.length || !mappingsMatch || experiment.blocks.some(({ completion_status }) => completion_status !== 'planned') || definition.experiment_id !== experiment.experiment_id || definition.revision !== experiment.revision || definition.repeats !== experiment.repeats || definition.ordering_seed !== experiment.ordering_seed || experimentHash(definition.budget) !== experimentHash(experiment.budget) || definition.arms.length !== experiment.arms.length || definition.tasks.length !== experiment.tasks.length) {
+  const absoluteRunsDirectory = isAbsolute(plan.runs_directory)
+  const assignmentsMatch = plan.assignments.length === experiment.execution_order.length && ids.size === plan.assignments.length && mappingsMatch
+  const blocksPlanned = experiment.blocks.every(({ completion_status }) => completion_status === 'planned')
+  const identityMatches = definition.experiment_id === experiment.experiment_id && definition.revision === experiment.revision
+  const orderingMatches = definition.repeats === experiment.repeats && definition.ordering_seed === experiment.ordering_seed
+  const definitionBudget = experimentHash(definition.budget)
+  const experimentBudget = experimentHash(experiment.budget)
+  const bindingsMatch = definition.arms.length === experiment.arms.length && definition.tasks.length === experiment.tasks.length
+
+  if (!absoluteRunsDirectory || !assignmentsMatch || !blocksPlanned || !identityMatches || !orderingMatches || definitionBudget !== experimentBudget || !bindingsMatch) {
     throw new RunError('INVALID_DOCUMENT', 'Experiment plan assignments or definition are inconsistent')
   }
 
-  if ((plan.parent_plan === null) !== (plan.replaced_block === null) || (plan.parent_plan === null && (plan.parent_progress !== null || plan.assignments.some(({ origin_plan }) => origin_plan !== null)))) {
+  const rootPlan = plan.parent_plan === null
+  const replacementMissing = plan.replaced_block === null
+  const carriedAssignments = plan.assignments.some(({ origin_plan }) => origin_plan !== null)
+  const rootHasAncestry = rootPlan && (plan.parent_progress !== null || carriedAssignments)
+
+  if (rootPlan !== replacementMissing || rootHasAncestry) {
     throw new RunError('INVALID_DOCUMENT', 'Experiment plan ancestry is inconsistent')
   }
 }

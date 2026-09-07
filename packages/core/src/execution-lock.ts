@@ -1,5 +1,6 @@
 import { lstat, mkdir, rmdir, writeFile, unlink } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import type { Stats } from 'node:fs'
 import { RunError } from './run-errors.ts'
 
 export function subscriptionLockPath(): string {
@@ -25,12 +26,47 @@ export async function acquireExecutionLock(path: string): Promise<() => Promise<
     uid: process.getuid?.()
   })}\n`
 
-  await writeFile(ownerPath, owner, {
-    flag: 'wx',
-    mode: 0o600
-  })
+  let identity: Stats
 
-  const identity = await lstat(path)
+  try {
+    identity = await lstat(path)
+  } catch (error) {
+    // No owner file exists yet, so remove only the empty directory we created.
+    try { await rmdir(path) } catch (cleanupError) {
+      throw new RunError('EXECUTION_FAILED', 'Execution lease initialization and cleanup failed; trusted recovery is required', {
+        cause: new AggregateError([error, cleanupError])
+      })
+    }
+
+    throw error
+  }
+
+  try {
+    await writeFile(ownerPath, owner, {
+      flag: 'wx',
+      mode: 0o600
+    })
+  } catch (error) {
+    try {
+      const current = await lstat(path)
+
+      if (current.ino !== identity.ino || current.dev !== identity.dev || current.isSymbolicLink()) {
+        throw new RunError('INVALID_EVIDENCE', 'Execution lease was replaced during initialization')
+      }
+
+      try { await unlink(ownerPath) } catch (unlinkError) {
+        if ((unlinkError as NodeJS.ErrnoException).code !== 'ENOENT') throw unlinkError
+      }
+
+      await rmdir(path)
+    } catch (cleanupError) {
+      throw new RunError('EXECUTION_FAILED', 'Execution lease initialization and cleanup failed; trusted recovery is required', {
+        cause: new AggregateError([error, cleanupError])
+      })
+    }
+
+    throw error
+  }
 
   return async () => {
     const current = await lstat(path)

@@ -122,10 +122,22 @@ async function inspectRun(plan: ExperimentPlan, assignment: ExperimentAssignment
   const arm = origin.experiment.arms.find(({ arm_id }) => arm_id === assignment.arm_id)
   const taskReference = origin.experiment.tasks.find(({ task_id }) => task_id === block?.task_id)
   const sameTask = record.identities.task.revision === taskReference?.revision && record.identities.task.source_digest === taskReference.source_digest
-  const sameSuite = experimentHash(record.identities.suite) === experimentHash(origin.experiment.suite)
+  const observedSuiteDigest = experimentHash(record.identities.suite)
+  const expectedSuiteDigest = experimentHash(origin.experiment.suite)
+  const sameSuite = observedSuiteDigest === expectedSuiteDigest
   const reference = record.identities.experiment
+  const sameRun = record.identities.run.run_id === assignment.run_id && record.identities.run.attempt_id === assignment.attempt_id && record.identities.run.attempt === assignment.attempt
+  const sameExperiment = reference.plan_digest === origin.experiment.plan_digest && reference.experiment_id === origin.experiment.experiment_id && reference.experiment_revision === origin.experiment.revision
+  const sameBlock = reference.block_id === assignment.block_id && reference.arm_id === assignment.arm_id && reference.replicate === block?.replicate && record.identities.task.id === block?.task_id
+  const observedStackDigest = experimentHash(record.identities.stack)
+  const expectedStackDigest = experimentHash(arm?.stack)
+  const sameStack = observedStackDigest === expectedStackDigest
+  const observedHarnessDigest = experimentHash(record.identities.harness)
+  const expectedHarnessDigest = experimentHash(arm?.harness)
+  const sameHarness = observedHarnessDigest === expectedHarnessDigest
+  const immutableAssignmentMatches = sameTask && sameSuite && sameRun && sameExperiment && sameBlock && sameStack && sameHarness
 
-  if (!sameTask || !sameSuite || record.identities.run.run_id !== assignment.run_id || record.identities.run.attempt_id !== assignment.attempt_id || record.identities.run.attempt !== assignment.attempt || reference.plan_digest !== origin.experiment.plan_digest || reference.experiment_id !== origin.experiment.experiment_id || reference.experiment_revision !== origin.experiment.revision || reference.block_id !== assignment.block_id || reference.arm_id !== assignment.arm_id || reference.replicate !== block?.replicate || record.identities.task.id !== block?.task_id || experimentHash(record.identities.stack) !== experimentHash(arm?.stack) || experimentHash(record.identities.harness) !== experimentHash(arm?.harness)) {
+  if (!immutableAssignmentMatches) {
     throw new RunError('INVALID_EVIDENCE', 'Run does not match its original immutable assignment')
   }
 
@@ -146,43 +158,72 @@ async function inspectRun(plan: ExperimentPlan, assignment: ExperimentAssignment
     observed_provider: provider.status === 'known' ? provider.value : null
   }
 }
-export function deriveExperimentState(plan: ExperimentPlan, history: readonly ExperimentProgress[], runs: readonly ExperimentRunState[], now: Date): ExperimentState {
-  const blocks: ExperimentBlockState[] = plan.experiment.blocks.map((block) => {
+function isIncompleteAttempt(run: ExperimentRunState): boolean {
+  if (run.status === 'interrupted') return true
+
+  if (run.result === null) return false
+
+  const isTaskClassification = ['task_success', 'task_failure'].includes(run.result.classification)
+
+  return !run.result.valid_grade || !isTaskClassification
+}
+function deriveBlockState(blockId: string, history: readonly ExperimentProgress[], assignedRuns: readonly ExperimentRunState[], now: Date): ExperimentBlockState {
+  const starts = assignedRuns.flatMap(({ started_at }) => started_at === null ? [] : [started_at]).sort()
+  const first = starts[0] ?? null
+  const firstTime = first === null ? null : Date.parse(first)
+  const deadline = firstTime === null ? null : new Date(firstTime + BLOCK_WINDOW_MS).toISOString()
+  const explicit = history.findLast(({ event }) => event.type === 'invalidated' && event.block_id === blockId)
+  const completions = assignedRuns.flatMap(({ result }) => result === null ? [] : [result.completed_at]).sort()
+  const allVerified = assignedRuns.every(({ status }) => status === 'verified')
+  const lastCompletion = completions.at(-1) ?? null
+  const completedAt = allVerified ? lastCompletion : null
+  const observedProviders = assignedRuns.flatMap(({ result }) => result?.observed_provider == null ? [] : [result.observed_provider])
+  const providers = new Set(observedProviders)
+  const hasIncompleteAttempt = assignedRuns.some(isIncompleteAttempt)
+  const effectiveCompletion = completedAt ?? now.toISOString()
+  const effectiveCompletionTime = Date.parse(effectiveCompletion)
+  const deadlineTime = deadline === null ? null : Date.parse(deadline)
+  const deadlineExceeded = deadlineTime !== null && effectiveCompletionTime > deadlineTime
+  let cause: ExperimentBlockState['cause'] = null
+  let reason: string | null = null
+
+  // Recorded owner evidence is authoritative over conditions derived during inspection.
+  if (explicit?.event.type === 'invalidated') {
+    cause = explicit.event.cause
+    reason = explicit.event.reason
+  } else if (deadlineExceeded) {
+    cause = 'deadline_exceeded'
+    reason = 'Block exceeded its 24-hour window'
+  } else if (providers.size > 1) {
+    cause = 'provider_changed'
+    reason = 'Verified provider identities differ within the block'
+  } else if (hasIncompleteAttempt) {
+    cause = 'incomplete'
+    reason = 'Block contains an interrupted or technically failed attempt'
+  }
+
+  let status: ExperimentBlockState['status'] = 'planned'
+
+  if (cause !== null) status = 'invalidated'
+  else if (allVerified) status = 'completed'
+  else if (first !== null) status = 'in_progress'
+
+  return {
+    block_id: blockId,
+    first_started_at: first,
+    deadline_at: deadline,
+    completed_at: completedAt ?? (explicit?.at ?? null),
+    status,
+    cause,
+    reason,
+    runs: assignedRuns
+  }
+}
+export function deriveExperimentState(plan: ExperimentPlan, history: readonly ExperimentProgress[], runs: readonly ExperimentRunState[], now: Date, excludedBlocks: readonly ExperimentBlockState[] = []): ExperimentState {
+  const blocks = plan.experiment.blocks.map((block) => {
     const assignedRuns = runs.filter(({ assignment }) => assignment.block_id === block.block_id)
-    const starts = assignedRuns.flatMap(({ started_at }) => started_at === null ? [] : [started_at]).sort()
-    const first = starts[0] ?? null
-    const deadline = first === null ? null : new Date(Date.parse(first) + BLOCK_WINDOW_MS).toISOString()
-    const explicit = history.findLast(({ event }) => event.type === 'invalidated' && event.block_id === block.block_id)
-    const completions = assignedRuns.flatMap(({ result }) => result === null ? [] : [result.completed_at]).sort()
-    const allVerified = assignedRuns.every(({ status }) => status === 'verified')
-    const completedAt = allVerified ? completions.at(-1) ?? null : null
-    const providers = new Set(assignedRuns.flatMap(({ result }) => result?.observed_provider == null ? [] : [result.observed_provider]))
-    let cause: ExperimentBlockState['cause'] = null
-    let reason: string | null = null
 
-    if (explicit?.event.type === 'invalidated') {
-      cause = explicit.event.cause
-      reason = explicit.event.reason
-    } else if (deadline !== null && Date.parse(completedAt ?? now.toISOString()) > Date.parse(deadline)) {
-      cause = 'deadline_exceeded'; reason = 'Block exceeded its 24-hour window'
-    } else if (providers.size > 1) {
-      cause = 'provider_changed'; reason = 'Verified provider identities differ within the block'
-    } else if (assignedRuns.some(({ status, result }) => status === 'interrupted' || (result !== null && (!result.valid_grade || !['task_success', 'task_failure'].includes(result.classification))))) {
-      cause = 'incomplete'; reason = 'Block contains an interrupted or technically failed attempt'
-    }
-
-    const status = cause !== null ? 'invalidated' : allVerified ? 'completed' : first === null ? 'planned' : 'in_progress'
-
-    return {
-      block_id: block.block_id,
-      first_started_at: first,
-      deadline_at: deadline,
-      completed_at: completedAt ?? (explicit?.at ?? null),
-      status,
-      cause,
-      reason,
-      runs: assignedRuns
-    }
+    return deriveBlockState(block.block_id, history, assignedRuns, now)
   })
 
   const superseded = history.some(({ event, plan_digest }) => plan_digest === plan.experiment.plan_digest && event.type === 'superseded')
@@ -190,40 +231,79 @@ export function deriveExperimentState(plan: ExperimentPlan, history: readonly Ex
   return {
     plan,
     blocks,
+    excluded_blocks: excludedBlocks,
     superseded
   }
+}
+async function readRunState(plan: ExperimentPlan, assignment: ExperimentAssignment, history: readonly ExperimentProgress[], recover: boolean): Promise<ExperimentRunState> {
+  const starts = history.filter(({ event }) => event.type === 'started' && event.run_id === assignment.run_id)
+  const finishes = history.filter(({ event }) => event.type === 'finished' && event.run_id === assignment.run_id)
+
+  if (starts.length > 1 || finishes.length > 1 || finishes.length > starts.length) throw new RunError('INVALID_EVIDENCE', 'Duplicate or unstarted experiment attempt')
+
+  const start = starts[0]
+  const finish = finishes[0]
+
+  if (start?.event.type === 'started' && start.event.block_id !== assignment.block_id) throw new RunError('INVALID_EVIDENCE', 'Run start belongs to another block')
+
+  const digest = finish?.event.type === 'finished' ? finish.event.normalized_digest : null
+  const result = await inspectRun(plan, assignment, recover, digest)
+
+  if (result !== null && start === undefined) throw new RunError('INVALID_EVIDENCE', 'Run exists without a recorded experiment start')
+
+  if (result !== null && start !== undefined && Date.parse(result.completed_at) < Date.parse(start.at)) throw new RunError('INVALID_EVIDENCE', 'Completion predates the recorded experiment start')
+
+  const status = result !== null ? 'verified' : start === undefined ? 'pending' : 'interrupted'
+
+  return {
+    assignment,
+    status,
+    started_at: start?.at ?? null,
+    result
+  }
+}
+async function readExcludedBlocks(plan: ExperimentPlan, history: readonly ExperimentProgress[], recover: boolean, now: Date): Promise<readonly ExperimentBlockState[]> {
+  const newestFirst: ExperimentBlockState[] = []
+  const attempts = new Set<string>()
+  let descendant = plan
+
+  while (descendant.parent_plan !== null) {
+    const parentPath = experimentPlanPath(descendant.runs_directory, descendant.parent_plan)
+    const parent = await readExperimentPlan(parentPath)
+    const replacedBlock = descendant.replaced_block
+
+    if (replacedBlock === null || !parent.experiment.blocks.some(({ block_id }) => block_id === replacedBlock)) {
+      throw new RunError('INVALID_EVIDENCE', 'Replaced ancestor block is missing')
+    }
+
+    const assignments = parent.assignments.filter(({ block_id }) => block_id === replacedBlock)
+
+    const uniqueAssignments = assignments.filter(({ attempt_id }) => {
+      if (attempts.has(attempt_id)) return false
+
+      attempts.add(attempt_id)
+
+      return true
+    })
+
+    const runs: ExperimentRunState[] = []
+
+    for (const assignment of uniqueAssignments) runs.push(await readRunState(parent, assignment, history, recover))
+
+    newestFirst.push(deriveBlockState(replacedBlock, history, runs, now))
+
+    descendant = parent
+  }
+
+  return newestFirst.reverse()
 }
 export async function readExperimentState(plan: ExperimentPlan, recover = false, now = new Date()): Promise<ExperimentState> {
   const history = await experimentHistoryWithParents(plan)
   const runs: ExperimentRunState[] = []
 
-  for (const assignment of plan.assignments) {
-    const starts = history.filter(({ event }) => event.type === 'started' && event.run_id === assignment.run_id)
-    const finishes = history.filter(({ event }) => event.type === 'finished' && event.run_id === assignment.run_id)
+  for (const assignment of plan.assignments) runs.push(await readRunState(plan, assignment, history, recover))
 
-    if (starts.length > 1 || finishes.length > 1 || finishes.length > starts.length) throw new RunError('INVALID_EVIDENCE', 'Duplicate or unstarted experiment attempt')
+  const excludedBlocks = await readExcludedBlocks(plan, history, recover, now)
 
-    const start = starts[0]
-    const finish = finishes[0]
-
-    if (start?.event.type === 'started' && start.event.block_id !== assignment.block_id) throw new RunError('INVALID_EVIDENCE', 'Run start belongs to another block')
-
-    const digest = finish?.event.type === 'finished' ? finish.event.normalized_digest : null
-    const result = await inspectRun(plan, assignment, recover, digest)
-
-    if (result !== null && start === undefined) throw new RunError('INVALID_EVIDENCE', 'Run exists without a recorded experiment start')
-
-    if (result !== null && start !== undefined && Date.parse(result.completed_at) < Date.parse(start.at)) throw new RunError('INVALID_EVIDENCE', 'Completion predates the recorded experiment start')
-
-    const status = result !== null ? 'verified' : start === undefined ? 'pending' : 'interrupted'
-
-    runs.push({
-      assignment,
-      status,
-      started_at: start?.at ?? null,
-      result
-    })
-  }
-
-  return deriveExperimentState(plan, history, runs, now)
+  return deriveExperimentState(plan, history, runs, now, excludedBlocks)
 }

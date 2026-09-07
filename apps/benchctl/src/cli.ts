@@ -30,23 +30,7 @@ import {
   type DisposeRunOptions
 } from '@harness-bench/results'
 
-const USAGE = `Usage:
-  benchctl experiment plan DEFINITION --runs-dir ABSOLUTE_DIR [--dry-run]
-  benchctl experiment run|resume|report PLAN
-  benchctl experiment rerun-block PLAN --block ID --revision REV
-  benchctl experiment invalidate PLAN --block ID --cause CAUSE --reason TEXT
-  benchctl run --experiment FILE --run-id ID --stack FILE --harness-document FILE --suite FILE --task FILE --task-source DIR --task-package DIR --harness-bundle DIR --runs-dir ABSOLUTE_DIR [--dry-run]
-  benchctl harness capture --source DIR --store DIR --id ID --revision REV
-  benchctl harness validate BUNDLE
-  benchctl harness materialize BUNDLE --destination DIR
-  benchctl harness diff LEFT RIGHT
-  benchctl results normalize RUN_DIR
-  benchctl results report NORMALIZED_RECORD
-  benchctl results export NORMALIZED_RECORD
-  benchctl results dispose RUN_DIR --confirm-run-id ID --reason retention-expired|owner-request|credential-detected --disposition delete|incident-retain [--credential-action rotated|revoked] [--incident-expires-at ISO_TIMESTAMP]
-`
-
-class CliUsageError extends Error {}
+import { CLI_SYNOPSIS, CliUsageError } from './cli-contract.ts'
 
 export interface CliIo {
   readonly stderr: (value: string) => void;
@@ -637,7 +621,7 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
     normalizedArguments.includes('--help') ||
     normalizedArguments.includes('-h')
   ) {
-    io.stdout(USAGE)
+    io.stdout(CLI_SYNOPSIS)
 
     return 0
   }
@@ -671,7 +655,9 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
   }
 
   if (group !== 'harness') {
-    throw new CliUsageError('Expected run, harness, or results command group')
+    throw new CliUsageError(
+      'Expected experiment, run, harness, or results command group'
+    )
   }
 
   if (command === 'capture') {
@@ -719,9 +705,9 @@ export async function runCli(
     } else if (isHarnessError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)
     } else if (isParseArgsError(error)) {
-      io.stderr(`USAGE_ERROR: Invalid command arguments\n${USAGE}`)
+      io.stderr(`USAGE_ERROR: Invalid command arguments\n${CLI_SYNOPSIS}`)
     } else if (error instanceof CliUsageError) {
-      io.stderr(`USAGE_ERROR: ${error.message}\n${USAGE}`)
+      io.stderr(`USAGE_ERROR: ${error.message}\n${CLI_SYNOPSIS}`)
     } else {
       io.stderr(`UNEXPECTED_ERROR: command failed\n`)
     }

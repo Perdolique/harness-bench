@@ -6,13 +6,16 @@ import * as v from 'valibot'
 
 import {
   appendExperimentProgress,
+  assignmentIds,
   experimentPlanDigest,
+  readExperimentHistory,
   saveExperimentPlan,
   type ExperimentPlan
 } from '@harness-bench/core'
 
 import { readExperimentState } from '../src/experiment.ts'
 import { normalizeRun } from '../src/normalize.ts'
+import { renderExperimentReport } from '../../reporting/src/experiment.ts'
 import { createResultFixture, makeWritable } from './fixture.ts'
 
 let root: string
@@ -177,6 +180,65 @@ async function prepared() {
     fixture
   }
 }
+async function publishRerun(parent: ExperimentPlan, revision: string): Promise<ExperimentPlan> {
+  const history = await readExperimentHistory(parent)
+  const child = structuredClone(parent)
+  const replacedBlock = parent.experiment.blocks[0]!.block_id
+  const replacementBlock = `fixture-block-r${revision}`
+
+  child.definition.revision = revision
+  child.experiment.revision = revision
+  child.parent_plan = parent.experiment.plan_digest
+  child.parent_progress = history.digest
+  child.replaced_block = replacedBlock
+  child.experiment.blocks[0]!.block_id = replacementBlock
+
+  for (const entry of child.experiment.execution_order) entry.block_id = replacementBlock
+
+  child.assignments = parent.assignments.map(({ arm_id }) => assignmentIds(child.experiment.experiment_id, revision, replacementBlock, arm_id))
+  child.experiment.plan_digest = experimentPlanDigest(child)
+
+  await saveExperimentPlan(child)
+
+  await appendExperimentProgress(parent, {
+    type: 'superseded',
+    child_plan: child.experiment.plan_digest
+  }, now.toISOString())
+
+  return child
+}
+async function addCompletedAttempt(plan: ExperimentPlan, classification: 'task_success' | 'task_failure', reason: string): Promise<void> {
+  const assignment = plan.assignments[0]!
+  const block = plan.experiment.blocks[0]!
+
+  await createResultFixture(root, {
+    runId: assignment.run_id,
+    private: false,
+    classification,
+
+    experiment: {
+      experiment_id: plan.experiment.experiment_id,
+      experiment_revision: plan.experiment.revision,
+      plan_digest: plan.experiment.plan_digest,
+      arm_id: assignment.arm_id,
+      block_id: assignment.block_id,
+      replicate: block.replicate
+    }
+  })
+
+  await appendExperimentProgress(plan, {
+    type: 'started',
+    run_id: assignment.run_id,
+    block_id: assignment.block_id
+  }, '2026-09-06T12:00:00.000Z')
+
+  await appendExperimentProgress(plan, {
+    type: 'invalidated',
+    block_id: assignment.block_id,
+    cause: 'incomplete',
+    reason
+  }, '2026-09-06T12:01:00.000Z')
+}
 
 describe('verified experiment results', () => {
   it('recovers normalization, retains the result identity and reads partial state without writes', async () => {
@@ -242,6 +304,76 @@ describe('verified experiment results', () => {
     await makeWritable(fixture.runDirectory)
     await rm(fixture.runDirectory, { recursive: true })
     await expect(readExperimentState(plan, true, now)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('retains unique excluded attempts and their original evidence across repeated reruns', async () => {
+    const { plan: firstPlan } = await prepared()
+
+    await appendExperimentProgress(firstPlan, {
+      type: 'invalidated',
+      block_id: firstPlan.experiment.blocks[0]!.block_id,
+      cause: 'provider_changed',
+      reason: 'First revision provider identity changed'
+    }, '2026-09-06T12:01:00.000Z')
+
+    const secondPlan = await publishRerun(firstPlan, '2')
+
+    await addCompletedAttempt(secondPlan, 'task_failure', 'Second revision stopped after a technical failure')
+
+    const currentPlan = await publishRerun(secondPlan, '3')
+    const state = await readExperimentState(currentPlan, true, now)
+    const excludedAttempts = state.excluded_blocks.flatMap(({ runs }) => runs)
+
+    expect(state.blocks).toHaveLength(1)
+    expect(state.blocks[0]?.runs.every(({ status }) => status === 'pending')).toBe(true)
+
+    expect(state.excluded_blocks.map(({ block_id }) => block_id)).toStrictEqual([
+      firstPlan.experiment.blocks[0]!.block_id,
+      secondPlan.experiment.blocks[0]!.block_id
+    ])
+
+    expect(state.excluded_blocks.map(({ cause, reason }) => ({
+      cause,
+      reason
+    }))).toStrictEqual([
+      {
+        cause: 'provider_changed',
+        reason: 'First revision provider identity changed'
+      },
+      {
+        cause: 'incomplete',
+        reason: 'Second revision stopped after a technical failure'
+      }
+    ])
+
+    expect(excludedAttempts).toHaveLength(4)
+    expect(new Set(excludedAttempts.map(({ assignment }) => assignment.attempt_id)).size).toBe(4)
+
+    expect(excludedAttempts.map(({ assignment }) => assignment)).toStrictEqual([
+      ...firstPlan.assignments,
+      ...secondPlan.assignments
+    ])
+
+    expect(excludedAttempts[0]?.result?.classification).toBe('task_success')
+    expect(excludedAttempts[0]?.result?.normalized_path).toContain(`/.results/${firstPlan.assignments[0]!.run_id}/normalized/`)
+    expect(excludedAttempts[2]?.result?.classification).toBe('task_failure')
+    expect(excludedAttempts[2]?.result?.normalized_path).toContain(`/.results/${secondPlan.assignments[0]!.run_id}/normalized/`)
+
+    const report = renderExperimentReport(state)
+
+    expect(report).toContain(`Excluded predecessor block ${firstPlan.experiment.blocks[0]!.block_id}: invalidated`)
+    expect(report).toContain('Excluded: provider_changed; First revision provider identity changed')
+    expect(report).toContain(`${firstPlan.assignments[0]!.run_id} | attempt 1: ${firstPlan.assignments[0]!.attempt_id}`)
+    expect(report).toContain(excludedAttempts[0]!.result!.normalized_path)
+    expect(report).toContain('task_failure, valid grade: true')
+    expect(report).toContain('Remaining scheduled invocations: 2')
+
+    const supersededReport = renderExperimentReport({
+      ...state,
+      superseded: true
+    })
+
+    expect(supersededReport).toContain('Remaining scheduled invocations: 0')
   })
 
 })

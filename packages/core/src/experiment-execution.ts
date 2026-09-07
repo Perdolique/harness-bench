@@ -7,6 +7,8 @@ import {
   assignmentOptions,
   assignmentOrigin,
   changedInputCause,
+  experimentInputBlocks,
+  experimentInputMatches,
   experimentAssignmentSnapshot,
   resolvedExperimentInputs,
   verifyExperimentInputs
@@ -16,6 +18,7 @@ import {
   appendExperimentProgress,
   experimentHash,
   experimentPlanDigest,
+  experimentPlanPath,
   lockExperiment,
   readExperimentHistory,
   readExperimentPlan,
@@ -23,7 +26,7 @@ import {
   writeExperimentRecord
 } from './experiment-storage.ts'
 
-import { resolveRunPlan } from './run.ts'
+import { resolveRunPlan, type ResolvedRunPlan } from './run.ts'
 import type { ExperimentPlan, InvalidationCause } from './experiment-contracts.ts'
 import type { ExperimentRuntime, ExperimentState } from './experiment-state.ts'
 
@@ -59,34 +62,38 @@ async function recordRecoveredRuns(plan: ExperimentPlan, state: ExperimentState,
     }
   }
 }
-async function checkExperimentInputs(plan: ExperimentPlan, blockId: string, at: string): Promise<boolean> {
-  let cause: InvalidationCause
+async function invalidateInputBlocks(plan: ExperimentPlan, input: ExperimentPlan['inputs'][number], cause: InvalidationCause, reason: string, at: string): Promise<void> {
+  const blocks = await experimentInputBlocks(plan, input)
 
-  try {
-    const changed = await verifyExperimentInputs(plan)
-
-    if (changed === undefined) return false
-
-    cause = await changedInputCause(plan, changed)
-  } catch (error) {
-    await appendExperimentProgress(plan, {
-      type: 'invalidated',
-      block_id: blockId,
-      cause: 'incomplete',
-      reason: 'Frozen inputs could not be verified; inspect the input error before creating a new revision'
-    }, at)
-
-    throw error
-  }
-
-  await appendExperimentProgress(plan, {
+  for (const blockId of blocks) await appendExperimentProgress(plan, {
     type: 'invalidated',
     block_id: blockId,
     cause,
-    reason: 'Frozen experiment inputs changed; create a new revision'
+    reason
   }, at)
+}
+async function checkExperimentInputs(plan: ExperimentPlan, at: string): Promise<boolean> {
+  for (const input of plan.inputs) {
+    let cause: InvalidationCause
 
-  return true
+    try {
+      const matches = await experimentInputMatches(input)
+
+      if (matches) continue
+
+      cause = await changedInputCause(plan, input)
+    } catch (error) {
+      await invalidateInputBlocks(plan, input, 'incomplete', 'Frozen inputs could not be verified; inspect the input error before creating a new revision', at)
+
+      throw error
+    }
+
+    await invalidateInputBlocks(plan, input, cause, 'Frozen experiment inputs changed; create a new revision', at)
+
+    return true
+  }
+
+  return false
 }
 export async function executeExperiment(path: string, resume: boolean, runtime: ExperimentRuntime): Promise<ExperimentState> {
   const plan = await readExperimentPlan(path)
@@ -127,7 +134,7 @@ export async function executeExperiment(path: string, resume: boolean, runtime: 
 
       if (run.status === 'verified') continue
 
-      const changed = await checkExperimentInputs(plan, block.block_id, runtime.now().toISOString())
+      const changed = await checkExperimentInputs(plan, runtime.now().toISOString())
 
       if (changed) return runtime.readState(plan, true)
 
@@ -135,19 +142,28 @@ export async function executeExperiment(path: string, resume: boolean, runtime: 
       const at = runtime.now().toISOString()
       const snapshot = experimentAssignmentSnapshot(origin, assignment, block.first_started_at ?? at)
       const options = assignmentOptions(origin, assignment)
-      const resolved = await resolveRunPlan(options, snapshot)
+      let resolved: ResolvedRunPlan
+
+      try {
+        resolved = await resolveRunPlan(options, snapshot)
+      } catch (error) {
+        await appendExperimentProgress(plan, {
+          type: 'invalidated',
+          block_id: block.block_id,
+          cause: 'incomplete',
+          reason: 'Assignment resolution failed after input verification; inspect restricted diagnostics before creating a new revision'
+        }, runtime.now().toISOString())
+
+        throw error
+      }
+
       const observedInputs = resolvedExperimentInputs(resolved)
       const changedDuringResolution = observedInputs.find((input) => !plan.inputs.some((expected) => expected.kind === input.kind && expected.path === input.path && expected.digest === input.digest))
 
       if (changedDuringResolution !== undefined) {
         const cause = await changedInputCause(plan, changedDuringResolution)
 
-        await appendExperimentProgress(plan, {
-          type: 'invalidated',
-          block_id: block.block_id,
-          cause,
-          reason: 'Inputs changed while resolving the assignment'
-        }, runtime.now().toISOString())
+        await invalidateInputBlocks(plan, changedDuringResolution, cause, 'Inputs changed while resolving the assignment', runtime.now().toISOString())
 
         return runtime.readState(plan, true)
       }
@@ -187,7 +203,7 @@ export async function executeExperiment(path: string, resume: boolean, runtime: 
         normalized_digest: completedRun.result.normalized_digest
       }, runtime.now().toISOString())
 
-      const changedAfterRun = await checkExperimentInputs(plan, block.block_id, runtime.now().toISOString())
+      const changedAfterRun = await checkExperimentInputs(plan, runtime.now().toISOString())
 
       if (changedAfterRun) return runtime.readState(plan, true)
 
@@ -275,7 +291,22 @@ export async function rerunExperimentBlock(path: string, blockId: string, revisi
     })
     child.experiment.plan_digest = experimentPlanDigest(child)
 
-    const childPath = await saveExperimentPlan(child)
+    let childPath: string
+
+    try {
+      childPath = await saveExperimentPlan(child)
+    } catch (error) {
+      if (!(error instanceof RunError) || error.code !== 'DESTINATION_EXISTS') throw error
+
+      // Recover only the exact sealed child left by a failed parent handoff.
+      childPath = experimentPlanPath(child.runs_directory, child.experiment.plan_digest)
+
+      try {
+        await readExperimentPlan(childPath)
+      } catch (cause) {
+        throw new RunError('DESTINATION_EXISTS', 'Experiment revision already exists with different content; use a new revision', { cause })
+      }
+    }
 
     await appendExperimentProgress(parent, {
       type: 'superseded',

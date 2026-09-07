@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
-import { dirname, resolve } from 'node:path'
+import { realpath } from 'node:fs/promises'
+import { basename, dirname, resolve } from 'node:path'
 import * as v from 'valibot'
 
 import {
@@ -400,19 +401,78 @@ export async function assignmentOrigin(plan: ExperimentPlan, assignment: Experim
 }
 export async function verifyExperimentInputs(plan: ExperimentPlan): Promise<ExperimentPlan['inputs'][number] | undefined> {
   for (const input of plan.inputs) {
-    let digest: string
+    const matches = await experimentInputMatches(input)
 
-    if (input.kind === 'task_package') digest = (await inspectRunTree(input.path)).digest
-    else if (input.kind === 'task_source') digest = (await inspectTaskSource(input.path)).digest
-    else if (input.kind === 'harness_bundle') digest = (await validateHarnessBundle(input.path)).manifest.digest
-    else {
-      const bytes = await readStableRunFile(input.path)
-
-      digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`
-    }
-
-    if (digest !== input.digest) return input
+    if (!matches) return input
   }
+}
+
+export async function experimentInputMatches(input: ExperimentPlan['inputs'][number]): Promise<boolean> {
+  let digest: string
+
+  if (input.kind === 'task_package') {
+    const tree = await inspectRunTree(input.path)
+
+    digest = tree.digest
+  } else if (input.kind === 'task_source') {
+    const source = await inspectTaskSource(input.path)
+
+    digest = source.digest
+  } else if (input.kind === 'harness_bundle') {
+    const bundle = await validateHarnessBundle(input.path)
+
+    digest = bundle.manifest.digest
+  } else {
+    const bytes = await readStableRunFile(input.path)
+
+    digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+  }
+
+  return digest === input.digest
+}
+
+// Recover ownership from frozen bindings without changing the serialized input contract.
+export async function experimentInputBlocks(plan: ExperimentPlan, input: ExperimentPlan['inputs'][number]): Promise<string[]> {
+  const taskIds = new Set<string>()
+  const taskInput = input.kind === 'task_document' || input.kind === 'task_source' || input.kind === 'task_package'
+
+  if (taskInput) {
+    for (const [index, task] of plan.definition.tasks.entries()) {
+      let path = task.package
+
+      if (input.kind === 'task_document') path = task.document
+      else if (input.kind === 'task_source') path = task.source
+
+      const taskId = plan.experiment.tasks[index]!.task_id
+
+      if (path === input.path) {
+        taskIds.add(taskId)
+
+        continue
+      }
+
+      let canonicalPath: string
+
+      try {
+        canonicalPath = await realpath(path)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+
+        // A deleted input still belongs to its frozen task binding.
+        const parent = dirname(path)
+        const canonicalParent = await realpath(parent)
+        const name = basename(path)
+
+        canonicalPath = resolve(canonicalParent, name)
+      }
+
+      if (canonicalPath === input.path) taskIds.add(taskId)
+    }
+  }
+
+  const affected = plan.experiment.blocks.filter(({ task_id }) => !taskInput || taskIds.has(task_id))
+
+  return affected.map(({ block_id }) => block_id)
 }
 
 export async function changedInputCause(plan: ExperimentPlan, input: ExperimentPlan['inputs'][number]): Promise<InvalidationCause> {

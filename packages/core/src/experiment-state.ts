@@ -28,6 +28,7 @@ export interface ExperimentBlockState {
 export interface ExperimentState {
   readonly plan: ExperimentPlan;
   readonly blocks: readonly ExperimentBlockState[];
+  readonly excluded_blocks: readonly ExperimentBlockState[];
   readonly superseded: boolean;
 }
 export interface ExperimentRuntime {
