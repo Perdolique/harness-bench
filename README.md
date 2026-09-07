@@ -2,7 +2,7 @@
 
 Evaluate complete coding-agent stacks on repository-native engineering tasks. A stack includes the native agent and version, model and effort, authentication mode, harness, tools, permissions, repository snapshot, prompt, budget, and runner. A result is evidence about that stack on those tasks, never a bare-model score.
 
-**Status: the M1 vertical slice is implemented through issue 9's single-run terminal report.** The repository has pinned development toolchains, provider-free CI, seven frozen v1 schemas, immutable harness tooling, the calibrated canonical frontend task, one-run Harbor orchestration, immutable result normalization and disposition, and local terminal reports. Experiment scheduling and paired analysis remain M2 work. The retired restricted-network protocol remains a preserved no-go. Three public-network native feasibility runs passed: one medium and two matching-input low runs.
+**Status: the benchmark control plane is implemented through issue 11's paired experiment comparison.** The repository has pinned development toolchains, provider-free CI, seven frozen v1 schemas, immutable harness tooling, the calibrated canonical frontend task, one-run Harbor orchestration, immutable result normalization and disposition, interleaved experiment scheduling and recovery, operational reports, and read-only paired analysis with deterministic task-cluster uncertainty. The retired restricted-network protocol remains a preserved no-go. Three public-network native feasibility runs passed: one medium and two matching-input low runs.
 
 Those runs prove only the recorded synthetic path. Token refresh was not exercised and an auth failure requires owner login. Harbor irreversibly merged native stdout and stderr. The agent had unrestricted network access, including possible access to remote content, host services, and its temporary credentials. The result applies only to the recorded macOS Apple Silicon and Docker Desktop Linux/arm64 environment.
 
@@ -25,7 +25,7 @@ V1 excludes neutral model evaluation, dashboards, distributed execution, a secon
 
 ## Project guide
 
-Inspect a retained normalized run with `vp run benchctl -- results report /absolute/path/to/normalized/<sha256>/record.json`. The report shows identities, score facets, reliability, timing, usage, and checked evidence paths. See [report usage and exit codes](docs/operations.md#single-run-terminal-report).
+Inspect a retained normalized run with `vp run benchctl -- results report /absolute/path/to/normalized/<sha256>/record.json`. Inspect experiment state with `vp run benchctl -- experiment report /absolute/path/to/plan.json`, or derive the revision-1 paired analysis with `vp run benchctl -- experiment compare /absolute/path/to/plan.json`. Reports show identities, quality, reliability, timing, usage, coverage, and checked evidence without mutating source records or invoking a provider. See [report usage and exit codes](docs/operations.md#single-run-terminal-report) and [experiment matrices](docs/operations.md#experiment-matrices).
 
 - [Development rules](AGENTS.md) and [contribution workflow](CONTRIBUTING.md).
 - [Product specification](docs/product-spec.md) and [architecture](docs/architecture.md).

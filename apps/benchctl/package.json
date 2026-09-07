@@ -9,6 +9,7 @@
   "dependencies": {
     "@harness-bench/reporting": "workspace:*",
     "@harness-bench/core": "workspace:*",
-    "@harness-bench/results": "workspace:*"
+    "@harness-bench/results": "workspace:*",
+    "@harness-bench/statistics": "workspace:*"
   }
 }

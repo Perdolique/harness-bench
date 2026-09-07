@@ -1,14 +1,10 @@
 import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { EXPECTED_TOOLCHAIN, TOOL_COMMANDS, type ToolCommand } from '../toolchain.ts'
 
 const root = resolve(import.meta.dirname, '../..')
-
-const manifestOnlyWorkspaceManifests = [
-  ['packages/statistics/package.json', '@harness-bench/statistics']
-] as const
 
 const expectedActions = [
   'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
@@ -196,28 +192,13 @@ describe('repository skeleton', () => {
     })
   })
 
-  it('keeps unimplemented workspace packages manifest-only', () => {
-    for (const [path, name] of manifestOnlyWorkspaceManifests) {
-      const manifest = readJson(path)
+  it('exposes the issue 11 workspace dependency graph', () => {
+    const workspace = readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8')
 
-      expect(manifest).toEqual({
-        name,
-        version: '0.0.0',
-        private: true,
-        type: 'module'
-      })
+    expect(workspace).toContain('  - apps/*\n')
+    expect(workspace).toContain('  - packages/*\n')
+    expect(workspace).toContain('disallowWorkspaceCycles: true\n')
 
-      expect(manifest).not.toHaveProperty('bin')
-      expect(manifest).not.toHaveProperty('exports')
-      expect(manifest).not.toHaveProperty('dependencies')
-
-      expect(readdirSync(resolve(root, dirname(path)))).toEqual([
-        'package.json'
-      ])
-    }
-  })
-
-  it('exposes the issue 8 core, results, and thin CLI dependencies', () => {
     expect(readJson('packages/core/package.json')).toEqual({
       name: '@harness-bench/core',
       version: '0.0.0',
@@ -243,7 +224,8 @@ describe('repository skeleton', () => {
       dependencies: {
         '@harness-bench/core': 'workspace:*',
         '@harness-bench/reporting': 'workspace:*',
-        '@harness-bench/results': 'workspace:*'
+        '@harness-bench/results': 'workspace:*',
+        '@harness-bench/statistics': 'workspace:*'
       }
     })
 
@@ -267,7 +249,24 @@ describe('repository skeleton', () => {
       private: true,
       type: 'module',
       exports: './src/index.ts',
-      dependencies: { '@harness-bench/results': 'workspace:*' }
+
+      dependencies: {
+        '@harness-bench/results': 'workspace:*',
+        '@harness-bench/statistics': 'workspace:*'
+      }
+    })
+
+    expect(readJson('packages/statistics/package.json')).toEqual({
+      name: '@harness-bench/statistics',
+      version: '0.0.0',
+      private: true,
+      type: 'module',
+      exports: './src/index.ts',
+
+      dependencies: {
+        '@harness-bench/core': 'workspace:*',
+        '@harness-bench/results': 'workspace:*'
+      }
     })
   })
 

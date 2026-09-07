@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { renderSingleRunReport } from '@harness-bench/reporting'
+import { isStatisticsError } from '@harness-bench/statistics'
 
 import {
   captureHarnessBundle,
@@ -701,6 +702,8 @@ export async function runCli(
     if (isRunError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)
     } else if (isResultError(error)) {
+      io.stderr(`${error.code}: ${error.message}\n`)
+    } else if (isStatisticsError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)
     } else if (isHarnessError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)

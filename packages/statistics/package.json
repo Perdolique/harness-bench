@@ -2,5 +2,10 @@
   "name": "@harness-bench/statistics",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@harness-bench/core": "workspace:*",
+    "@harness-bench/results": "workspace:*"
+  }
 }
