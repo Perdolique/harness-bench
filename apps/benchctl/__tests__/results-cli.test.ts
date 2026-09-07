@@ -3,12 +3,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const normalizeRun = vi.fn()
 const exportSanitizedResult = vi.fn()
 const disposeRun = vi.fn()
+const readNormalizedRunRecord = vi.fn()
+const renderSingleRunReport = vi.fn()
+
+vi.mock('@harness-bench/reporting', () => ({ renderSingleRunReport }))
 
 vi.mock('@harness-bench/results', async (importOriginal) => ({
   ...await importOriginal<typeof import('@harness-bench/results')>(),
   disposeRun,
   exportSanitizedResult,
   normalizeRun
+  ,
+  readNormalizedRunRecord
 }))
 
 const { runCli } = await import('../src/cli.ts')
@@ -33,9 +39,72 @@ beforeEach(() => {
   normalizeRun.mockReset()
   exportSanitizedResult.mockReset()
   disposeRun.mockReset()
+  readNormalizedRunRecord.mockReset()
+  renderSingleRunReport.mockReset()
 })
 
 describe('benchctl results', () => {
+  it.each(['task_success', 'task_failure', 'agent_failure', 'provider_failure', 'runner_failure', 'verifier_failure', 'infrastructure_failure', 'cancellation'])(
+    'reports %s with exit zero and exact renderer output', async (classification) => {
+      const source = { record: { outcome: { classification } } }
+      const rendered = `Run\n  Classification: ${classification}\n`
+
+      readNormalizedRunRecord.mockResolvedValue(source)
+      renderSingleRunReport.mockReturnValue(rendered)
+
+      const captured = output()
+      const exit = await runCli(['results', 'report', '/normalized/record.json'], captured.io)
+
+      expect(exit).toBe(0)
+      expect(readNormalizedRunRecord).toHaveBeenCalledExactlyOnceWith('/normalized/record.json')
+      expect(renderSingleRunReport).toHaveBeenCalledExactlyOnceWith(source)
+      expect(captured.stdout).toStrictEqual([rendered])
+      expect(captured.stderr).toStrictEqual([])
+      expect(normalizeRun).not.toHaveBeenCalled()
+    }
+  )
+
+  it('hides report reader causes and emits no partial output', async () => {
+    readNormalizedRunRecord.mockRejectedValue(new ResultError('INTEGRITY_MISMATCH', 'Report evidence changed', { cause: new Error('private-diagnostics') }))
+
+    const captured = output()
+    const exit = await runCli(['results', 'report', '/normalized/record.json'], captured.io)
+
+    expect(exit).toBe(2)
+    expect(captured.stdout).toStrictEqual([])
+    expect(captured.stderr).toStrictEqual(['INTEGRITY_MISMATCH: Report evidence changed\n'])
+    expect(renderSingleRunReport).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['results', 'report'],
+    ['results', 'report', '/normalized/record.json', 'extra'],
+    ['results', 'report', '/normalized/record.json', '--unknown']
+  ])('rejects invalid report arguments before reading', async (...arguments_) => {
+    const captured = output()
+
+    expect(await runCli(arguments_, captured.io)).toBe(2)
+    expect(captured.stdout).toStrictEqual([])
+    expect(readNormalizedRunRecord).not.toHaveBeenCalled()
+    expect(renderSingleRunReport).not.toHaveBeenCalled()
+  })
+
+  it.each(['\u0000', '\u001b[31m', '\u009b', '\r', '\n', '\u202e'])(
+    'does not echo control characters from invalid report arguments (%j)', async (control) => {
+      const captured = output()
+      const option = `--bad${control}INJECT`
+      const exit = await runCli(['results', 'report', option], captured.io)
+      const stderr = captured.stderr.join('')
+
+      expect(exit).toBe(2)
+      expect(captured.stdout).toStrictEqual([])
+      expect(stderr).toMatch(/^USAGE_ERROR: Invalid command arguments\nUsage:/)
+      expect(stderr).not.toContain('INJECT')
+      expect(stderr).not.toContain(option)
+      expect(readNormalizedRunRecord).not.toHaveBeenCalled()
+    }
+  )
+
   it('normalizes a run with JSON and exit zero', async () => {
     normalizeRun.mockResolvedValue({
       kind: 'normalized',

@@ -206,6 +206,23 @@ If staging or deletion fails, the command exits `2`, does not install a false de
 
 Successful result commands emit JSON and exit `0`. Restricted normalization and all input, integrity, version, export, or lifecycle failures exit `2` with safe diagnostics that omit raw causes. Exit `1` remains exclusive to a valid task-quality failure from `benchctl run`.
 
+## Single-run terminal report
+
+Issue 9 renders one explicitly selected normalized record:
+
+```sh
+vp run benchctl -- results report \
+  /absolute/local-runs/.results/<run-id>/normalized/<sha256>/record.json
+```
+
+Use the `record_path` returned by `results normalize`. Reporting reads that exact revision; it creates no normalized record, export, lock, or report file. The reader validates the managed address, schema, run identity, initial/completion/raw-manifest digests, and each referenced file's containment, sealed mode, size, executable state, and streamed SHA-256. It parses the authoritative initial and completion records, rechecks their identity, revision, digest and lifecycle links, and compares normalized identities, revisions, outcome, retention and total duration with those sources. It also resolves retained verifier `.log` and `.txt` files from the raw manifest. Missing or changed retained evidence rejects the report. Restrictions, detected credential patterns in either the original normalized JSON bytes or decoded metadata, or an observed active result-operation lock block inspection. Source metadata and file stability are rechecked before returning; the report describes evidence inspected at that time, not a reservation against subsequent owner deletion. Reporting does not rescan unreferenced raw content or regrade the run.
+
+The English plain-text report shows run and complete stack/harness/task identities, independent revisions, outcome and termination, gates, all score facets and check evidence, scope violations, composite, timings, usage, and absolute local evidence paths. It uses no color, ANSI hyperlinks, or TTY-specific layout. Control characters in text and paths, including Unicode bidirectional controls, are escaped visibly. Argument-parser errors use a static usage diagnostic without echoing the supplied argument. Native JSONL and ATIF remain distinct; `codex.txt` is labelled as irreversibly merged stdout/stderr. A missing artifact is shown as unavailable rather than as an invented path.
+
+Scores use three decimal places on the `[0,1]` scale. A valid failed gate can yield `0.000`; an invalid grade displays unavailable scores and gates. `unknown` and `not applicable` retain their reasons. Observed zero tokens, seconds, and upstream price estimates remain zero. Subscription money is separately not applicable; the USD estimate is explicitly labelled `API-price estimate, not subscription spend` with its upstream provenance. See the [interpretation examples](methodology.md#reading-a-single-run-report).
+
+Exit `0` means that inspection and rendering succeeded, including for a retained task failure, infrastructure failure, or cancellation. Exit `2` means usage, input, restriction, or integrity failure; stderr contains safe diagnostics without raw error causes and stdout contains no partial report. The report includes local paths and potentially private scope details, so it is for local inspection; publication still uses the separate reviewed export procedure. The command starts no Harbor, Docker, or provider process.
+
 ## Canonical task calibration
 
 The ordinary aggregate check covers source materialization, artifact validation and replay, task contracts, and all formatted negative-control mutators without Docker or provider calls:

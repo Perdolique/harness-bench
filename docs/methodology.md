@@ -49,6 +49,34 @@ Raw facets remain authoritative. Failed direct/regression checks yield a valid t
 
 Record timeout explicitly with phase, elapsed limit, and observed cause. A policy budget exhaustion during an otherwise healthy agent run can still produce a grade if complete trustworthy artifacts exist; show both termination and grade. Never guess an underlying cause from a zero exit status or empty reward alone.
 
+## Reading a single-run report
+
+`benchctl results report NORMALIZED_RECORD` prints the selected normalized result and retained evidence paths. Raw facets and verifier check evidence remain authoritative; the three-decimal composite is a convenience display, not a replacement for them.
+
+For a completed task with trustworthy verification but failed direct behavior, the relevant lines can be:
+
+```text
+Classification: task_failure
+Valid grade: true
+direct_behavior_pass: failed
+regression_pass: passed
+verifier_integrity_pass: passed
+direct_behavior: 0.000
+Composite (convenience): 0.000
+```
+
+An infrastructure failure instead has no valid quality grade:
+
+```text
+Classification: infrastructure_failure
+Valid grade: false
+direct_behavior_pass: unavailable (Execution outcome has no valid quality grade)
+direct_behavior: unavailable (Execution outcome has no valid quality grade)
+Composite (convenience): unavailable (Execution outcome has no valid quality grade)
+```
+
+Both reports can render successfully with exit `0`; the command's exit code describes inspection, while `Classification` describes the benchmark outcome. Unknown evidence and inapplicable obligations retain explicit reasons rather than becoming zero. The report does not recompute a composite or substitute Harbor reward values for structured score facets. Timings and tokens preserve observed zero, and upstream API-price estimates never represent subscription charges.
+
 ## Scheduling and comparison
 
 Freeze the execution plan before the first invocation. It contains arms, tasks, replicates, blocks, ordering seed, budgets, and immutable identities. V1 subscription concurrency is exactly one, not a tunable default. Record requested and effective concurrency plus enforcement status. Run arms within each task/replicate block in seeded interleaved order. Do not run all A followed by all B. Resume only skips completed immutable run IDs; failed/retried attempts remain separate records under a declared retry policy. Keep incomplete experiments reportable.

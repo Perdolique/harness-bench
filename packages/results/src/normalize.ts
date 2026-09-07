@@ -370,7 +370,8 @@ function validateManifest(raw: RawSnapshot, candidate: unknown): void {
   }
 }
 
-function assertSourceRelationships(
+// Shared by normalization and read-only inspection of retained source records.
+export function assertSourceRelationships(
   initial: InitialRunRecord,
   completion: CompletionRunRecord,
   initialDigest: string,
@@ -1202,7 +1203,8 @@ async function parseEvidence(records: SourceRecords): Promise<Pick<
   }
 }
 
-function baseRecord(records: SourceRecords): Pick<
+// Projects authoritative metadata identically for normalization and inspection.
+export function sourceProvenance(records: Pick<SourceRecords, 'initial' | 'initialDigest' | 'completionDigest' | 'manifestDigest'>): Pick<
   NormalizedRunRecordV1,
   'identities' | 'revisions' | 'source_digests'
 > {
@@ -1293,7 +1295,7 @@ async function storeRestriction(
     record_type: 'restriction',
     created_at: createdAt,
     identity: records.initial.identity,
-    source_digests: baseRecord(records).source_digests,
+    source_digests: sourceProvenance(records).source_digests,
 
     restriction: {
       category,
@@ -1384,7 +1386,7 @@ async function normalizeResolvedRunWithRuntime(
 
   await assertFinalSnapshot(resolved.runDirectory, records, runtime)
 
-  const base = baseRecord(records)
+  const base = sourceProvenance(records)
 
   const normalized = v.parse(NormalizedRunRecordV1Schema, {
     document_type: 'normalized_run',
