@@ -11,7 +11,8 @@ import {
   CompletionRunRecordSchema,
   ScoreDocumentSchema,
   type CompletionRunRecord,
-  type ScoreDocument
+  type ScoreDocument,
+  type TaskDocument
 } from '@harness-bench/schemas'
 
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml'
@@ -33,7 +34,7 @@ import {
 } from './run.ts'
 
 import { inspectTaskSource } from './task.ts'
-import { verifyWorkspaceArtifacts } from './task-artifacts.ts'
+import { assertHarborArtifactInventory, verifyWorkspaceArtifacts } from './task-artifacts.ts'
 import { scanCredentialTree } from './secret-scan.ts'
 
 const execFileAsync = promisify(execFile)
@@ -44,7 +45,8 @@ const HARBOR_VERSION_PATTERN = /(?:^|\s)0\.22\.0(?:$|\s)/
 const CODEX_VERSION_PATTERN = /(?:^|\s)0\.153\.2(?:$|\s)/
 
 export interface HarborExecutionContext {
-  readonly authDescriptor: number;
+  readonly authDescriptor?: number;
+  readonly signal?: AbortSignal;
   readonly configPath: string;
   readonly runDirectory: string;
   readonly stderrPath: string;
@@ -67,7 +69,12 @@ export interface RunRuntime {
   ) => Promise<HarborExecutionOutcome>;
 }
 
-interface EvidenceOutcome {
+export interface TaskEvidenceIdentity {
+  readonly task: TaskDocument;
+  readonly run_id: string;
+}
+
+export interface EvidenceOutcome {
   readonly classification: 'task_success' | 'task_failure';
   readonly collection: CompletionRunRecord['collection'];
   readonly score: ScoreDocument;
@@ -132,10 +139,9 @@ function missingEvidence(): {
   }
 }
 
-function safeEnvironment(authPath: string, home = '/tmp'): NodeJS.ProcessEnv {
+export function providerFreeEnvironment(home: string): NodeJS.ProcessEnv {
   return {
     CI: '1',
-    CODEX_AUTH_JSON_PATH: authPath,
     DOCKER_CONFIG: process.env.DOCKER_CONFIG,
     DOCKER_HOST: process.env.DOCKER_HOST,
     HARBOR_TELEMETRY: 'off',
@@ -146,6 +152,15 @@ function safeEnvironment(authPath: string, home = '/tmp'): NodeJS.ProcessEnv {
     PATH: process.env.PATH,
     TERM: 'dumb',
     TMPDIR: '/tmp'
+  }
+}
+
+function safeEnvironment(authPath: string, home = '/tmp'): NodeJS.ProcessEnv {
+  const environment = providerFreeEnvironment(home)
+
+  return {
+    ...environment,
+    CODEX_AUTH_JSON_PATH: authPath
   }
 }
 
@@ -366,7 +381,7 @@ export async function runHarborProcess(
     const processControlPath = resolve(dirname(context.stdoutPath), 'process-control.json')
 
     const processControl = {
-      auth_transport: 'inherited-fd-3',
+      auth_transport: context.authDescriptor === undefined ? 'none' : 'inherited-fd-3',
       harbor_telemetry: 'off',
       shell: false
     }
@@ -377,11 +392,29 @@ export async function runHarborProcess(
     })
 
     return await new Promise((resolveOutcome, rejectOutcome) => {
+      if (context.signal?.aborted) {
+        resolveOutcome({
+          cancelled: true,
+          exitCode: null,
+          signal: null,
+          timedOut: false
+        })
+
+        return
+      }
+
       const child = spawn(harbor, ['run', '--config', context.configPath, '--yes'], {
         cwd: context.runDirectory,
-        env: safeEnvironment('/dev/fd/3', context.runDirectory),
+
+        env: context.authDescriptor === undefined
+          ? providerFreeEnvironment(context.runDirectory)
+          : safeEnvironment('/dev/fd/3', context.runDirectory),
+
         shell: false,
-        stdio: ['ignore', stdoutDescriptor, stderrDescriptor, context.authDescriptor]
+
+        stdio: context.authDescriptor === undefined
+          ? ['ignore', stdoutDescriptor, stderrDescriptor]
+          : ['ignore', stdoutDescriptor, stderrDescriptor, context.authDescriptor]
       })
 
       let cancelled = false
@@ -407,8 +440,12 @@ export async function runHarborProcess(
         context.wallClockSeconds * 1_000
       )
 
-      process.once('SIGINT', interrupt)
-      process.once('SIGTERM', terminate)
+      // The caller's persistent signal owns cancellation when supplied; avoid
+      // delivering both its abort and the same process signal to Harbor.
+      if (context.signal === undefined) {
+        process.once('SIGINT', interrupt)
+        process.once('SIGTERM', terminate)
+      } else context.signal.addEventListener('abort', terminate, { once: true })
 
       child.once('error', (error) => {
         clearTimeout(deadline)
@@ -417,6 +454,7 @@ export async function runHarborProcess(
 
         process.off('SIGINT', interrupt)
         process.off('SIGTERM', terminate)
+        context.signal?.removeEventListener('abort', terminate)
 
         rejectOutcome(new RunError('EXECUTION_FAILED', 'Harbor could not start', {
           cause: error,
@@ -431,6 +469,7 @@ export async function runHarborProcess(
 
         process.off('SIGINT', interrupt)
         process.off('SIGTERM', terminate)
+        context.signal?.removeEventListener('abort', terminate)
 
         resolveOutcome({
           cancelled,
@@ -1157,8 +1196,8 @@ function assertScoreEvidence(
   }
 }
 
-async function validateEvidence(
-  plan: ResolvedRunPlan,
+export async function validateTaskEvidence(
+  plan: TaskEvidenceIdentity,
   rawRoot: string,
   trustedSource: string
 ): Promise<EvidenceOutcome> {
@@ -1209,6 +1248,8 @@ async function validateEvidence(
   ) {
     throw new RunError('INVALID_EVIDENCE', 'Harbor artifact manifest is not exact')
   }
+
+  await assertHarborArtifactInventory(resolve(trial, 'artifacts'))
 
   if (!isRecord(result) || result.verifier_environment_mode !== 'separate') {
     throw new RunError('INVALID_EVIDENCE', 'Harbor did not record a separate verifier environment')
@@ -2121,7 +2162,7 @@ async function executeSealedRunPlan(
 
     if (mayKeepGrade) {
       try {
-        evidence = await validateEvidence(plan, rawRoot, copied.sourcePath)
+        evidence = await validateTaskEvidence(plan, rawRoot, copied.sourcePath)
       } catch (error) {
         await writeRestrictedDiagnostic(
           rawRoot,

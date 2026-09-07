@@ -78,3 +78,6 @@ export * from './experiment-storage.ts'
 export * from './experiment-plan.ts'
 export * from './experiment-state.ts'
 export * from './experiment-execution.ts'
+
+export { runDoctor } from './doctor.ts'
+export * from './doctor-contracts.ts'

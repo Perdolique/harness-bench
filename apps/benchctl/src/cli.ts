@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { doctorCommand } from './doctor.ts'
+import { DoctorError } from '@harness-bench/core'
 import { experimentCommand } from './experiment.ts'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -629,6 +631,8 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
 
   const [group, command, ...rest] = normalizedArguments
 
+  if (group === 'doctor') return doctorCommand(normalizedArguments.slice(1), io)
+
   if (group === 'experiment') return experimentCommand(command, rest, io)
 
   if (group === 'run') {
@@ -657,7 +661,7 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
 
   if (group !== 'harness') {
     throw new CliUsageError(
-      'Expected experiment, run, harness, or results command group'
+      'Expected doctor, experiment, run, harness, or results command group'
     )
   }
 
@@ -699,7 +703,9 @@ export async function runCli(
   try {
     return await dispatch(arguments_, io)
   } catch (error) {
-    if (isRunError(error)) {
+    if (error instanceof DoctorError) {
+      io.stderr(`${error.code}: ${error.message}\n`)
+    } else if (isRunError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)
     } else if (isResultError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)

@@ -77,6 +77,14 @@ Capture reads regular files without following symlinks, compares two complete so
 
 Materialization revalidates all bundle bytes before creating a new destination. The destination has a fresh Codex home, user skill home, and empty workspace, with no authentication, history, session, or cache files. Issue 7 preserves this boundary by sending the separately selected credential only through Harbor's inherited descriptor and by rejecting any credential alias inside materialized inputs.
 
+## Doctor evidence boundary
+
+Issue 12 runs deterministic `nop`/`oracle` controls without Codex or provider credentials. The ordinary-agent absence proof comes from a trusted nop collection hook, a pristine empty patch, and inspection of every saved agent image layer against declared forbidden paths. The oracle calibration intentionally receives a solution and supplies no secrecy evidence. An agent image that once contained a forbidden file is rejected even when a later layer removes it.
+
+Doctor reuses production quiescence, collector, score, and artifact replay validation. Complete staged inventories reject links, special files, traversal, overlapping paths, reserved manifest names, and extra, missing, duplicate, or conflicting entries before host replay. The offline verifier still scans its own received evidence because Harbor exposes no earlier host pause. Input/tooling digests are recorded before execution and reread alongside completed raw cases before sealing. Potential secrets or unsafe entries block use and leave restricted quarantine evidence; no automatic rotation, deletion, or publication is implied.
+
+The recorded reachability assessment remains mandatory. An ineligible public task can receive only an explicit smoke result; `unknown` cannot pass. Local path and credential-pattern checks do not prove global online unavailability or the absence of arbitrary encoded secrets. Doctor does not validate native effective configuration, auth refresh, or additional platforms. Read-only permissions and digests provide the existing accidental/observed-mutation guarantee, not protection against a malicious host owner.
+
 ## Feasibility security gate
 
 Issue 2 satisfied the gate with base-fails/reference-passes controls, three retained public agent runs, offline verifier probes, credential and hidden-file visibility checks, independent complete collection, and the explicit residual risks above. Its restricted-network failure remains a separate invalid grade.

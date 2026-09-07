@@ -57,7 +57,7 @@ export async function buildOrderReceiptTaskDocument(
 
     collector: {
       image_digest: inputs.collectorImageDigest,
-      revision: 'order-receipt-collector-v2'
+      revision: 'order-receipt-collector-v3'
     },
 
     verifier: {
@@ -68,7 +68,7 @@ export async function buildOrderReceiptTaskDocument(
         status: 'not_applicable'
       },
 
-      revision: 'order-receipt-verifier-v2'
+      revision: 'order-receipt-verifier-v3'
     },
 
     scoring: {

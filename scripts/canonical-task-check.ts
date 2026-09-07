@@ -3,6 +3,9 @@ import { chmod, cp, mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs
 import { dirname, resolve } from 'node:path'
 import { buildOrderReceiptTaskDocument } from '../benchmark/tasks/order-receipt/task-document.ts'
 import { inspectTaskSource, materializeTaskWorkspace, type TaskTreeEntry } from '../packages/core/src/index.ts'
+import { makeDoctorHarness } from '../tests/fixtures/doctor.ts'
+import type { DoctorControl, DoctorDefinition } from '../packages/core/src/doctor-contracts.ts'
+import { doctorDigest, writeDoctorJson } from '../packages/core/src/doctor-storage.ts'
 import { ScoreDocumentSchema } from '../packages/schemas/src/index.ts'
 import * as v from '../packages/schemas/node_modules/valibot/dist/index.mjs'
 
@@ -18,27 +21,11 @@ const imageTags = {
   verifier: 'harness-bench-order-receipt-verifier:issue-6'
 } as const
 
-interface VerifierResult {
-  readonly checks: Readonly<Record<string, { readonly passed: boolean }>>;
-  readonly integrity: { readonly passed: boolean };
-  readonly scopeViolations: readonly unknown[];
-}
-
-interface CalibrationOutcome {
-  readonly checks: Readonly<Record<string, boolean>>;
-  readonly composite: number;
-  readonly name: string;
-  readonly reward: Readonly<Record<string, number>>;
-}
-
-interface CalibrationOptions {
-  readonly agent: 'nop' | 'oracle';
+interface TaskPackageOptions {
   readonly baseCommit: string;
-  readonly name: string;
-  readonly negativeControl?: string;
-  readonly solutionName?: 'alternate' | 'reference';
   readonly sourceDigest: string;
   readonly temporaryRoot: string;
+  readonly images: Record<keyof typeof imageTags, string>;
 }
 
 function parseNegativeControls(
@@ -126,6 +113,7 @@ async function prepareImageContexts(
     await copySnapshot(fixtureRoot, resolve(contexts[kind], 'trusted-source'), sourceEntries)
     await mkdir(resolve(contexts[kind], 'core'), { recursive: true })
     await cp(resolve(coreRoot, 'task.ts'), resolve(contexts[kind], 'core/task.ts'))
+    await cp(resolve(coreRoot, 'secret-scan.ts'), resolve(contexts[kind], 'core/secret-scan.ts'))
 
     await cp(
       resolve(coreRoot, 'task-artifacts.ts'),
@@ -179,36 +167,6 @@ function inspectImage(tag: string): string {
   }).trim()
 }
 
-function verifyAgentImage(baseCommit: string): void {
-  run('docker', [
-    'run',
-    '--rm',
-    '--network=none',
-    imageTags.agent,
-    'sh',
-    '-lc',
-    [
-      `test "$(git rev-parse HEAD)" = "${baseCommit}"`,
-      'test "$(git rev-list --count --all)" = "1"',
-      'test -z "$(git remote)"',
-      'test ! -d .git/hooks || test -z "$(find .git/hooks -type f -print -quit)"',
-      'test ! -f .git/objects/info/alternates',
-      'test -z "$(git fsck --unreachable --no-reflogs)"',
-      'test ! -e /solution',
-      'test ! -e /tests-hidden',
-      'test ! -e /opt/verifier'
-    ].join(' && ')
-  ])
-
-  const history = execFileSync('docker', ['history', '--no-trunc', '--format={{.CreatedBy}}', imageTags.agent], {
-    encoding: 'utf8'
-  })
-
-  if (/solutions|tests-hidden|container-verifier/.test(history)) {
-    throw new Error('Agent image history contains verifier or solution material')
-  }
-}
-
 async function renderTemplate(path: string, replacements: Readonly<Record<string, string>>): Promise<string> {
   let source = await readFile(path, 'utf8')
 
@@ -220,19 +178,16 @@ async function renderTemplate(path: string, replacements: Readonly<Record<string
 }
 
 async function prepareTask(
-  options: CalibrationOptions
-): Promise<{ readonly agent: 'nop' | 'oracle'; readonly path: string }> {
+  options: TaskPackageOptions
+): Promise<string> {
   const {
-    agent,
     baseCommit,
-    name,
-    negativeControl,
-    solutionName,
     sourceDigest,
-    temporaryRoot
+    temporaryRoot,
+    images
   } = options
 
-  const path = resolve(temporaryRoot, 'tasks', name)
+  const path = resolve(temporaryRoot, 'task')
 
   await mkdir(resolve(path, 'environment'), { recursive: true })
   await mkdir(resolve(path, 'tests'), { recursive: true })
@@ -246,189 +201,78 @@ async function prepareTask(
   await writeFile(
     resolve(path, 'task.toml'),
     await renderTemplate(resolve(taskRoot, 'task.toml.template'), {
-      __AGENT_IMAGE__: imageTags.agent,
+      __AGENT_IMAGE__: images.agent,
       __TASK_BASE_COMMIT__: baseCommit,
       __TASK_SOURCE_DIGEST__: sourceDigest,
-      __VERIFIER_IMAGE__: imageTags.verifier
+      __VERIFIER_IMAGE__: images.verifier
     })
   )
 
   await writeFile(
     resolve(path, 'environment/docker-compose.yaml'),
     await renderTemplate(resolve(taskRoot, 'environment/docker-compose.yaml.template'), {
-      __COLLECTOR_IMAGE__: imageTags.collector,
+      __COLLECTOR_IMAGE__: images.collector,
       __TASK_BASE_COMMIT__: baseCommit,
       __TASK_SOURCE_DIGEST__: sourceDigest
     })
   )
 
-  if (agent === 'oracle') {
-    const selectedSolution = solutionName ?? 'reference'
-
-    await cp(resolve(taskRoot, 'solutions', selectedSolution), resolve(path, 'solution'), {
-      recursive: true
-    })
-
-    if (negativeControl !== undefined) {
-      await cp(
-        resolve(taskRoot, 'calibration/mutate.mjs'),
-        resolve(path, 'solution/mutate.mjs')
-      )
-
-      await writeFile(
-        resolve(path, 'solution/solve.sh'),
-        `#!/bin/sh\nset -eu\n\ncp -R /solution/files/. /app/\nnode /solution/mutate.mjs ${negativeControl}\nprintf 'CALIBRATION_ORACLE_OK\\n'\n`
-      )
-    }
-
-    await chmod(resolve(path, 'solution/solve.sh'), 0o755)
-  }
-
-  return {
-    agent,
-    path
-  }
+  return path
 }
 
-async function findFiles(path: string, filename: string): Promise<string[]> {
-  const result: string[] = []
+async function prepareCanonicalSolution(
+  temporaryRoot: string,
+  name: string,
+  solutionName: 'alternate' | 'reference',
+  negativeControl?: string
+): Promise<string> {
+  const path = resolve(temporaryRoot, 'solutions', name)
 
-  for (const entry of await readdir(path, { withFileTypes: true })) {
-    const entryPath = resolve(path, entry.name)
+  await cp(resolve(taskRoot, 'solutions', solutionName), path, { recursive: true })
 
-    if (entry.isDirectory()) {
-      result.push(...await findFiles(entryPath, filename))
-    } else if (entry.name === filename) {
-      result.push(entryPath)
-    }
-  }
+  if (negativeControl !== undefined) {
+    await cp(resolve(taskRoot, 'calibration/mutate.mjs'), resolve(path, 'mutate.mjs'))
 
-  return result
-}
-
-async function readOutcome(jobsPath: string, name: string): Promise<CalibrationOutcome> {
-  const [scorePaths, resultPaths] = await Promise.all([
-    findFiles(jobsPath, 'score.json'),
-    findFiles(jobsPath, 'verifier-result.json')
-  ])
-
-  if (scorePaths.length !== 1 || resultPaths.length !== 1) {
-    throw new Error(
-      `${name} produced ${scorePaths.length} scores and ${resultPaths.length} verifier results`
+    await writeFile(
+      resolve(path, 'solve.sh'),
+      `#!/bin/sh\nset -eu\n\ncp -R /solution/files/. /app/\nnode /solution/mutate.mjs ${negativeControl}\nprintf 'CALIBRATION_ORACLE_OK\\n'\n`
     )
   }
 
-  const score = v.parse(
-    ScoreDocumentSchema,
-    JSON.parse(await readFile(scorePaths[0]!, 'utf8'))
-  )
+  await chmod(resolve(path, 'solve.sh'), 0o755)
 
-  const verifierResult = JSON.parse(
-    await readFile(resultPaths[0]!, 'utf8')
-  ) as VerifierResult
-
-  if (!score.valid_grade || !verifierResult.integrity.passed) {
-    throw new Error(`${name} did not produce a valid grade with verifier integrity`)
-  }
-
-  if (score.composite.status !== 'value') {
-    throw new Error(`${name} did not produce a numeric composite`)
-  }
-
-  const reward = score.harbor_reward.numeric_values
-
-  return {
-    checks: Object.fromEntries(
-      Object.entries(verifierResult.checks).map(([id, check]) => [id, check.passed])
-    ),
-
-    composite: score.composite.value,
-    name,
-    reward
-  }
+  return path
 }
 
-async function runCalibration(options: CalibrationOptions): Promise<CalibrationOutcome> {
-  const { agent, name, temporaryRoot } = options
-  const task = await prepareTask(options)
-  const jobsPath = resolve(temporaryRoot, 'jobs', name)
+/** Canonical numeric calibration is stricter than the task-independent doctor check matrix. */
+export function assertCanonicalScore(control: string, candidate: unknown) {
+  const score = v.parse(ScoreDocumentSchema, candidate)
+  const pristine = control === 'pristine'
 
-  console.log(`\n=== ${name} (${agent}) ===`)
-
-  run(
-    resolve(repositoryRoot, '.venv/bin/harbor'),
-    [
-      'run',
-      '--path',
-      task.path,
-      '--agent',
-      task.agent,
-      '--jobs-dir',
-      jobsPath,
-      '--n-attempts',
-      '1',
-      '--n-concurrent',
-      '1',
-      '--n-concurrent-agents',
-      '1',
-      '--max-retries',
-      '0',
-      '--yes',
-      '--quiet'
-    ]
-  )
-
-  if (agent === 'oracle') {
-    const oracleOutputs = await findFiles(jobsPath, 'oracle.txt')
-
-    if (
-      oracleOutputs.length !== 1 ||
-      (await readFile(oracleOutputs[0]!, 'utf8')).trim() !== 'CALIBRATION_ORACLE_OK'
-    ) {
-      throw new Error(`${name} oracle did not complete its deterministic solve script`)
-    }
-  }
-
-  return readOutcome(jobsPath, name)
-}
-
-function assertSolution(outcome: CalibrationOutcome): void {
-  if (
-    outcome.composite !== 1 ||
-    Object.values(outcome.reward).some((value) => value !== 1) ||
-    Object.values(outcome.checks).some((passed) => !passed)
-  ) {
-    throw new Error(`${outcome.name} did not pass every calibrated check`)
-  }
-}
-
-function assertPristine(outcome: CalibrationOutcome): void {
-  const expectedChecks = {
-    analytics: false,
-    availability: false,
-    'candidate-tests': false,
-    'direct-behavior': false,
-    keyboard: false,
-    localization: false,
-    regression: true,
-    scope: true,
-    'selected-context': false
-  }
-
-  const expectedReward = {
-    direct_behavior: 0,
-    repository_contracts: 0,
+  const expected = {
+    direct_behavior: pristine ? 0 : 1,
+    repository_contracts: pristine ? 0 : 1,
     regression: 1,
     scope_integrity: 1
   }
 
-  if (
-    JSON.stringify(outcome.checks) !== JSON.stringify(expectedChecks) ||
-    JSON.stringify(outcome.reward) !== JSON.stringify(expectedReward) ||
-    outcome.composite !== 0
-  ) {
-    throw new Error('Pristine base did not produce the exact calibrated failure matrix')
+  const reward = score.harbor_reward.numeric_values
+
+  for (const [id, value] of Object.entries(expected)) {
+    const facet = score.facets[id as keyof typeof expected]
+
+    if (facet.status !== 'value' || facet.value !== value || reward?.[id] !== value) {
+      throw new Error(`${control} did not produce the exact calibrated facets and rewards`)
+    }
   }
+
+  const composite = pristine ? 0 : 1
+
+  if (score.run_id !== control || Object.keys(reward ?? {}).length !== 4 || score.composite.status !== 'value' || score.composite.value !== composite) {
+    throw new Error(`${control} did not produce the exact calibrated score`)
+  }
+
+  return score
 }
 
 async function main(): Promise<void> {
@@ -452,7 +296,6 @@ async function main(): Promise<void> {
   )
 
   buildImages(contexts, materialized.baseCommit)
-  verifyAgentImage(materialized.baseCommit)
 
   const imageDigests = {
     agent: inspectImage(imageTags.agent),
@@ -473,95 +316,112 @@ async function main(): Promise<void> {
     `${JSON.stringify(taskDocument, null, 2)}\n`
   )
 
-  const pristine = await runCalibration({
-    agent: 'nop',
+  const common = {
     baseCommit: materialized.baseCommit,
-    name: 'pristine',
     sourceDigest: source.digest,
-    temporaryRoot
-  })
+    temporaryRoot,
+    images: imageDigests
+  }
 
-  assertPristine(pristine)
+  const taskPackage = await prepareTask(common)
+  const reference = await prepareCanonicalSolution(temporaryRoot, 'reference', 'reference')
+  const alternate = await prepareCanonicalSolution(temporaryRoot, 'alternate', 'alternate')
 
-  const reference = await runCalibration({
-    agent: 'oracle',
-    baseCommit: materialized.baseCommit,
-    name: 'reference',
-    solutionName: 'reference',
-    sourceDigest: source.digest,
-    temporaryRoot
-  })
+  const expectedChecks = {
+    analytics: false,
+    availability: false,
+    'candidate-tests': false,
+    'direct-behavior': false,
+    keyboard: false,
+    localization: false,
+    regression: true,
+    scope: true,
+    'selected-context': false
+  }
 
-  const alternate = await runCalibration({
-    agent: 'oracle',
-    baseCommit: materialized.baseCommit,
-    name: 'alternate',
-    solutionName: 'alternate',
-    sourceDigest: source.digest,
-    temporaryRoot
-  })
+  const positiveChecks = Object.fromEntries(Object.keys(expectedChecks).map((id) => [id, true]))
 
-  assertSolution(reference)
-  assertSolution(alternate)
+  const controls: DoctorControl[] = [
+    {
+      id: 'pristine',
+      kind: 'pristine',
+      expected_checks: expectedChecks
+    },
+    {
+      id: 'reference',
+      kind: 'reference',
+      solution: reference,
+      expected_checks: positiveChecks
+    },
+    {
+      id: 'alternate',
+      kind: 'alternate',
+      solution: alternate,
+      expected_checks: positiveChecks
+    }
+  ]
 
-  const negatives: CalibrationOutcome[] = []
+  for (const [name, expected] of Object.entries(negativeControls)) {
+    const solution = await prepareCanonicalSolution(temporaryRoot, name, 'reference', name)
 
-  for (const [control, expectedChecks] of Object.entries(negativeControls)) {
-    const outcome = await runCalibration({
-      agent: 'oracle',
-      baseCommit: materialized.baseCommit,
-      name: control,
-      negativeControl: control,
-      solutionName: 'reference',
-      sourceDigest: source.digest,
-      temporaryRoot
+    const kind = name === 'candidate-tests-deleted' ? 'test_deletion'
+      : name === 'regression-disabled' ? 'test_disablement'
+      : name === 'dependency-churn' ? 'forbidden_edit' : 'negative'
+
+    controls.push({
+      id: name,
+      kind,
+      solution,
+      expected_checks: Object.fromEntries(expected.map((id) => [id, false]))
     })
-
-    for (const expectedCheck of expectedChecks) {
-      if (outcome.checks[expectedCheck] !== false) {
-        throw new Error(`${control} was not caught by ${expectedCheck}`)
-      }
-    }
-
-    negatives.push(outcome)
   }
 
-  const repeated = await runCalibration({
-    agent: 'oracle',
-    baseCommit: materialized.baseCommit,
-    name: 'reference-repeat',
-    solutionName: 'reference',
-    sourceDigest: source.digest,
-    temporaryRoot
-  })
+  const harness = await makeDoctorHarness(resolve(temporaryRoot, 'harness'))
 
-  if (
-    JSON.stringify(reference.checks) !== JSON.stringify(repeated.checks) ||
-    JSON.stringify(reference.reward) !== JSON.stringify(repeated.reward) ||
-    reference.composite !== repeated.composite
-  ) {
-    throw new Error('Identical reference artifacts did not reproduce checks and scores')
+  const definition: DoctorDefinition = {
+    document_type: 'doctor_definition',
+    schema_version: 1,
+    revision: 'order-receipt-doctor-v1',
+    task_document: resolve(temporaryRoot, 'task-document.json'),
+    task_source: fixtureRoot,
+    task_package: taskPackage,
+    harness_bundle: harness,
+    forbidden_agent_paths: ['/solution', '/tests-hidden', '/opt/verifier', '/trusted'],
+    controls
   }
 
-  const summary = {
-    automaticRetries: 0,
-    baseCommit: materialized.baseCommit,
-    harborTelemetry: 'off',
-    imageDigests,
-    negativeControls: Object.fromEntries(negatives.map(({ checks, name }) => [name, checks])),
-    providerCalls: 0,
-    sourceDigest: source.digest,
-    taskDocument: resolve(temporaryRoot, 'task-document.json'),
+  const definitionPath = resolve(temporaryRoot, 'doctor-definition.json')
 
-    outcomes: {
-      alternate: alternate.reward,
-      pristine: pristine.reward,
-      reference: reference.reward,
-      repeat: repeated.reward
-    }
+  await writeFile(definitionPath, `${JSON.stringify(definition, null, 2)}\n`)
+  console.log(`Doctor definition: ${definitionPath}`)
+  run(process.execPath, [resolve(repositoryRoot, 'apps/benchctl/src/cli.ts'), 'doctor', definitionPath, '--output-dir', resolve(temporaryRoot, 'doctor'), '--purpose', 'smoke'])
+
+  const calibrated = []
+
+  for (const control of ['pristine', 'reference', 'alternate', 'reference-repeat']) {
+    const jobs = resolve(temporaryRoot, 'doctor/raw/cases', control, 'raw/harbor/job')
+    const entries = await readdir(jobs, { withFileTypes: true })
+    const trials = entries.filter((entry) => entry.isDirectory() && entry.name !== '.sources')
+
+    if (trials.length !== 1) throw new Error(`${control} requires exactly one retained score`)
+
+    const scorePath = resolve(jobs, trials[0]!.name, 'verifier/score.json')
+    const scoreBytes = await readFile(scorePath)
+    const candidate: unknown = JSON.parse(scoreBytes.toString('utf8'))
+    const score = assertCanonicalScore(control, candidate)
+
+    calibrated.push({
+      control,
+      score_path: scorePath,
+      score_digest: doctorDigest(scoreBytes),
+      reward: score.harbor_reward.numeric_values,
+      composite: score.composite
+    })
   }
 
-  console.log(`\n${JSON.stringify(summary, null, 2)}`)
+  await writeDoctorJson(resolve(temporaryRoot, 'canonical-score-checks.json'), calibrated)
+  console.log('Canonical numeric calibration: pristine 0/0/1/1, positives 1/1/1/1; composites 0 and 1.')
+  console.log(`Doctor evidence: ${resolve(temporaryRoot, 'doctor')}`)
 }
 
-await main()
+if (import.meta.main) await main()

@@ -1,11 +1,12 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { chmod, chown, cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { networkInterfaces } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { inspectMaterializedTaskWorkspace, materializeTaskWorkspace } from '/opt/core/task.ts'
 import { verifyWorkspaceArtifacts } from '/opt/core/task-artifacts.ts'
+import { scanCredentialTree } from '/opt/core/secret-scan.ts'
 
 const sourceDigest = process.env.TASK_SOURCE_DIGEST
 const baseCommit = process.env.TASK_BASE_COMMIT
@@ -68,7 +69,10 @@ function activeUntrustedProcessIds() {
 }
 
 function terminateUntrustedProcesses() {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  const deadline = performance.now() + 1_000
+  const pause = new Int32Array(new SharedArrayBuffer(4))
+
+  while (performance.now() < deadline) {
     const processIds = activeUntrustedProcessIds()
 
     if (processIds.length === 0) {
@@ -84,6 +88,9 @@ function terminateUntrustedProcesses() {
         }
       }
     }
+
+    // SIGKILL delivery is asynchronous; allow the kernel to reap the process.
+    Atomics.wait(pause, 0, 0, 10)
   }
 
   const remaining = activeUntrustedProcessIds()
@@ -400,6 +407,12 @@ async function replaceLocaleLabel(workspace, replacement) {
 async function scoreAndWriteOutputs(result) {
   await mkdir(verifierLogs, { recursive: true })
 
+  for (const [id, check] of Object.entries(result.checks)) {
+    check.facet = id === 'direct-behavior' ? 'direct_behavior'
+      : id === 'regression' ? 'regression'
+      : id === 'scope' ? 'scope_integrity' : 'repository_contracts'
+  }
+
   const verifierResultSource = `${JSON.stringify(result, null, 2)}\n`
   const verifierResultDigest = sha256(verifierResultSource)
 
@@ -588,11 +601,14 @@ async function verify() {
     assertUntrustedProcessCleanup(processControlHome)
 
     const conventionalArtifacts = await readdir('/logs/artifacts').catch(() => [])
+    const credentialScan = await scanCredentialTree({ root: artifacts })
+    const credentialPathsAbsent = ['/root/.codex/auth.json', '/app/auth.json', '/root/.aws/credentials'].every((path) => !existsSync(path))
 
-    const credentialsAbsent = [
+    const credentialsAbsent = !credentialScan.credentialFound && credentialScan.invalidEntries.length === 0 && credentialPathsAbsent && [
       'CODEX_ACCESS_TOKEN',
       'CODEX_AUTH_JSON_PATH',
-      'OPENAI_API_KEY'
+      'OPENAI_API_KEY',
+      'ANTHROPIC_API_KEY'
     ].every((name) => process.env[name] === undefined)
 
     const interfaces = Object.values(networkInterfaces()).flatMap((value) => value ?? [])
