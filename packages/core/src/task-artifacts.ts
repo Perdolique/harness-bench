@@ -21,6 +21,7 @@ const RESERVED_PATCH_SEGMENTS = new Set([
   'auth',
   'credentials',
   'logs',
+  'sha256-manifest.json',
   'solution',
   'tests-hidden',
   'trusted-base',
@@ -229,6 +230,12 @@ function parseMetadata(source: string): WorkspaceArtifactMetadata {
 }
 
 async function assertArtifactInventory(artifacts: string): Promise<void> {
+  const root = await lstat(artifacts)
+
+  if (!root.isDirectory() || root.isSymbolicLink()) {
+    throw new Error('Artifact root must be a real directory')
+  }
+
   const entries = await readdir(artifacts, { withFileTypes: true })
   const names = entries.map(({ name }) => name).sort(compareText)
 
@@ -239,7 +246,9 @@ async function assertArtifactInventory(artifacts: string): Promise<void> {
   }
 
   for (const entry of entries) {
-    if (!entry.isFile() || entry.isSymbolicLink()) {
+    const metadata = await lstat(resolve(artifacts, entry.name))
+
+    if (!entry.isFile() || entry.isSymbolicLink() || metadata.nlink !== 1) {
       throw new Error(`Artifact must be a regular file: ${entry.name}`)
     }
   }
@@ -352,8 +361,30 @@ export async function verifyWorkspaceArtifacts(
     assertSafePatchPath(path)
   }
 
+  const declaredPaths = new Set<string>()
+
   for (const entry of metadata.result_tree) {
+    if (entry === null || typeof entry !== 'object' || typeof entry.path !== 'string') {
+      throw new Error('Workspace metadata contains an invalid tree entry')
+    }
+
     assertSafePatchPath(entry.path)
+
+    if (declaredPaths.has(entry.path)) {
+      throw new Error('Workspace metadata contains a duplicate tree path')
+    }
+
+    declaredPaths.add(entry.path)
+  }
+
+  for (const path of declaredPaths) {
+    let parent = dirname(path)
+
+    while (parent !== '.') {
+      if (declaredPaths.has(parent)) throw new Error('Workspace metadata contains overlapping tree paths')
+
+      parent = dirname(parent)
+    }
   }
 
   const destination = resolve(options.destination)
@@ -413,4 +444,33 @@ export async function verifyWorkspaceArtifacts(
 
     throw error
   }
+}
+
+/** Validates Harbor's implicit logs transfer and the complete declared collector inventory before replay. */
+export async function assertHarborArtifactInventory(root: string): Promise<void> {
+  const files = new Set(['manifest.json', 'trusted-collector/workspace-metadata.json', 'trusted-collector/workspace.patch'])
+  const directories = new Set(['logs', 'logs/artifacts', 'trusted-collector'])
+  const seen = new Set<string>()
+
+  async function visit(directory: string, prefix: string): Promise<void> {
+    const metadata = await lstat(directory)
+
+    if (!metadata.isDirectory() || metadata.isSymbolicLink()) throw new Error('Harbor artifact directory must be real')
+
+    for (const child of await readdir(directory)) {
+      const path = prefix === '' ? child : `${prefix}/${child}`
+      const fullPath = resolve(directory, child)
+      const entry = await lstat(fullPath)
+
+      if (entry.isDirectory() && !entry.isSymbolicLink() && directories.has(path)) {
+        await visit(fullPath, path)
+      } else if (entry.isFile() && entry.nlink === 1 && files.has(path)) {
+        seen.add(path)
+      } else throw new Error('Harbor staged an unsafe or undeclared artifact entry')
+    }
+  }
+
+  await visit(root, '')
+
+  if (seen.size !== files.size) throw new Error('Harbor artifact inventory is incomplete')
 }

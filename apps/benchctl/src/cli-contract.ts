@@ -1,4 +1,5 @@
 export const CLI_SYNOPSIS = `Usage:
+  benchctl doctor DEFINITION --output-dir ABSOLUTE_NEW_DIR [--purpose smoke|quality]
   benchctl experiment plan DEFINITION --runs-dir ABSOLUTE_DIR [--dry-run]
   benchctl experiment run|resume|report|compare PLAN
   benchctl experiment rerun-block PLAN --block ID --revision REV

@@ -25,7 +25,8 @@
     "test:planning": "python3 .planning/test_sync_github.py",
     "typecheck": "tsc --noEmit",
     "validate:planning": "python3 .planning/validate.py",
-    "verify:toolchain": "node scripts/verify-toolchain.ts"
+    "verify:toolchain": "node scripts/verify-toolchain.ts",
+    "doctor:integration:check": "node scripts/doctor-integration-check.ts"
   },
   "devDependencies": {
     "@openai/codex": "0.153.2",

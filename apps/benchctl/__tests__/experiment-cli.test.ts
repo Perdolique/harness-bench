@@ -171,7 +171,7 @@ describe('benchctl experiment usage', () => {
     expect(exit).toBe(2)
     expect(captured.stdout).toStrictEqual([])
     expect(error).toContain(`USAGE_ERROR: ${message}\n`)
-    expect(error).toContain('Usage:\n  benchctl experiment plan DEFINITION')
+    expect(error).toContain('Usage:\n  benchctl doctor DEFINITION --output-dir ABSOLUTE_NEW_DIR [--purpose smoke|quality]\n  benchctl experiment plan DEFINITION')
     expect(readExperimentPlan).not.toHaveBeenCalled()
     expect(planExperiment).not.toHaveBeenCalled()
     expect(rerunExperimentBlock).not.toHaveBeenCalled()
@@ -185,7 +185,7 @@ describe('benchctl experiment usage', () => {
     expect(exit).toBe(2)
 
     expect(captured.stderr.join('')).toContain(
-      'USAGE_ERROR: Expected experiment, run, harness, or results command group'
+      'USAGE_ERROR: Expected doctor, experiment, run, harness, or results command group'
     )
   })
 })

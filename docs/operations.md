@@ -53,6 +53,35 @@ The first command regenerates all seven JSON Schema documents in memory, verifie
 
 Once v1 is merged, an incompatible shape or semantic change requires v2 and retained v1 validation/artifacts; `schemas:generate` is not a migration mechanism.
 
+## Task integrity doctor
+
+Run doctor against one prepared task definition:
+
+```sh
+vp run benchctl -- doctor /absolute/doctor-definition.json \
+  --output-dir /absolute/new-doctor-record --purpose smoke
+```
+
+The default purpose is `quality`. Missing, invalid, or `unknown` online-reachability assessments block either purpose. A recorded `ineligible` task passes only with explicit `--purpose smoke`, a visible warning, and `allowed_use: smoke`; public `order-receipt` must use that mode. An eligible assessment is recorded evidence, not a proof of global Internet secrecy.
+
+Doctor requires local immutable image IDs matching `TaskDocument`, Harbor `0.22.0`, and macOS Apple Silicon with Docker Desktop Linux/arm64. It never builds images or falls back to static-only success. Prepare images and a Harbor package first. `vp run task:canonical:check` prepares one shared base package and separate solution directories, then calls the same doctor CLI, including all thirteen negative controls and a second reference run. It also requires exact canonical numeric facets, rewards, and composites from the retained scores and writes their paths and digests to `canonical-score-checks.json` beside the doctor directory. The generated definition path is printed for subsequent diagnostics with a new output directory.
+
+Doctor validates the existing task schema v1, prompt/source/base identity, exact pnpm dependency pins and lockfile, bundle contents and modes, Compose/service/volume/artifact declarations, and separate offline verification. Bundle inspection does not execute Codex; effective Codex configuration remains the separate harness workflow below. The provider-free canonical and integration fixtures use a content-only synthetic bundle, which is not evidence of an effective native configuration.
+
+After input checks, Harbor runs only built-in `nop` and `oracle`, sequentially, one attempt with zero retries and telemetry off. Each child receives a fresh home and an environment allowlist without provider credentials. The trusted nop collection hook checks the one-commit Git repository, declared hidden-material absences, credential variables, and installed dependency versions. Saved agent image layers are inspected for declared forbidden paths even if later layers delete them. Oracle's deliberately uploaded solution is never used as absence evidence. The verifier must independently report no credentials and loopback-only interfaces. Exact successful stop/collector/artifact manifests are required before patch replay.
+
+The new output directory is created exclusively as `0700`, outside input trees. It contains `initial.json` binding input and tooling digests before execution, `report.json` (doctor report v1 / `doctor-v1`), `evidence-manifest.json`, and `raw/` with input snapshots, host/image evidence, Harbor jobs, diagnostics, and control outcomes. The inventory includes directories and exact file digests; links, special files, extra or missing entries, duplicate/conflicting records, unsafe paths, and nested `sha256-manifest.json` are rejected. Inputs and completed raw cases are reread before finalization. Clean evidence is sealed read-only without overwriting an existing record. Potential secrets or unsafe inventory are moved unchanged under restricted `quarantine/raw`; a safe restriction record blocks use and publication pending the security procedure. Credential-bearing input identifiers are omitted from the derived initial/report digest maps; their original bytes remain only in quarantined inputs.
+
+The English terminal renderer reports stable check and failure codes, `passed`, `failed`, `warning`, or `not_run`, reasons, and next actions. Raw technical errors remain in restricted diagnostics. Exit `0` means all required checks for the selected purpose passed, `1` means a diagnosed problem, and `2` means invocation, infrastructure, interruption, or restricted evidence. Expected pristine and negative-control failures count as successful calibration checks. Timeout/cancellation records retain the stage and process outcome, including cancellation during host inspection. A persistent abort signal also prevents a prepared control from starting after cancellation and stops an active Harbor child using the bounded shutdown grace. Harbor owns normal resource cleanup. Doctor derives the exact main and separate-verifier Compose projects from retained Harbor trial identities, checks containers, volumes, and networks by `com.docker.compose.project`, and retains the queried inventory in `raw/cleanup.json`. Missing ownership evidence or remaining resources blocks cleanup success. Inspect the retained project labels and Harbor Compose configuration before removing only confirmed abandoned resources; never use a global prune.
+
+Run the separate local synthetic integration suite with:
+
+```sh
+vp run doctor:integration:check
+```
+
+It exercises real Harbor/Docker boundaries with deterministic solutions and deliberate network, credential, visibility, collector, and artifact failures. A provider endpoint canary reports only requests it observes; an executable and Harbor-config audit separately enforces the absence of provider launches. Ordinary CI remains Docker-free and provider-free. Doctor does not test authentication refresh, other host platforms, global material discoverability, or regrade stored runs.
+
 ## Immutable harness bundles
 
 Issue 5 implements the first production `benchctl` surface. A capture source is a dedicated directory, not an ambient home:

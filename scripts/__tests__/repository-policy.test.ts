@@ -42,6 +42,8 @@ const expectedScripts = {
   'spike:issue-2:check':
     'vitest run spikes/harbor-codex-subscription/__tests__ && node --experimental-strip-types spikes/harbor-codex-subscription/check.ts',
 
+  'doctor:integration:check': 'node scripts/doctor-integration-check.ts',
+
   'run:integration:check':
     'node --experimental-strip-types scripts/run-integration-check.ts',
 
