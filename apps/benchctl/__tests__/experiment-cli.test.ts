@@ -8,7 +8,9 @@ const readExperimentPlan = vi.fn()
 const rerunExperimentBlock = vi.fn()
 const saveExperimentPlan = vi.fn()
 const readExperimentComparisonSource = vi.fn()
+const readRegradedExperimentComparisonSource = vi.fn()
 const readExperimentState = vi.fn()
+const regradeExperiment = vi.fn()
 const renderExperimentComparisonReport = vi.fn()
 const renderExperimentPlan = vi.fn()
 const renderExperimentReport = vi.fn()
@@ -28,6 +30,8 @@ vi.mock('@harness-bench/core', async (importOriginal) => ({
 vi.mock('@harness-bench/results', async (importOriginal) => ({
   ...await importOriginal<typeof import('@harness-bench/results')>(),
   readExperimentComparisonSource,
+  readRegradedExperimentComparisonSource,
+  regradeExperiment,
   readExperimentState
 }))
 
@@ -86,6 +90,8 @@ beforeEach(() => {
   rerunExperimentBlock.mockReset()
   saveExperimentPlan.mockReset()
   readExperimentComparisonSource.mockReset()
+  readRegradedExperimentComparisonSource.mockReset()
+  regradeExperiment.mockReset()
   readExperimentState.mockReset()
   renderExperimentComparisonReport.mockReset()
   renderExperimentPlan.mockReset()
@@ -109,11 +115,11 @@ describe('benchctl experiment usage', () => {
   it.each([
     {
       arguments_: ['experiment'],
-      message: 'Expected experiment plan, run, resume, report, compare, rerun-block, or invalidate'
+      message: 'Expected experiment plan, run, resume, report, compare, regrade, rerun-block, or invalidate'
     },
     {
       arguments_: ['experiment', 'unknown', '/plan.json'],
-      message: 'Expected experiment plan, run, resume, report, compare, rerun-block, or invalidate'
+      message: 'Expected experiment plan, run, resume, report, compare, regrade, rerun-block, or invalidate'
     },
     {
       arguments_: ['experiment', 'report'],
@@ -122,6 +128,10 @@ describe('benchctl experiment usage', () => {
     {
       arguments_: ['experiment', 'compare'],
       message: 'Experiment command requires exactly one definition or plan file'
+    },
+    {
+      arguments_: ['experiment', 'regrade', '/plan.json'],
+      message: 'Missing required option: --definition'
     },
     {
       arguments_: ['experiment', 'report', '/plan.json', 'extra'],
@@ -431,6 +441,35 @@ describe('benchctl experiment comparison', () => {
     expect(captured.stderr).toStrictEqual([])
   })
 
+  it('uses the explicitly selected scoring migration source', async () => {
+    const source = {
+      state,
+      records: [],
+      migration: { digest: `sha256:${'b'.repeat(64)}` }
+    }
+
+    readRegradedExperimentComparisonSource.mockResolvedValue(source)
+
+    const captured = output()
+
+    const exit = await runCli([
+      'experiment',
+      'compare',
+      '/plan.json',
+      '--migration',
+      '/migration/record.json'
+    ], captured.io)
+
+    expect(exit).toBe(0)
+    expect(readExperimentComparisonSource).not.toHaveBeenCalled()
+
+    expect(
+      readRegradedExperimentComparisonSource
+    ).toHaveBeenCalledExactlyOnceWith(plan, '/migration/record.json')
+
+    expect(analyzeExperimentComparison).toHaveBeenCalledExactlyOnceWith(source)
+  })
+
   it('releases the lease and emits no partial report when comparison fails', async () => {
     const release = vi.fn()
 
@@ -486,5 +525,54 @@ describe('benchctl experiment comparison', () => {
     expect(exit).toBe(2)
     expect(readExperimentComparisonSource).not.toHaveBeenCalled()
     expect(captured.stdout).toStrictEqual([])
+  })
+})
+
+describe('benchctl experiment regrade', () => {
+  it('prints the sealed migration identity and zero provider calls', async () => {
+    regradeExperiment.mockResolvedValue({
+      migration: {
+        digest: `sha256:${'c'.repeat(64)}`,
+        recordPath: '/runs/.experiments/migrations/c/record.json',
+
+        record: {
+          identity: {
+            migration_id: 'scoring-v2',
+            revision: '2'
+          }
+        }
+      },
+
+      regradedRuns: 4,
+      retainedTechnicalRuns: 1
+    })
+
+    const captured = output()
+
+    const exit = await runCli([
+      'experiment',
+      'regrade',
+      '/plan.json',
+      '--definition',
+      '/migration.json'
+    ], captured.io)
+
+    expect(exit).toBe(0)
+
+    expect(regradeExperiment).toHaveBeenCalledExactlyOnceWith(
+      '/plan.json',
+      '/migration.json'
+    )
+
+    expect(JSON.parse(captured.stdout.join(''))).toStrictEqual({
+      status: 'completed',
+      migration_id: 'scoring-v2',
+      revision: '2',
+      digest: `sha256:${'c'.repeat(64)}`,
+      record_path: '/runs/.experiments/migrations/c/record.json',
+      regraded_runs: 4,
+      retained_technical_runs: 1,
+      regrade_provider_calls: 0
+    })
   })
 })

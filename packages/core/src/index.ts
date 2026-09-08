@@ -19,6 +19,7 @@ export {
   type RunErrorOptions
 } from './run-errors.ts'
 export {
+  inspectRunTree,
   resolveRunPlan,
   runDispositionReservationPath,
   type ResolvedRunPlan,
@@ -42,6 +43,10 @@ export {
   inspectTaskSource,
   materializeTaskWorkspace
 } from './task.ts'
+export {
+  inspectHarborTaskPackage,
+  type TaskPackageInspection
+} from './task-package.ts'
 export {
   captureWorkspaceArtifacts,
   verifyWorkspaceArtifacts
@@ -78,6 +83,9 @@ export * from './experiment-storage.ts'
 export * from './experiment-plan.ts'
 export * from './experiment-state.ts'
 export * from './experiment-execution.ts'
+export * from './regrade-contracts.ts'
+export * from './regrade-execution.ts'
+export * from './regrade-plan.ts'
 
 export { runDoctor } from './doctor.ts'
 export * from './doctor-contracts.ts'

@@ -202,6 +202,7 @@ describe(renderExperimentComparisonReport, () => {
         Suite: suite-a revision 1
         Analysis revision: 1
         Direction: right - left; all unordered arm pairs use lexical arm order
+        Evaluation: original verifier and scoring identities
 
       Method
         Bootstrap: 10000 task-cluster resamples, seed 42, generator mulberry32
@@ -345,6 +346,55 @@ describe(renderExperimentComparisonReport, () => {
     expect(report).toContain('Runner failed\\u202e concealed')
     expect(report).not.toContain('\u001B[')
     expect(report).not.toContain('\u009B')
+  })
+
+  it('renders explicit scoring migration provenance and separate verifier time', () => {
+    const input = analysis(['a', 'b'])
+
+    Object.assign(input, { migration: {
+      migrationId: 'scoring-v2',
+      revision: '2',
+      digest: `sha256:${'b'.repeat(64)}`,
+      providerCalls: 0,
+
+      verifierSeconds: {
+        knownCount: 2,
+        unknownCount: 0,
+        mean: 8,
+        minimum: 7,
+        firstQuartile: 7.5,
+        median: 8,
+        thirdQuartile: 8.5,
+        maximum: 9
+      },
+
+      targets: [{
+        taskId: 'task-a',
+        sourceVerifierRevision: '1',
+        sourceVerifierImageDigest: `sha256:${'c'.repeat(64)}`,
+        targetVerifierRevision: '2',
+        targetVerifierImageDigest: `sha256:${'d'.repeat(64)}`,
+        sourceScoringRevision: '1',
+        targetScoringRevision: '2',
+        sourceRubricRevision: '1',
+        targetRubricRevision: '2'
+      }]
+    } })
+
+    const report = renderExperimentComparisonReport(input)
+
+    expect(report).toContain(
+      `Migration: scoring-v2 revision 2 sha256:${'b'.repeat(64)}`
+    )
+
+    expect(report).toContain('Regrade provider calls: 0')
+    expect(report).toContain('Regrade verifier seconds: known 2, unknown 0; mean 8.000')
+
+    expect(report).toContain(
+      `Task task-a evaluator: verifier 1 sha256:${'c'.repeat(64)} -> 2 sha256:${'d'.repeat(64)}, scoring 1 -> 2, rubric 1 -> 2`
+    )
+
+    expect(report).toContain('Operational metrics: immutable source run values')
   })
 
   it('groups pair summaries by metric semantics instead of array position', () => {

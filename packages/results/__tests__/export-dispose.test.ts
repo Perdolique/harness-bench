@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, relative, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { runDispositionReservationPath } from '@harness-bench/core'
+import { experimentHash, runDispositionReservationPath, writeExperimentRecord } from '@harness-bench/core'
 import * as v from 'valibot'
 import { disposeRun, disposeRunWithRuntime } from '../src/dispose.ts'
 import { exportSanitizedResult as exportSanitizedResultImplementation } from '../src/export.ts'
@@ -488,6 +488,91 @@ describe('disposeRun', () => {
     expect(tombstone).not.toContain('workspace.patch')
     expect(tombstone).not.toContain('trajectory')
     expect(tombstone).not.toContain('prompt')
+  })
+
+  it('deletes referencing migration manifests and records their digests', async () => {
+    const { fixture, normalized } = await normalizedFixture()
+
+    const evaluator = {
+      verifier_revision: '2',
+      verifier_image_digest: `sha256:${'a'.repeat(64)}`,
+
+      verifier_network_enforcement_sidecar_digest: {
+        status: 'not_applicable',
+        reason: 'Docker network mode none is direct'
+      },
+
+      scoring_revision: '2',
+      rubric_revision: '2'
+    } as const
+
+    const migration = {
+      document_type: 'scoring_migration',
+      schema_version: 1,
+      migration_revision: '1',
+      record_type: 'migration',
+      created_at: '2026-09-06T14:00:00.000Z',
+
+      identity: {
+        migration_id: 'fixture-migration',
+        revision: '2',
+        definition_digest: `sha256:${'b'.repeat(64)}`
+      },
+
+      experiment: {
+        experiment_id: 'fixture-experiment',
+        experiment_revision: '1',
+        plan_digest: `sha256:${'c'.repeat(64)}`
+      },
+
+      targets: [{
+        task_id: 'fixture-task',
+        task_document_digest: `sha256:${'d'.repeat(64)}`,
+        task_package_digest: `sha256:${'e'.repeat(64)}`,
+
+        source_evaluator: {
+          ...evaluator,
+          scoring_revision: '1'
+        },
+
+        target_evaluator: evaluator
+      }],
+
+      entries: [{
+        run_id: 'fixture-run',
+        attempt_id: 'fixture-run-attempt-1',
+        source_normalized_digest: normalized.digest,
+        status: 'retained_technical',
+        classification: 'agent_failure'
+      }],
+
+      regrade_provider_calls: 0
+    } as const
+
+    const migrationDigest = experimentHash(migration)
+
+    const migrationLeaf = resolve(
+      fixture.runsDirectory,
+      '.experiments/migrations',
+      migrationDigest.slice(7)
+    )
+
+    await mkdir(migrationLeaf, {
+      recursive: true,
+      mode: 0o700
+    })
+
+    await writeExperimentRecord(resolve(migrationLeaf, 'record.json'), migration)
+
+    const result = await disposeRun(fixture.runDirectory, {
+      confirmRunId: 'fixture-run',
+      disposition: 'delete',
+      now: new Date('2026-09-06T14:00:00Z'),
+      reason: 'owner-request'
+    })
+
+    expect(result.record.derived_record_digests).toContain(migrationDigest)
+    await expect(lstat(migrationLeaf)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('requires credential attestation and can delete restricted bytes', async () => {

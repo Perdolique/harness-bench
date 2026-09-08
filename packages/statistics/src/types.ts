@@ -136,6 +136,27 @@ export interface BootstrapMethodV1 {
   readonly generator: 'mulberry32';
 }
 
+export interface ComparisonMigrationTargetV1 {
+  readonly taskId: string;
+  readonly sourceVerifierRevision: string;
+  readonly sourceVerifierImageDigest: string;
+  readonly targetVerifierRevision: string;
+  readonly targetVerifierImageDigest: string;
+  readonly sourceScoringRevision: string;
+  readonly targetScoringRevision: string;
+  readonly sourceRubricRevision: string;
+  readonly targetRubricRevision: string;
+}
+
+export interface ComparisonMigrationV1 {
+  readonly migrationId: string;
+  readonly revision: string;
+  readonly digest: string;
+  readonly providerCalls: 0;
+  readonly verifierSeconds: DistributionSummaryV1;
+  readonly targets: readonly ComparisonMigrationTargetV1[];
+}
+
 export interface ExperimentComparisonAnalysisV1 {
   readonly experimentId: string;
   readonly experimentRevision: string;
@@ -143,6 +164,7 @@ export interface ExperimentComparisonAnalysisV1 {
   readonly suiteId: string;
   readonly suiteRevision: string;
   readonly analysisRevision: '1';
+  readonly migration?: ComparisonMigrationV1 | null;
   readonly bootstrap: BootstrapMethodV1;
   readonly observed: readonly ArmObservedSummaryV1[];
   readonly omittedBlocks: readonly OmittedBlockV1[];

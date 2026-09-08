@@ -25,15 +25,22 @@ import {
 
 import { normalizeRun } from './normalize.ts'
 import { readNormalizedRunRecord, type ReadNormalizedRunRecordResult } from './read.ts'
+import type { ReadRegradedRunRecordResult, StoredScoringMigrationRecord } from './regrade-storage.ts'
 
 /**
  * Integrity-verified local read model produced by `readExperimentComparisonSource`.
  * It is not a serialized input contract; consumers must not construct it from
  * untrusted data or persist its resolved local paths.
  */
+export interface ExperimentComparisonRunRecord
+  extends ReadNormalizedRunRecordResult {
+  readonly regrade?: ReadRegradedRunRecordResult;
+}
+
 export interface ExperimentComparisonSource {
-  readonly records: readonly ReadNormalizedRunRecordResult[];
+  readonly records: readonly ExperimentComparisonRunRecord[];
   readonly state: ExperimentState;
+  readonly migration?: StoredScoringMigrationRecord;
 }
 
 export interface ReadExperimentComparisonSourceRuntime {

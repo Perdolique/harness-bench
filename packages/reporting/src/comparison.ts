@@ -89,7 +89,25 @@ export function renderExperimentComparisonReport(
     `  Plan digest: ${analysis.planDigest}`,
     `  Suite: ${text(analysis.suiteId)} revision ${text(analysis.suiteRevision)}`,
     `  Analysis revision: ${analysis.analysisRevision}`,
-    '  Direction: right - left; all unordered arm pairs use lexical arm order',
+    '  Direction: right - left; all unordered arm pairs use lexical arm order'
+  ]
+
+  const migration = analysis.migration ?? null
+
+  if (migration === null) {
+    lines.push('  Evaluation: original verifier and scoring identities')
+  } else {
+    lines.push(`  Migration: ${text(migration.migrationId)} revision ${text(migration.revision)} ${migration.digest}`)
+    lines.push(`  Regrade provider calls: ${migration.providerCalls}`)
+    lines.push(`  Regrade verifier seconds: ${distribution(migration.verifierSeconds)}`)
+    lines.push('  Operational metrics: immutable source run values; regrade verifier time is separate')
+
+    for (const target of migration.targets) {
+      lines.push(`  Task ${text(target.taskId)} evaluator: verifier ${text(target.sourceVerifierRevision)} ${target.sourceVerifierImageDigest} -> ${text(target.targetVerifierRevision)} ${target.targetVerifierImageDigest}, scoring ${text(target.sourceScoringRevision)} -> ${text(target.targetScoringRevision)}, rubric ${text(target.sourceRubricRevision)} -> ${text(target.targetRubricRevision)}`)
+    }
+  }
+
+  lines.push(
     '',
     'Method',
     `  Bootstrap: ${analysis.bootstrap.resamples} task-cluster resamples, seed ${analysis.bootstrap.seed}, generator ${analysis.bootstrap.generator}`,
@@ -98,7 +116,7 @@ export function renderExperimentComparisonReport(
     '  Small-sample warning: intervals may be wide or degenerate; inspect the task-cluster count.',
     '',
     'Observed attempts'
-  ]
+  )
 
   for (const observed of analysis.observed) {
     lines.push(`  Arm ${arm(observed.arm)}`)

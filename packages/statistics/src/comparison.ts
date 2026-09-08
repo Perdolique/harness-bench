@@ -3,8 +3,8 @@ import { isDeepStrictEqual } from 'node:util'
 
 import type {
   ExperimentComparisonSource,
-  NormalizedRunRecordV1,
-  ReadNormalizedRunRecordResult
+  ExperimentComparisonRunRecord,
+  NormalizedRunRecordV1
 } from '@harness-bench/results'
 
 import { StatisticsError } from './errors.ts'
@@ -14,6 +14,7 @@ import type {
   ArmPairComparisonV1,
   ArmReferenceV1,
   ConfidenceIntervalV1,
+  ComparisonMigrationV1,
   DistributionSummaryV1,
   ExperimentComparisonAnalysisV1,
   MetricComparisonV1,
@@ -62,8 +63,8 @@ interface PairedObservation {
 
 interface EligibleBlock {
   readonly block: ExperimentBlockState;
-  readonly left: ReadNormalizedRunRecordResult;
-  readonly right: ReadNormalizedRunRecordResult;
+  readonly left: ExperimentComparisonRunRecord;
+  readonly right: ExperimentComparisonRunRecord;
 }
 
 function incompatible(message: string): never {
@@ -272,7 +273,7 @@ function assertPlanCompatibility(plan: ExperimentPlan, superseded: boolean): voi
   }
 }
 
-function comparableAgent(record: ReadNormalizedRunRecordResult): unknown {
+function comparableAgent(record: ExperimentComparisonRunRecord): unknown {
   const agent = record.initialRecord.agent
 
   return {
@@ -284,8 +285,29 @@ function comparableAgent(record: ReadNormalizedRunRecordResult): unknown {
   }
 }
 
-function comparableRunIdentity(record: ReadNormalizedRunRecordResult): unknown {
+function evaluatorIdentity(record: ExperimentComparisonRunRecord): unknown {
+  if (record.regrade !== undefined) return record.regrade.record.target.evaluator
+
+  const score = record.record.score
+
+  return {
+    verifier_revision: record.record.revisions.verifier_revision,
+    verifier_image_digest: record.record.revisions.verifier_image_digest,
+
+    verifier_network_enforcement_sidecar_digest:
+      record.record.revisions.verifier_network_enforcement_sidecar_digest,
+
+    scoring_revision: record.record.revisions.scoring_revision,
+
+    rubric_revision: score.status === 'known'
+      ? score.document.rubric_revision
+      : null
+  }
+}
+
+function comparableRunIdentity(record: ExperimentComparisonRunRecord): unknown {
   const normalized = record.record
+  const revisions = normalized.revisions
 
   return {
     normalizationRevision: normalized.normalization_revision,
@@ -297,16 +319,23 @@ function comparableRunIdentity(record: ReadNormalizedRunRecordResult): unknown {
     effectivePermissionsDigest: normalized.identities.effective_permissions_digest,
     mcpToolsDigest: normalized.identities.mcp_tools_digest,
     host: normalized.identities.host,
-    revisions: normalized.revisions,
+
+    revisions: {
+      runner_name: revisions.runner_name,
+      runner_version: revisions.runner_version,
+      runner_config_digest: revisions.runner_config_digest,
+      collector_revision: revisions.collector_revision,
+      collector_image_digest: revisions.collector_image_digest
+    },
+
+    evaluator: evaluatorIdentity(record),
     budget: record.initialRecord.budget,
     runner: record.initialRecord.runner,
-    collector: record.initialRecord.collector,
-    verifier: record.initialRecord.verifier,
-    scoringRevision: record.initialRecord.scoring_revision
+    collector: record.initialRecord.collector
   }
 }
 
-function knownProvider(record: ReadNormalizedRunRecordResult): string | null {
+function knownProvider(record: ExperimentComparisonRunRecord): string | null {
   const provider = record.record.identities.agent.observed_provider_identity
 
   return provider.status === 'known' ? provider.value : null
@@ -314,7 +343,7 @@ function knownProvider(record: ReadNormalizedRunRecordResult): string | null {
 
 function assertSourceMatchesPlan(
   plan: ExperimentPlan,
-  source: ReadNormalizedRunRecordResult
+  source: ExperimentComparisonRunRecord
 ): void {
   const record = source.record
   const initial = source.initialRecord
@@ -378,18 +407,23 @@ function assertSourceMatchesPlan(
   }
 }
 
-function assertPairCompatibility(left: ReadNormalizedRunRecordResult, right: ReadNormalizedRunRecordResult): void {
+function assertPairCompatibility(left: ExperimentComparisonRunRecord, right: ExperimentComparisonRunRecord): void {
   if (!isDeepStrictEqual(comparableRunIdentity(left), comparableRunIdentity(right))) {
     incompatible('Eligible arm results differ in task, environment, runner, verifier, scoring, or budget identity')
   }
 
-  const leftScore = left.record.score
-  const rightScore = right.record.score
+  const leftScore = left.regrade?.record.score ?? (
+    left.record.score.status === 'known' ? left.record.score.document : null
+  )
+
+  const rightScore = right.regrade?.record.score ?? (
+    right.record.score.status === 'known' ? right.record.score.document : null
+  )
 
   if (
-    leftScore.status === 'known' &&
-    rightScore.status === 'known' &&
-    leftScore.document.rubric_revision !== rightScore.document.rubric_revision
+    leftScore !== null &&
+    rightScore !== null &&
+    leftScore.rubric_revision !== rightScore.rubric_revision
   ) {
     incompatible('Eligible arm results differ in rubric revision')
   }
@@ -402,8 +436,8 @@ function assertPairCompatibility(left: ReadNormalizedRunRecordResult, right: Rea
   }
 }
 
-function validateAndIndexRunRecords(source: ExperimentComparisonSource): Map<string, ReadNormalizedRunRecordResult> {
-  const recordsByRunId = new Map<string, ReadNormalizedRunRecordResult>()
+function validateAndIndexRunRecords(source: ExperimentComparisonSource): Map<string, ExperimentComparisonRunRecord> {
+  const recordsByRunId = new Map<string, ExperimentComparisonRunRecord>()
 
   const expected = new Map(uniqueRunStates(source.state)
     .filter(({ result }) => result !== null)
@@ -475,9 +509,9 @@ function runForArm(block: ExperimentBlockState, armId: string): ExperimentRunSta
 }
 
 function recordForRun(
-  records: ReadonlyMap<string, ReadNormalizedRunRecordResult>,
+  records: ReadonlyMap<string, ExperimentComparisonRunRecord>,
   run: ExperimentRunState
-): ReadNormalizedRunRecordResult {
+): ExperimentComparisonRunRecord {
   const record = records.get(run.assignment.run_id)
 
   if (record === undefined || run.result === null) {
@@ -493,7 +527,7 @@ function recordForRun(
 
 function eligibleBlocks(
   source: ExperimentComparisonSource,
-  records: ReadonlyMap<string, ReadNormalizedRunRecordResult>,
+  records: ReadonlyMap<string, ExperimentComparisonRunRecord>,
   leftArm: string,
   rightArm: string
 ): EligibleBlock[] {
@@ -519,26 +553,37 @@ function eligibleBlocks(
   return eligible
 }
 
-function qualityMetric(record: NormalizedRunRecordV1, metric: QualityMetricName): number | null {
+function qualityMetric(
+  record: ExperimentComparisonRunRecord,
+  metric: QualityMetricName
+): number | null {
+  const outcome = record.regrade?.record.outcome ?? record.record.outcome
+
+  const score = record.regrade?.record.score ?? (
+    record.record.score.status === 'known'
+      ? record.record.score.document
+      : null
+  )
+
   if (metric === 'pass_rate') {
-    if (!record.outcome.valid_grade) return null
+    if (!outcome.valid_grade) return null
 
-    if (record.outcome.classification === 'task_success') return 1
+    if (outcome.classification === 'task_success') return 1
 
-    if (record.outcome.classification === 'task_failure') return 0
+    if (outcome.classification === 'task_failure') return 0
 
     return null
   }
 
-  if (record.score.status !== 'known') return null
+  if (score === null) return null
 
   if (metric === 'composite') {
-    const composite = record.score.document.composite
+    const composite = score.composite
 
     return composite.status === 'value' ? composite.value : null
   }
 
-  const facet = record.score.document.facets[metric]
+  const facet = score.facets[metric]
 
   return facet.status === 'value' ? facet.value : null
 }
@@ -570,11 +615,11 @@ function pairedObservations(
     const quality = (QUALITY_METRICS as readonly string[]).includes(metric)
 
     const left = quality
-      ? qualityMetric(block.left.record, metric as QualityMetricName)
+      ? qualityMetric(block.left, metric as QualityMetricName)
       : operationalMetric(block.left.record, metric as OperationalMetricName)
 
     const right = quality
-      ? qualityMetric(block.right.record, metric as QualityMetricName)
+      ? qualityMetric(block.right, metric as QualityMetricName)
       : operationalMetric(block.right.record, metric as OperationalMetricName)
 
     if (left !== null && right !== null) observations.push({
@@ -606,7 +651,11 @@ function taskMetric(
   }
 }
 
-function armReliability(blocks: readonly ExperimentBlockState[], armId: string): boolean | null {
+function armReliability(
+  blocks: readonly ExperimentBlockState[],
+  records: ReadonlyMap<string, ExperimentComparisonRunRecord>,
+  armId: string
+): boolean | null {
   let pending = false
 
   for (const block of blocks) {
@@ -620,11 +669,16 @@ function armReliability(blocks: readonly ExperimentBlockState[], armId: string):
       continue
     }
 
-    if (
-      run.status === 'interrupted' ||
-      run.result?.valid_grade !== true ||
-      run.result.classification !== 'task_success'
-    ) return false
+    if (run.status === 'interrupted' || run.result?.valid_grade !== true) {
+      return false
+    }
+
+    const record = recordForRun(records, run)
+    const outcome = record.regrade?.record.outcome ?? record.record.outcome
+
+    if (!outcome.valid_grade || outcome.classification !== 'task_success') {
+      return false
+    }
   }
 
   return pending ? null : true
@@ -633,6 +687,7 @@ function armReliability(blocks: readonly ExperimentBlockState[], armId: string):
 function taskPairSummaries(
   source: ExperimentComparisonSource,
   eligible: readonly EligibleBlock[],
+  records: ReadonlyMap<string, ExperimentComparisonRunRecord>,
   leftArm: string,
   rightArm: string
 ): TaskPairComparisonV1[] {
@@ -650,8 +705,8 @@ function taskPairSummaries(
       if (summary !== null) metrics.push(summary)
     }
 
-    const leftReliability = armReliability(allTaskBlocks, leftArm)
-    const rightReliability = armReliability(allTaskBlocks, rightArm)
+    const leftReliability = armReliability(allTaskBlocks, records, leftArm)
+    const rightReliability = armReliability(allTaskBlocks, records, rightArm)
 
     const reliabilityDelta = leftReliability === null || rightReliability === null
       ? null
@@ -736,13 +791,21 @@ function reliabilityMetric(
 
 function pairComparison(
   source: ExperimentComparisonSource,
-  records: ReadonlyMap<string, ReadNormalizedRunRecordResult>,
+  records: ReadonlyMap<string, ExperimentComparisonRunRecord>,
   leftArmId: string,
   rightArmId: string,
   baseSeed: number
 ): ArmPairComparisonV1 {
   const eligible = eligibleBlocks(source, records, leftArmId, rightArmId)
-  const tasks = taskPairSummaries(source, eligible, leftArmId, rightArmId)
+
+  const tasks = taskPairSummaries(
+    source,
+    eligible,
+    records,
+    leftArmId,
+    rightArmId
+  )
+
   const pairScope = [leftArmId, rightArmId]
   const metrics: MetricComparisonV1[] = []
 
@@ -778,11 +841,21 @@ function uniqueRunStates(state: ExperimentState): ExperimentRunState[] {
   return [...selected.values()]
 }
 
-function outcomeCounts(runs: readonly ExperimentRunState[]): OutcomeCountV1[] {
+function outcomeCounts(
+  runs: readonly ExperimentRunState[],
+  records: ReadonlyMap<string, ExperimentComparisonRunRecord>
+): OutcomeCountV1[] {
   const counts = new Map<string, number>()
 
   for (const run of runs) {
-    const outcome = run.result?.classification ?? run.status
+    let outcome: string = run.status
+
+    if (run.result !== null) {
+      const record = recordForRun(records, run)
+
+      outcome = record.regrade?.record.outcome.classification ??
+        record.record.outcome.classification
+    }
 
     counts.set(outcome, (counts.get(outcome) ?? 0) + 1)
   }
@@ -797,7 +870,7 @@ function outcomeCounts(runs: readonly ExperimentRunState[]): OutcomeCountV1[] {
 
 function observedSummary(
   source: ExperimentComparisonSource,
-  records: ReadonlyMap<string, ReadNormalizedRunRecordResult>,
+  records: ReadonlyMap<string, ExperimentComparisonRunRecord>,
   armId: string
 ): ArmObservedSummaryV1 {
   const runs = uniqueRunStates(source.state).filter(({ assignment }) => assignment.arm_id === armId)
@@ -821,7 +894,7 @@ function observedSummary(
   return {
     arm: armReference(source.state.plan, armId),
     attempts: runs.length,
-    outcomes: outcomeCounts(runs),
+    outcomes: outcomeCounts(runs, records),
     metrics
   }
 }
@@ -849,6 +922,44 @@ function omittedBlock(block: ExperimentBlockState, predecessor: boolean): Omitte
   }
 }
 
+function migrationSummary(
+  source: ExperimentComparisonSource
+): ComparisonMigrationV1 | null {
+  const migration = source.migration
+
+  if (migration === undefined) return null
+
+  const verifierSeconds = source.records.flatMap((record) => {
+    const seconds = record.regrade?.record.timings.verifier_seconds
+
+    return seconds === undefined ? [] : [seconds]
+  })
+
+  return {
+    migrationId: migration.record.identity.migration_id,
+    revision: migration.record.identity.revision,
+    digest: migration.digest,
+    providerCalls: migration.record.regrade_provider_calls,
+
+    verifierSeconds: distribution(
+      verifierSeconds,
+      source.records.length - verifierSeconds.length
+    ),
+
+    targets: migration.record.targets.map((target) => ({
+      taskId: target.task_id,
+      sourceVerifierRevision: target.source_evaluator.verifier_revision,
+      sourceVerifierImageDigest: target.source_evaluator.verifier_image_digest,
+      targetVerifierRevision: target.target_evaluator.verifier_revision,
+      targetVerifierImageDigest: target.target_evaluator.verifier_image_digest,
+      sourceScoringRevision: target.source_evaluator.scoring_revision,
+      targetScoringRevision: target.target_evaluator.scoring_revision,
+      sourceRubricRevision: target.source_evaluator.rubric_revision,
+      targetRubricRevision: target.target_evaluator.rubric_revision
+    }))
+  }
+}
+
 export function analyzeExperimentComparison(
   source: ExperimentComparisonSource
 ): ExperimentComparisonAnalysisV1 {
@@ -860,6 +971,7 @@ export function analyzeExperimentComparison(
   const armIds = plan.experiment.arms.map(({ arm_id }) => arm_id).sort(compareText)
   const seed = uint32Hash(['paired-analysis-v1', plan.experiment.plan_digest, plan.experiment.analysis_revision])
   const pairs: ArmPairComparisonV1[] = []
+  const migration = migrationSummary(source)
 
   for (const [leftIndex, leftArm] of armIds.entries()) {
     for (const rightArm of armIds.slice(leftIndex + 1)) {
@@ -880,6 +992,7 @@ export function analyzeExperimentComparison(
     suiteId: plan.experiment.suite.id,
     suiteRevision: plan.experiment.suite.revision,
     analysisRevision: ANALYSIS_REVISION,
+    migration,
 
     bootstrap: {
       seed,
@@ -898,7 +1011,10 @@ export function analyzeExperimentComparison(
     limitations: [
       'Descriptive evidence for this frozen suite only; not a universal ranking or precise significance claim.',
       'Provider-hidden identity changes remain unknown when the provider identity is unavailable.',
-      'Subscription monetary cost is not applicable; token usage is not converted into spend.'
+      'Subscription monetary cost is not applicable; token usage is not converted into spend.',
+      ...(migration === null
+        ? []
+        : ['Migrated quality uses the new verifier; operational metrics remain from the immutable source run.'])
     ]
   }
 }

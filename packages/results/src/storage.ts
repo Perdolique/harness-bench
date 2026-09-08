@@ -11,6 +11,7 @@ const SHA256_PREFIX = 'sha256:'
 export type ResultRecordCategory =
   | 'exports'
   | 'normalized'
+  | 'regrades'
   | 'restrictions'
 
 export interface StoredResultRecord<TRecord> {
@@ -147,7 +148,7 @@ export async function hashStableFile(path: string): Promise<StableFileDigest> {
   }
 }
 
-async function ensureManagedDirectory(path: string): Promise<void> {
+export async function ensureManagedDirectory(path: string): Promise<void> {
   try {
     await mkdir(path, { mode: 0o700 })
   } catch (error) {
@@ -275,6 +276,28 @@ export async function withRunResultLock<T>(
     await handle.close()
     await rm(lockPath, { force: true })
   }
+}
+
+export async function withRunResultLocks<T>(
+  runsRoot: string,
+  runIds: readonly string[],
+  operation: () => Promise<T>
+): Promise<T> {
+  const unique = [...new Set(runIds)].sort()
+
+  async function acquire(index: number): Promise<T> {
+    const runId = unique[index]
+
+    if (runId === undefined) return operation()
+
+    return withRunResultLock(
+      runsRoot,
+      runId,
+      async () => acquire(index + 1)
+    )
+  }
+
+  return acquire(0)
 }
 
 async function validateExistingRecord(

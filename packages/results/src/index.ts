@@ -37,11 +37,38 @@ export {
   type SanitizedRunExportV1
 } from './schemas.ts'
 export {
+  RegradedRunRecordV1Schema,
+  ScoringMigrationRecordV1Schema,
+  type RegradeEvaluatorIdentity,
+  type RegradedRunRecordV1,
+  type ScoringMigrationEntryV1,
+  type ScoringMigrationRecordV1
+} from './regrade-schemas.ts'
+export {
+  prepareRegradeStaging,
+  findRegradedRunRecord,
+  quarantineRegradeStaging,
+  readRegradedRunRecord,
+  readScoringMigrationRecord,
+  sealRegradedRunRecord,
+  writeScoringMigrationRecord,
+  type ReadRegradedRunRecordResult,
+  type StoredScoringMigrationRecord
+} from './regrade-storage.ts'
+export {
+  assertRegradeSourceIntegrity,
+  regradeExperiment,
+  type ExperimentRegradeResult,
+  type ExperimentRegradeRuntime
+} from './regrade.ts'
+export {
   deriveExperimentState,
   experimentHistoryWithParents,
   readExperimentComparisonSource,
   readExperimentState,
   type ExperimentComparisonSource,
+  type ExperimentComparisonRunRecord,
   type ReadExperimentComparisonSourceRuntime
 } from './experiment.ts'
+export { readRegradedExperimentComparisonSource } from './migration-read.ts'
 export type { ExperimentPlan, ExperimentState } from '@harness-bench/core'

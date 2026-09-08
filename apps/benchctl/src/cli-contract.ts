@@ -1,7 +1,9 @@
 export const CLI_SYNOPSIS = `Usage:
   benchctl doctor DEFINITION --output-dir ABSOLUTE_NEW_DIR [--purpose smoke|quality]
   benchctl experiment plan DEFINITION --runs-dir ABSOLUTE_DIR [--dry-run]
-  benchctl experiment run|resume|report|compare PLAN
+  benchctl experiment run|resume|report PLAN
+  benchctl experiment compare PLAN [--migration MIGRATION_RECORD]
+  benchctl experiment regrade PLAN --definition MIGRATION_DEFINITION
   benchctl experiment rerun-block PLAN --block ID --revision REV
   benchctl experiment invalidate PLAN --block ID --cause CAUSE --reason TEXT
   benchctl run --experiment FILE --run-id ID --stack FILE --harness-document FILE --suite FILE --task FILE --task-source DIR --task-package DIR --harness-bundle DIR --runs-dir ABSOLUTE_DIR [--dry-run]
