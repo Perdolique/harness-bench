@@ -35,6 +35,7 @@ import {
 
 import { inspectTaskSource } from './task.ts'
 import { assertHarborArtifactInventory, verifyWorkspaceArtifacts } from './task-artifacts.ts'
+import type { TaskPackageInspection } from './task-package.ts'
 import { scanCredentialTree } from './secret-scan.ts'
 
 const execFileAsync = promisify(execFile)
@@ -52,6 +53,19 @@ export interface HarborExecutionContext {
   readonly stderrPath: string;
   readonly stdoutPath: string;
   readonly wallClockSeconds: number;
+}
+
+export interface HarborRegradeExecutionContext {
+  readonly signal?: AbortSignal;
+  readonly runDirectory: string;
+  readonly sourceTrial: string;
+  readonly stderrPath: string;
+  readonly stdoutPath: string;
+  readonly targetTaskPath: string;
+  readonly trialName: string;
+  readonly trialsDirectory: string;
+  readonly wallClockSeconds: number;
+  readonly runId: string;
 }
 
 export interface HarborExecutionOutcome {
@@ -328,29 +342,11 @@ async function inspectDefaultHost(plan: ResolvedRunPlan): Promise<RunHostIdentit
     throw new RunError('HOST_UNSUPPORTED', 'Docker must provide linux/arm64 containers')
   }
 
-  const expectedImages = [
-    [plan.inputs.task_package.image_references.agent, plan.task.environment.digest],
-    [plan.inputs.task_package.image_references.collector, plan.task.collector.image_digest],
-    [plan.inputs.task_package.image_references.verifier, plan.task.verifier.image_digest]
-  ] as const
-
-  for (const [reference, expectedDigest] of expectedImages) {
-    const imageSource = await runCommand(
-      'docker',
-      ['image', 'inspect', '--format={{json .}}', reference],
-      repositoryRoot
-    )
-
-    const image = parseImageIdentity(imageSource)
-
-    if (
-      image.id !== expectedDigest ||
-      image.os !== 'linux' ||
-      image.architecture !== 'arm64'
-    ) {
-      throw new RunError('PIN_MISMATCH', 'Task package image ID does not match TaskDocument')
-    }
-  }
+  await assertPinnedTaskImages(
+    plan.task,
+    plan.inputs.task_package.image_references,
+    repositoryRoot
+  )
 
   return {
     apple_silicon_model: model,
@@ -365,9 +361,53 @@ async function inspectDefaultHost(plan: ResolvedRunPlan): Promise<RunHostIdentit
   }
 }
 
-export async function runHarborProcess(
-  context: HarborExecutionContext,
-  harbor: string
+export async function assertPinnedTaskImages(
+  task: TaskDocument,
+  imageReferences: TaskPackageInspection['imageReferences'],
+  cwd = resolve(import.meta.dirname, '../../..')
+): Promise<void> {
+  const expectedImages = [
+    [imageReferences.agent, task.environment.digest],
+    [imageReferences.collector, task.collector.image_digest],
+    [imageReferences.verifier, task.verifier.image_digest]
+  ] as const
+
+  for (const [reference, expectedDigest] of expectedImages) {
+    const imageSource = await runCommand(
+      'docker',
+      ['image', 'inspect', '--format={{json .}}', reference],
+      cwd
+    )
+
+    const image = parseImageIdentity(imageSource)
+
+    if (
+      image.id !== expectedDigest ||
+      image.os !== 'linux' ||
+      image.architecture !== 'arm64'
+    ) {
+      throw new RunError(
+        'PIN_MISMATCH',
+        'Task package image ID does not match TaskDocument'
+      )
+    }
+  }
+}
+
+interface HarborCommandContext {
+  readonly authDescriptor?: number;
+  readonly operation: 'run' | 'regrade';
+  readonly runDirectory: string;
+  readonly signal?: AbortSignal;
+  readonly stderrPath: string;
+  readonly stdoutPath: string;
+  readonly wallClockSeconds: number;
+}
+
+async function runHarborCommand(
+  context: HarborCommandContext,
+  harbor: string,
+  arguments_: readonly string[]
 ): Promise<HarborExecutionOutcome> {
   let stdoutHandle: FileHandle | undefined
   let stderrHandle: FileHandle | undefined
@@ -383,7 +423,9 @@ export async function runHarborProcess(
     const processControl = {
       auth_transport: context.authDescriptor === undefined ? 'none' : 'inherited-fd-3',
       harbor_telemetry: 'off',
-      shell: false
+      operation: context.operation,
+      shell: false,
+      ...(context.operation === 'regrade' ? { provider_calls: 0 } : {})
     }
 
     await writeFile(processControlPath, `${JSON.stringify(processControl, null, 2)}\n`, {
@@ -403,7 +445,7 @@ export async function runHarborProcess(
         return
       }
 
-      const child = spawn(harbor, ['run', '--config', context.configPath, '--yes'], {
+      const child = spawn(harbor, [...arguments_], {
         cwd: context.runDirectory,
 
         env: context.authDescriptor === undefined
@@ -482,6 +524,63 @@ export async function runHarborProcess(
   } finally {
     await Promise.all([stdoutHandle?.close(), stderrHandle?.close()])
   }
+}
+
+export async function runHarborProcess(
+  context: HarborExecutionContext,
+  harbor: string
+): Promise<HarborExecutionOutcome> {
+  const commandContext: HarborCommandContext = {
+    operation: 'run',
+    runDirectory: context.runDirectory,
+    stderrPath: context.stderrPath,
+    stdoutPath: context.stdoutPath,
+    wallClockSeconds: context.wallClockSeconds,
+
+    ...(context.authDescriptor === undefined
+      ? {}
+      : { authDescriptor: context.authDescriptor }),
+
+    ...(context.signal === undefined ? {} : { signal: context.signal })
+  }
+
+  return runHarborCommand(
+    commandContext,
+    harbor,
+    ['run', '--config', context.configPath, '--yes']
+  )
+}
+
+export async function runHarborRegradeProcess(
+  context: HarborRegradeExecutionContext,
+  harbor: string
+): Promise<HarborExecutionOutcome> {
+  const commandContext: HarborCommandContext = {
+    operation: 'regrade',
+    runDirectory: context.runDirectory,
+    stderrPath: context.stderrPath,
+    stdoutPath: context.stdoutPath,
+    wallClockSeconds: context.wallClockSeconds,
+    ...(context.signal === undefined ? {} : { signal: context.signal })
+  }
+
+  const arguments_ = [
+    'trial',
+    'regrade',
+    context.sourceTrial,
+    '--task-path',
+    context.targetTaskPath,
+    '--env',
+    'docker',
+    '--verifier-env',
+    `HARBOR_RUN_ID=${context.runId}`,
+    '--trial-name',
+    context.trialName,
+    '--trials-dir',
+    context.trialsDirectory
+  ]
+
+  return runHarborCommand(commandContext, harbor, arguments_)
 }
 
 async function runDefaultHarbor(
@@ -869,8 +968,8 @@ async function copyResolvedInputs(
   }
 }
 
-async function materializePinnedTaskPackage(
-  plan: ResolvedRunPlan,
+export async function materializePinnedTaskPackage(
+  task: TaskDocument,
   sourcePackage: string,
   destination: string
 ): Promise<void> {
@@ -900,8 +999,8 @@ async function materializePinnedTaskPackage(
     throw new RunError('INVALID_TASK_PACKAGE', 'Materialized task image controls are missing')
   }
 
-  environment.docker_image = plan.task.environment.digest
-  verifier.environment.docker_image = plan.task.verifier.image_digest
+  environment.docker_image = task.environment.digest
+  verifier.environment.docker_image = task.verifier.image_digest
 
   await writeFile(taskTomlPath, stringifyToml(taskToml), { mode: 0o600 })
 
@@ -922,7 +1021,7 @@ async function materializePinnedTaskPackage(
     throw new RunError('INVALID_TASK_PACKAGE', 'Materialized collector service is missing')
   }
 
-  collector.image = plan.task.collector.image_digest
+  collector.image = task.collector.image_digest
 
   await writeFile(composePath, stringifyYaml(compose, { lineWidth: 0 }), {
     mode: 0o600
@@ -1094,7 +1193,7 @@ async function parseJsonFile(path: string, label: string): Promise<unknown> {
   }
 }
 
-function assertScoreEvidence(
+export function assertScoreEvidence(
   score: ScoreDocument,
   verifierResult: Record<string, unknown>
 ): void {
@@ -1961,7 +2060,7 @@ async function executeSealedRunPlan(
   })
 
   await compileEffectiveConfig(resolve(harnessRoot, 'codex-home'))
-  await materializePinnedTaskPackage(plan, copied.packagePath, taskPackageRoot)
+  await materializePinnedTaskPackage(plan.task, copied.packagePath, taskPackageRoot)
 
   const configPath = await buildJobConfig(
     plan,

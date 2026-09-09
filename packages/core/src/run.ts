@@ -337,6 +337,130 @@ export interface RunTreeSnapshot {
   readonly files: ReadonlyMap<string, Buffer>;
 }
 
+export interface RunTreeInventory {
+  readonly digest: string;
+  readonly entries: readonly TaskTreeEntry[];
+}
+
+async function hashStableRunFile(
+  path: string
+): Promise<{ readonly digest: string; readonly size: number }> {
+  const absolutePath = resolve(path)
+  let handle
+
+  try {
+    handle = await open(absolutePath, constants.O_RDONLY | constants.O_NOFOLLOW)
+
+    const before = await handle.stat()
+    const hash = createHash('sha256')
+    const stream = handle.createReadStream({ autoClose: false })
+
+    for await (const chunk of stream) hash.update(chunk)
+
+    const after = await handle.stat()
+    const current = await lstat(absolutePath)
+
+    if (
+      !before.isFile() ||
+      !after.isFile() ||
+      current.isSymbolicLink() ||
+      !current.isFile() ||
+      before.dev !== after.dev ||
+      before.ino !== after.ino ||
+      before.size !== after.size ||
+      before.mtimeMs !== after.mtimeMs ||
+      before.ctimeMs !== after.ctimeMs ||
+      before.mode !== after.mode ||
+      after.dev !== current.dev ||
+      after.ino !== current.ino ||
+      after.size !== current.size ||
+      after.mtimeMs !== current.mtimeMs ||
+      after.ctimeMs !== current.ctimeMs ||
+      after.mode !== current.mode
+    ) {
+      throw new RunError('INPUT_CHANGED', 'Input changed while it was hashed')
+    }
+
+    return {
+      digest: `sha256:${hash.digest('hex')}`,
+      size: before.size
+    }
+  } catch (error) {
+    if (error instanceof RunError) throw error
+
+    throw new RunError('INVALID_EVIDENCE', 'Evidence file is unavailable', {
+      cause: error
+    })
+  } finally {
+    await handle?.close()
+  }
+}
+
+// Inventories retained evidence without applying task-package name policy or retaining file bytes.
+export async function inspectRunTreeInventory(
+  rootPath: string
+): Promise<RunTreeInventory> {
+  const root = await realpath(rootPath)
+  const rootMetadata = await stat(root)
+
+  if (!rootMetadata.isDirectory()) {
+    throw new RunError('INVALID_EVIDENCE', 'Evidence tree must be a directory')
+  }
+
+  const entries: TaskTreeEntry[] = []
+
+  async function visit(directory: string): Promise<void> {
+    const children = await readdir(directory, { withFileTypes: true })
+
+    children.sort((left, right) => compareText(left.name, right.name))
+
+    for (const child of children) {
+      const absolutePath = resolve(directory, child.name)
+      const path = relative(root, absolutePath).split('\\').join('/')
+      const metadata = await lstat(absolutePath)
+      const segments = path.split('/')
+
+      if (
+        path.startsWith('/') ||
+        path.includes('\\') ||
+        segments.some((segment) => segment === '' || segment === '.' || segment === '..')
+      ) {
+        throw new RunError('INVALID_EVIDENCE', 'Evidence tree contains an unsafe path')
+      }
+
+      if (metadata.isSymbolicLink()) {
+        throw new RunError('INVALID_EVIDENCE', 'Evidence tree contains a symbolic link')
+      }
+
+      if (metadata.isDirectory()) {
+        await visit(absolutePath)
+
+        continue
+      }
+
+      if (!metadata.isFile()) {
+        throw new RunError('INVALID_EVIDENCE', 'Evidence tree contains a special entry')
+      }
+
+      const hashed = await hashStableRunFile(absolutePath)
+
+      entries.push({
+        digest: hashed.digest,
+        executable: (metadata.mode & 0o111) !== 0,
+        path,
+        size: hashed.size
+      })
+    }
+  }
+
+  await visit(root)
+
+  return {
+    digest: sha256(JSON.stringify(entries)),
+    entries
+  }
+}
+
 export async function inspectRunTree(rootPath: string): Promise<RunTreeSnapshot> {
   const root = await realpath(rootPath)
   const rootMetadata = await stat(root)

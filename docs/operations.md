@@ -207,12 +207,15 @@ Derived records use this local layout:
 <runs-dir>/.results/<run-id>/
 ├── normalized/<sha256>/record.json
 ├── exports/<sha256>/record.json
+├── regrades/<sha256>/{record.json,inputs/,raw/,raw-manifest.json}
 └── restrictions/<sha256>/record.json
+
+<runs-dir>/.experiments/migrations/<sha256>/record.json
 ```
 
 Managed parent directories are mode `0700`, address directories are `0500`, and records are `0400`. Serialized references are relative to the immutable run. APIs and CLI output may return the resolved absolute record path to the local caller, but it is not embedded in the record.
 
-Normalization, export, and disposition serialize through a transient mode-`0600` per-run lock below `<runs-dir>/.results/.locks`. Normalization holds the lock from source validation through its normalized or restriction commit; export holds it from normalized-record validation through its export commit. Lock contention fails closed with `RECORD_CONFLICT`; a stale lock after process termination requires trusted local inspection and removal only after confirming that no result operation is active.
+Normalization, export, regrade, and disposition serialize through a transient mode-`0600` per-run lock below `<runs-dir>/.results/.locks`. Normalization holds the lock from source validation through its normalized or restriction commit; export holds it from normalized-record validation through its export commit. Batch regrade and normalized-run disposition take the experiment-family lease before any result lease because migration manifests are shared across runs; batch regrade then takes every source-run result lease in lexical order. Lock contention fails closed; a stale lock after process termination requires trusted local inspection and removal only after confirming that no result operation is active.
 
 A positive credential-pattern finding or an existing issue-7 quarantine produces only a restriction record and exit `2`. It reports safe category/path metadata, blocks publication, and records rotation/revocation and disposition as pending. It never copies the matched value or hashes that value. The CLI output is owner notification, not evidence that an external credential was rotated or revoked.
 
@@ -244,7 +247,7 @@ vp run benchctl -- results report \
   /absolute/local-runs/.results/<run-id>/normalized/<sha256>/record.json
 ```
 
-Use the `record_path` returned by `results normalize`. Reporting reads that exact revision; it creates no normalized record, export, lock, or report file. The reader validates the managed address, schema, run identity, initial/completion/raw-manifest digests, and each referenced file's containment, sealed mode, size, executable state, and streamed SHA-256. It parses the authoritative initial and completion records, rechecks their identity, revision, digest and lifecycle links, and compares normalized identities, revisions, outcome, retention and total duration with those sources. It also resolves retained verifier `.log` and `.txt` files from the raw manifest. Missing or changed retained evidence rejects the report. Restrictions, detected credential patterns in either the original normalized JSON bytes or decoded metadata, or an observed active result-operation lock block inspection. Source metadata and file stability are rechecked before returning; the report describes evidence inspected at that time, not a reservation against subsequent owner deletion. Reporting does not rescan unreferenced raw content or regrade the run.
+Use the `record_path` returned by `results normalize`. Reporting reads that exact revision; it creates no normalized record, export, lock, or report file. The reader validates the managed address, schema, run identity, initial/completion/raw-manifest digests, and the complete raw inventory, including unreferenced files, against the retained manifest. Every file is checked for containment, sealed mode, size, executable state, and streamed SHA-256. It parses the authoritative initial and completion records, rechecks their identity, revision, digest and lifecycle links, and compares normalized identities, revisions, outcome, retention and total duration with those sources. It also resolves retained verifier `.log` and `.txt` files from the raw manifest. Missing or changed retained evidence rejects the report. Restrictions, detected credential patterns in either the original normalized JSON bytes or decoded metadata, or an observed active result-operation lock block inspection. Source metadata, the complete raw inventory, and file stability are rechecked before returning; the report describes evidence inspected at that time, not a reservation against subsequent owner deletion. Reporting never regrades the run.
 
 The English plain-text report shows run and complete stack/harness/task identities, independent revisions, outcome and termination, gates, all score facets and check evidence, scope violations, composite, timings, usage, and absolute local evidence paths. It uses no color, ANSI hyperlinks, or TTY-specific layout. Control characters in text and paths, including Unicode bidirectional controls, are escaped visibly. Argument-parser errors use a static usage diagnostic without echoing the supplied argument. Native JSONL and ATIF remain distinct; `codex.txt` is labelled as irreversibly merged stdout/stderr. A missing artifact is shown as unavailable rather than as an invented path.
 
@@ -347,6 +350,17 @@ A valid task failure is a quality outcome and does not stop the matrix. A techni
 
 `compare` is the separate read-only paired analysis. It accepts exactly one plan path, takes the same experiment-family lease, rereads every referenced sealed normalized result and its verified initial/completion provenance, performs analysis revision `1`, renders plain English text without ANSI, and releases the lease. It compares every unordered arm pair in lexical order with effects defined as `right - left`. A complete or honest partial matrix exits `0`; omissions stay visible and technical failures never become quality zero. Integrity, compatibility, unsupported-revision, active-lease, and superseded-plan errors exit `2` with no partial report on standard output. The command creates no records, invokes no provider, performs no regrade or doctor check, and leaves immutable raw and normalized records as the source of truth.
 
+Run a verifier-only scoring migration, then select it explicitly for comparison:
+
+```sh
+pnpm benchctl experiment regrade /absolute/plan.json --definition /absolute/scoring-migration.json
+pnpm benchctl experiment compare /absolute/plan.json --migration /absolute/runs/.experiments/migrations/MIGRATION_DIGEST/record.json
+```
+
+The definition paths are relative to the definition file and its task inventory must exactly match the frozen experiment. Regrade accepts only completed local single-step Harbor `0.22.0` trials and Docker separate verifiers with no network. Preflight validates all source evidence and every target package before the first Docker invocation. It holds the experiment-family lease and every source-run result lease in deterministic order, runs valid grades sequentially with concurrency one, retains technical classifications without inventing scores, and never transports Codex auth or provider environment. Successful JSON output identifies the sealed migration and reports regraded/retained counts plus `regrade_provider_calls: 0`; failures use exit `2` and safe diagnostics.
+
+Repeating the exact command resumes by validating and reusing sealed per-run records whose definition and source digests match. It does not retry Harbor automatically. A conflicting, ambiguous, changed, or partially sealed result fails closed; abandoned staging is retained as a sealed `.failed-*` diagnostic and no final migration record is written. A failed staging leaf contains restricted `failure.json` evidence with the raw local error name, message, stack, and, when Harbor started, its exact cancellation/timeout/signal/exit outcome and verifier-stage classification. The CLI still emits only its safe code and message. Regrade evidence lives under each run's `.results/<run-id>/regrades/<digest>/` leaf, and the final manifest lives under `.experiments/migrations/<digest>/record.json`. The original run is hash-inventoried before and after every verifier execution and is never rewritten. A migrated report states the migration identity/digest, each evaluator transition, separate regrade-verifier timing, and zero provider calls. Omitting `--migration` always reads the original results.
+
 Execution exits `0` for a completed all-success matrix, `1` for completed valid task failures, and `2` for incomplete/invalidated matrices or command errors. A completion awaiting normalization is unverified until `resume` performs recovery; neither reporting command writes a derived result.
 
 Record an externally known change, or prepare a whole-block replacement:
@@ -368,6 +382,14 @@ HARNESS_BENCH_EXPERIMENT_INTEGRATION=1 pnpm run:integration:check
 
 It uses the pinned Harbor lifecycle, fake native agent, independent collector, separate offline verifier, real normalization, and a provider-call canary. Ordinary CI uses deterministic unit/fixture tests only. This proves local orchestration and recovery, not hidden provider identity changes, auth refresh, private-task online secrecy, or a live subscription comparison.
 
+Enable the issue-13 verifier-only extension with:
+
+```sh
+HARNESS_BENCH_REGRADE_INTEGRATION=1 pnpm run:integration:check
+```
+
+This also runs the two-arm experiment fixture, then invokes real Harbor `trial regrade` with scoring v2, verifies composite `1 -> 0.875`, checks revision/config/lock/source-trial provenance, repeats the command as resume, compares original and migrated overlays independently, hashes every original run before and after, and requires the provider canary to remain exactly zero.
+
 ## Telemetry, artifacts, and quota
 
 All future local benchmark commands default to `HARBOR_TELEMETRY=off`, including spike and regrade commands. Record the effective setting and owner-authorized exceptions. Upstream enables usage telemetry by default. [Pinned telemetry documentation](https://github.com/harbor-framework/harbor/blob/4407eb5227a2ff4f0d3f16b2eb48849382fdf276/docs/content/docs/usage-stats.mdx).
@@ -388,7 +410,9 @@ For the completed one-call extension only, `issue-2-low-confirmation` reused the
 
 ## Recovery and regrade
 
-Preserve failed attempts and stage-specific termination reasons. Resume from the frozen plan, skipping only completed immutable IDs. Regrade uses retained declared artifacts and a new separate offline verifier; it never reruns the agent or overwrites source results. Verify hashes and source lineage first. Missing inputs require a new explicitly authorized run, not invented reconstruction.
+Preserve failed attempts and stage-specific termination reasons. Resume execution from the frozen plan, skipping only completed immutable IDs. Resume regrade by repeating the exact `experiment regrade` command after confirming no Harbor verifier remains active and recovering any stale leases through the trusted lease procedure. Inspect sealed `.failed-*` diagnostics; never rename them into successful content addresses or hand-edit a manifest. Regrade uses retained declared artifacts and a new separate offline verifier; it never reruns the agent or overwrites source results. Verify hashes and source lineage first. Missing inputs require a new explicitly authorized run, not invented reconstruction. Deleting a private source run also deletes its regrade evidence and referencing migration manifests and records their digests in the redacted tombstone.
+
+A cooperative cancellation leaves Harbor responsible for its ordinary trial cleanup and the provider-free integration requires no matching container or volume to remain. A forced `SIGKILL` cannot run either Harbor or `benchctl` cleanup code, so automatic container/volume cleanup is not claimed. The local owner must first prove that no Harbor or verifier process is active, inspect Docker resources associated with the failed trial, remove only those confirmed resources, inspect the sealed failure evidence and source hashes, and only then recover stale leases or repeat the command. Never remove a lease merely to overlap a still-running verifier.
 
 ## Required owner reviews
 

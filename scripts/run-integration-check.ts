@@ -1,18 +1,22 @@
 import { executeExperiment } from '../packages/core/src/experiment-execution.ts'
 import { planExperiment } from '../packages/core/src/experiment-plan.ts'
 import { readExperimentHistory, saveExperimentPlan } from '../packages/core/src/experiment-storage.ts'
-import { readExperimentState } from '../packages/results/src/experiment.ts'
+import { readExperimentComparisonSource, readExperimentState } from '../packages/results/src/experiment.ts'
+import { readRegradedExperimentComparisonSource } from '../packages/results/src/migration-read.ts'
+import { regradeExperiment } from '../packages/results/src/regrade.ts'
+import { analyzeExperimentComparison } from '../packages/statistics/src/comparison.ts'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmod, cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { resolve } from 'node:path'
 import { captureHarnessBundle } from '../packages/core/src/harness.ts'
 import { executeRunPlanWithRuntime, runHarborProcess, type RunRuntime } from '../packages/core/src/run-execution.ts'
-import { resolveRunPlan } from '../packages/core/src/run.ts'
+import { inspectRunTreeInventory, resolveRunPlan } from '../packages/core/src/run.ts'
 import { inspectTaskSource, materializeTaskWorkspace } from '../packages/core/src/task.ts'
 import { normalizeRun } from '../packages/results/src/normalize.ts'
+import type { TaskDocument } from '../packages/schemas/src/index.ts'
 
 const repositoryRoot = resolve(import.meta.dirname, '..')
 const fixtureRoot = resolve(repositoryRoot, 'tests/fixtures/run-integration')
@@ -25,7 +29,8 @@ const baseImage =
 const imageTags = {
   agent: 'harness-bench-run-integration-agent:issue-7',
   collector: 'harness-bench-run-integration-collector:issue-7',
-  verifier: 'harness-bench-run-integration-verifier:issue-7'
+  verifier: 'harness-bench-run-integration-verifier:issue-7',
+  verifierV2: 'harness-bench-run-integration-verifier:issue-13'
 } as const
 
 function sha256(contents: Uint8Array | string): string {
@@ -207,6 +212,271 @@ async function prepareImages(
       contexts[kind]
     ])
   }
+}
+
+async function prepareRegradeVerifierImage(temporaryRoot: string): Promise<void> {
+  const context = resolve(temporaryRoot, 'images/verifier-v2')
+
+  await mkdir(resolve(context, 'core'), { recursive: true })
+
+  await cp(resolve(fixtureRoot, 'source'), resolve(context, 'trusted-source'), {
+    recursive: true
+  })
+
+  await cp(resolve(coreRoot, 'task.ts'), resolve(context, 'core/task.ts'))
+
+  await cp(
+    resolve(coreRoot, 'task-artifacts.ts'),
+    resolve(context, 'core/task-artifacts.ts')
+  )
+
+  await cp(
+    resolve(fixtureRoot, 'verifier/verify-v2.mjs'),
+    resolve(context, 'verify.mjs')
+  )
+
+  await cp(resolve(fixtureRoot, 'verifier/test.sh'), resolve(context, 'test.sh'))
+
+  await writeFile(
+    resolve(context, 'Dockerfile'),
+    `FROM ${baseImage}\nCOPY trusted-source/ /trusted/source/\nCOPY core/ /opt/core/\nCOPY verify.mjs /opt/verifier/verify.mjs\nCOPY test.sh /tests/test.sh\nRUN chmod -R 0555 /opt/core /opt/verifier /tests/test.sh && chmod -R a-w /trusted/source\nWORKDIR /trusted/source\n`
+  )
+
+  command('docker', [
+    'build',
+    '--platform=linux/arm64',
+    '--provenance=false',
+    '--tag',
+    imageTags.verifierV2,
+    context
+  ])
+}
+
+interface RegradeIntegrationOptions {
+  readonly documentsRoot: string;
+  readonly matrix: Awaited<ReturnType<typeof planExperiment>>;
+  readonly matrixPath: string;
+  readonly task: TaskDocument;
+  readonly taskPackage: string;
+  readonly temporaryRoot: string;
+}
+
+interface RegradeIntegrationConfig {
+  readonly source_trial?: {
+    readonly action?: unknown;
+    readonly trial_id?: unknown;
+  };
+}
+
+interface RegradeIntegrationLock {
+  readonly source_trial?: { readonly task?: { readonly digest?: unknown } };
+  readonly task?: { readonly digest?: unknown };
+  readonly verifier?: { readonly env?: { readonly HARBOR_RUN_ID?: unknown } };
+}
+
+interface RegradeIntegrationResult {
+  readonly agent_execution?: unknown;
+  readonly agent_setup?: unknown;
+  readonly environment_setup?: unknown;
+  readonly verifier_environment_mode?: unknown;
+}
+
+async function runRegradeIntegration(
+  options: RegradeIntegrationOptions
+): Promise<void> {
+  const originalSource = await readExperimentComparisonSource(options.matrix)
+  const originalAnalysis = analyzeExperimentComparison(originalSource)
+
+  const originalComposite = originalAnalysis.pairs[0]?.metrics.find(
+    ({ metric }) => metric === 'composite'
+  )
+
+  if (
+    originalComposite?.leftDistribution.mean !== 1 ||
+    originalComposite.rightDistribution.mean !== 1
+  ) {
+    throw new Error('Original integration scoring did not retain composite 1')
+  }
+
+  const sourceSnapshots = new Map<string, string>()
+
+  for (const assignment of options.matrix.assignments) {
+    const snapshot = await inspectRunTreeInventory(
+      resolve(options.matrix.runs_directory, assignment.run_id)
+    )
+
+    sourceSnapshots.set(assignment.run_id, snapshot.digest)
+  }
+
+  await prepareRegradeVerifierImage(options.temporaryRoot)
+
+  const targetTask = structuredClone(options.task)
+
+  targetTask.verifier.revision = '2'
+  targetTask.verifier.image_digest = localImageId(imageTags.verifierV2)
+  targetTask.scoring.revision = '2'
+  targetTask.scoring.rubric_revision = '2'
+
+  const targetDocumentPath = resolve(options.documentsRoot, 'task-v2.json')
+  const targetPackagePath = resolve(options.temporaryRoot, 'task-success-v2')
+
+  await writeJson(targetDocumentPath, targetTask)
+  await cp(options.taskPackage, targetPackagePath, { recursive: true })
+
+  const targetTaskTomlPath = resolve(targetPackagePath, 'task.toml')
+  const targetTaskToml = await readFile(targetTaskTomlPath, 'utf8')
+
+  await writeFile(
+    targetTaskTomlPath,
+    targetTaskToml.replace(imageTags.verifier, imageTags.verifierV2)
+  )
+
+  const migrationDefinitionPath = resolve(
+    options.temporaryRoot,
+    'scoring-migration-v2.json'
+  )
+
+  await writeJson(migrationDefinitionPath, {
+    document_type: 'scoring_migration_definition',
+    schema_version: 1,
+    migration_id: 'integration-scoring-v2',
+    revision: '2',
+    experiment_id: options.matrix.experiment.experiment_id,
+    experiment_revision: options.matrix.experiment.revision,
+    plan_digest: options.matrix.experiment.plan_digest,
+
+    targets: [{
+      task_id: targetTask.task_id,
+      document: 'documents/task-v2.json',
+      package: 'task-success-v2'
+    }]
+  })
+
+  const migration = await regradeExperiment(
+    options.matrixPath,
+    migrationDefinitionPath
+  )
+
+  if (
+    migration.regradedRuns !== 2 ||
+    migration.retainedTechnicalRuns !== 0 ||
+    migration.migration.record.regrade_provider_calls !== 0
+  ) {
+    throw new Error('Scoring migration result counts drifted')
+  }
+
+  const resumedMigration = await regradeExperiment(
+    options.matrixPath,
+    migrationDefinitionPath
+  )
+
+  if (resumedMigration.migration.digest !== migration.migration.digest) {
+    throw new Error('Scoring migration resume changed the sealed identity')
+  }
+
+  const migratedSource = await readRegradedExperimentComparisonSource(
+    options.matrix,
+    migration.migration.recordPath
+  )
+
+  for (const source of migratedSource.records) {
+    const regrade = source.regrade
+
+    if (regrade === undefined) {
+      throw new Error('Migrated integration source lost its regrade evidence')
+    }
+
+    const [config, lock, result] = await Promise.all([
+      readFile(
+        resolve(regrade.leaf, regrade.record.evidence.config_path),
+        'utf8'
+      ).then((value) => JSON.parse(value)),
+
+      readFile(
+        resolve(regrade.leaf, regrade.record.evidence.lock_path),
+        'utf8'
+      ).then((value) => JSON.parse(value)),
+
+      readFile(
+        resolve(regrade.leaf, regrade.record.evidence.result_path),
+        'utf8'
+      ).then((value) => JSON.parse(value))
+    ]) as [
+      RegradeIntegrationConfig,
+      RegradeIntegrationLock,
+      RegradeIntegrationResult
+    ]
+
+    const sourceEvaluator = regrade.record.source.evaluator
+    const targetEvaluator = regrade.record.target.evaluator
+
+    if (
+      sourceEvaluator.verifier_revision !== '1' ||
+      sourceEvaluator.scoring_revision !== '1' ||
+      sourceEvaluator.rubric_revision !== '1' ||
+      targetEvaluator.verifier_revision !== '2' ||
+      targetEvaluator.scoring_revision !== '2' ||
+      targetEvaluator.rubric_revision !== '2' ||
+      config.source_trial?.action !== 'regrade' ||
+      config.source_trial?.trial_id !== regrade.record.source.trial.trial_id ||
+      lock.source_trial?.task?.digest !==
+        regrade.record.source.trial.task_digest ||
+      lock.task?.digest !== regrade.record.target.task_lock_digest ||
+      lock.verifier?.env?.HARBOR_RUN_ID !==
+        source.record.identities.run.run_id ||
+      result.verifier_environment_mode !== 'separate' ||
+      result.environment_setup !== null ||
+      result.agent_setup !== null ||
+      result.agent_execution !== null
+    ) {
+      throw new Error('Regrade config, lock, or evaluator provenance drifted')
+    }
+  }
+
+  const migratedAnalysis = analyzeExperimentComparison(migratedSource)
+
+  const migratedComposite = migratedAnalysis.pairs[0]?.metrics.find(
+    ({ metric }) => metric === 'composite'
+  )
+
+  const migratedDirect = migratedAnalysis.pairs[0]?.metrics.find(
+    ({ metric }) => metric === 'direct_behavior'
+  )
+
+  if (
+    migratedComposite?.leftDistribution.mean !== 0.875 ||
+    migratedComposite.rightDistribution.mean !== 0.875 ||
+    migratedDirect?.leftDistribution.mean !== 0.5 ||
+    migratedDirect.rightDistribution.mean !== 0.5 ||
+    migratedAnalysis.migration?.providerCalls !== 0
+  ) {
+    throw new Error('Migration overlay did not apply scoring v2 exactly')
+  }
+
+  for (const assignment of options.matrix.assignments) {
+    const after = await inspectRunTreeInventory(
+      resolve(options.matrix.runs_directory, assignment.run_id)
+    )
+
+    if (after.digest !== sourceSnapshots.get(assignment.run_id)) {
+      throw new Error('Verifier-only regrade changed original run bytes')
+    }
+
+    const regrades = await readdir(resolve(
+      options.matrix.runs_directory,
+      '.results',
+      assignment.run_id,
+      'regrades'
+    ))
+
+    if (regrades.filter((name) => /^[a-f0-9]{64}$/.test(name)).length !== 1) {
+      throw new Error('Scoring migration resume duplicated regrade evidence')
+    }
+  }
+
+  console.log(
+    `regrade_migration: ${migration.migration.digest}, composite 1 -> 0.875, provider calls 0`
+  )
 }
 
 async function prepareTaskPackage(
@@ -529,7 +799,7 @@ async function main(): Promise<void> {
         reason: 'Public synthetic fixture'
       }
     }
-  }
+  } satisfies TaskDocument
 
   const suite = {
     document_type: 'suite',
@@ -893,7 +1163,10 @@ async function main(): Promise<void> {
     console.log(`${mode}: ${result.classification}`)
   }
 
-    if (process.env.HARNESS_BENCH_EXPERIMENT_INTEGRATION === '1') {
+    if (
+      process.env.HARNESS_BENCH_EXPERIMENT_INTEGRATION === '1' ||
+      process.env.HARNESS_BENCH_REGRADE_INTEGRATION === '1'
+    ) {
       const definitionPath = resolve(temporaryRoot, 'experiment-definition.json')
 
       await writeJson(definitionPath, {
@@ -978,6 +1251,17 @@ async function main(): Promise<void> {
       const inspected = await readExperimentState(matrix)
 
       if (inspected.blocks.some(({ runs }) => runs.some(({ result }) => result?.classification !== 'task_success'))) throw new Error('Matrix report lost a verified successful result')
+
+      if (process.env.HARNESS_BENCH_REGRADE_INTEGRATION === '1') {
+        await runRegradeIntegration({
+          documentsRoot,
+          matrix,
+          matrixPath,
+          task,
+          taskPackage: taskPackages.success,
+          temporaryRoot
+        })
+      }
 
       console.log(`experiment_matrix: 2 verified arms, interrupted/resumed, ${finalInvocations} invocations`)
       console.log(`experiment_plan: ${matrixPath}`)

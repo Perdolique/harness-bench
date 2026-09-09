@@ -1,4 +1,4 @@
-import { chmod, cp, lstat, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { chmod, cp, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { fixture, makeHarness, writeJson } from './run-fixture.ts'
@@ -15,6 +15,7 @@ import {
 
 import { executeExperiment, invalidateExperimentBlock, rerunExperimentBlock } from '../src/experiment-execution.ts'
 import { acquireExecutionLock, subscriptionLockPath } from '../src/execution-lock.ts'
+import { resolveScoringMigrationDefinition } from '../src/regrade-plan.ts'
 import type { InvalidationCause } from '../src/experiment-contracts.ts'
 import type { ExperimentRuntime, ExperimentRunState, VerifiedExperimentRun } from '../src/experiment-state.ts'
 import { deriveExperimentState, experimentHistoryWithParents } from '../../results/src/experiment.ts'
@@ -816,6 +817,157 @@ describe('experiment planning and execution', () => {
     expect(await runCli(['experiment', 'invalidate', saved, '--block', plan.assignments[0]!.block_id, '--cause', 'model_changed', '--reason', 'Known test observation'], io)).toBe(0)
     expect((await readExperimentHistory(plan)).entries[0]?.event.type).toBe('invalidated')
     expect(await runCli(['experiment', 'invalidate', saved, '--block', 'missing', '--cause', 'made_up', '--reason', 'Test'], io)).toBe(2)
+  })
+
+  it('resolves scoring migrations by content and preserves the task behavior contract', async () => {
+    const { plan, test } = await setup()
+    const source = JSON.parse(await readFile(test.options.taskDocuments[0]!, 'utf8'))
+    const target = structuredClone(source)
+
+    target.verifier.revision = '2'
+    target.scoring.revision = '2'
+    target.scoring.rubric_revision = '2'
+
+    const targetPath = resolve(test.root, 'target-task.json')
+    const definitionPath = resolve(test.root, 'migration.json')
+
+    await writeJson(targetPath, target)
+
+    await writeJson(definitionPath, {
+      document_type: 'scoring_migration_definition',
+      schema_version: 1,
+      migration_id: 'scoring-v2',
+      revision: '2',
+      experiment_id: plan.experiment.experiment_id,
+      experiment_revision: plan.experiment.revision,
+      plan_digest: plan.experiment.plan_digest,
+
+      targets: [{
+        task_id: 'task-a',
+        document: 'target-task.json',
+        package: 'task-package'
+      }]
+    })
+
+    const resolved = await resolveScoringMigrationDefinition(
+      definitionPath,
+      plan
+    )
+
+    expect(resolved).toMatchObject({
+      definition: {
+        migration_id: 'scoring-v2',
+        revision: '2'
+      },
+
+      targets: [{
+        taskId: 'task-a',
+        documentPath: targetPath,
+        packagePath: test.options.taskPackage
+      }]
+    })
+
+    expect(resolved.digest).toMatch(/^sha256:[a-f0-9]{64}$/)
+
+    const alternateRoot = resolve(test.root, 'alternate-location')
+
+    await mkdir(alternateRoot)
+    await writeJson(resolve(alternateRoot, 'target-task.json'), target)
+
+    await cp(
+      test.options.taskPackage,
+      resolve(alternateRoot, 'task-package'),
+      { recursive: true }
+    )
+
+    await writeJson(resolve(alternateRoot, 'migration.json'), {
+      ...JSON.parse(await readFile(definitionPath, 'utf8'))
+    })
+
+    const relocated = await resolveScoringMigrationDefinition(
+      resolve(alternateRoot, 'migration.json'),
+      plan
+    )
+
+    expect(relocated.digest).toBe(resolved.digest)
+
+    target.rubric[0].expectation = 'Changed without a rubric revision bump'
+    target.scoring.rubric_revision = source.scoring.rubric_revision
+
+    await writeJson(targetPath, target)
+
+    await expect(
+      resolveScoringMigrationDefinition(definitionPath, plan)
+    ).rejects.toMatchObject({ code: 'RELATIONSHIP_MISMATCH' })
+
+    target.rubric = source.rubric
+    target.scoring.rubric_revision = '2'
+    target.scope.allowed = ['src', 'docs']
+
+    await writeJson(targetPath, target)
+
+    await expect(
+      resolveScoringMigrationDefinition(definitionPath, plan)
+    ).rejects.toMatchObject({ code: 'RELATIONSHIP_MISMATCH' })
+  })
+
+  it('rejects duplicate, missing, and no-op scoring migration targets', async () => {
+    const { plan, test } = await setup()
+    const definitionPath = resolve(test.root, 'migration-invalid.json')
+
+    await writeJson(definitionPath, {
+      document_type: 'scoring_migration_definition',
+      schema_version: 1,
+      migration_id: 'scoring-v1',
+      revision: '1',
+      experiment_id: plan.experiment.experiment_id,
+      experiment_revision: plan.experiment.revision,
+      plan_digest: plan.experiment.plan_digest,
+
+      targets: [{
+        task_id: 'task-a',
+        document: 'task.json',
+        package: 'task-package'
+      }]
+    })
+
+    await expect(
+      resolveScoringMigrationDefinition(definitionPath, plan)
+    ).rejects.toMatchObject({ code: 'RELATIONSHIP_MISMATCH' })
+
+    const candidate = JSON.parse(await readFile(definitionPath, 'utf8'))
+    const validTarget = candidate.targets[0]
+
+    candidate.targets.push(validTarget)
+    await writeJson(definitionPath, candidate)
+
+    await expect(
+      resolveScoringMigrationDefinition(definitionPath, plan)
+    ).rejects.toMatchObject({ code: 'INVALID_DOCUMENT' })
+
+    candidate.targets = []
+
+    await writeJson(definitionPath, candidate)
+
+    await expect(
+      resolveScoringMigrationDefinition(definitionPath, plan)
+    ).rejects.toMatchObject({ code: 'INVALID_DOCUMENT' })
+
+    candidate.targets = [validTarget]
+
+    await writeJson(definitionPath, candidate)
+
+    const multiTaskPlan = structuredClone(plan)
+    const firstTask = multiTaskPlan.experiment.tasks[0]!
+
+    multiTaskPlan.experiment.tasks.push({
+      ...firstTask,
+      task_id: 'task-b'
+    })
+
+    await expect(
+      resolveScoringMigrationDefinition(definitionPath, multiTaskPlan)
+    ).rejects.toMatchObject({ code: 'RELATIONSHIP_MISMATCH' })
   })
 
 })

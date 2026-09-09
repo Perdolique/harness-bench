@@ -1,10 +1,20 @@
 import { randomUUID } from 'node:crypto'
 import { chmod, lstat, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, relative, resolve } from 'node:path'
-import { runDispositionReservationPath } from '@harness-bench/core'
+import { isDeepStrictEqual } from 'node:util'
+
+import {
+  experimentHash,
+  lockExperimentFamily,
+  readExperimentRecord,
+  runDispositionReservationPath
+} from '@harness-bench/core'
+
 import * as v from 'valibot'
 import { ResultError } from './errors.ts'
 import { normalizeRunWithRuntime, type NormalizeRunResult } from './normalize.ts'
+import { ScoringMigrationRecordV1Schema } from './regrade-schemas.ts'
+import { readRegradedRunRecord } from './regrade-storage.ts'
 
 import {
   NormalizedRunRecordV1Schema,
@@ -247,6 +257,20 @@ async function validateStoredRecord(
     return stored.digest
   }
 
+  if (category === 'regrades') {
+    const stored = await readRegradedRunRecord(recordPath)
+
+    if (stored.record.source.run_id !== runId) {
+      throw new ResultError(
+        'DISPOSITION_FAILED',
+        'Managed regrade identity does not match its run directory',
+        { stage: 'disposition' }
+      )
+    }
+
+    return stored.digest
+  }
+
   const stored = await readStoredRecord(
     recordPath,
     category,
@@ -264,18 +288,173 @@ async function validateStoredRecord(
   return stored.digest
 }
 
+interface DerivedDispositionInventory {
+  readonly digests: readonly string[];
+  readonly migrationPaths: readonly string[];
+}
+
+async function validateFailedRegrade(path: string): Promise<void> {
+  const metadata = await lstat(path)
+
+  if (metadata.isSymbolicLink() || !metadata.isDirectory()) {
+    throw new ResultError(
+      'DISPOSITION_FAILED',
+      'Failed regrade recovery entry is unsafe',
+      { stage: 'disposition' }
+    )
+  }
+
+  async function visit(entryPath: string): Promise<void> {
+    const entry = await lstat(entryPath)
+
+    if (entry.isSymbolicLink() || (!entry.isDirectory() && !entry.isFile())) {
+      throw new ResultError(
+        'DISPOSITION_FAILED',
+        'Failed regrade recovery contains an unsafe entry',
+        { stage: 'disposition' }
+      )
+    }
+
+    if (entry.isDirectory()) {
+      if ((entry.mode & 0o777) !== 0o500) {
+        throw new ResultError(
+          'DISPOSITION_FAILED',
+          'Failed regrade recovery directory is not sealed',
+          { stage: 'disposition' }
+        )
+      }
+
+      for (const child of await readdir(entryPath)) {
+        await visit(resolve(entryPath, child))
+      }
+
+      return
+    }
+
+    const expected = (entry.mode & 0o111) === 0 ? 0o400 : 0o500
+
+    if ((entry.mode & 0o777) !== expected) {
+      throw new ResultError(
+        'DISPOSITION_FAILED',
+        'Failed regrade recovery file is not sealed',
+        { stage: 'disposition' }
+      )
+    }
+  }
+
+  await visit(path)
+}
+
+async function migrationReferences(
+  runsRoot: string,
+  runId: string
+): Promise<readonly { readonly digest: string; readonly path: string }[]> {
+  const root = resolve(runsRoot, '.experiments', 'migrations')
+  let names: string[]
+
+  try {
+    names = await readdir(root)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+
+    throw error
+  }
+
+  for (const parent of [dirname(root), root]) {
+    const metadata = await lstat(parent)
+
+    if (
+      metadata.isSymbolicLink() ||
+      !metadata.isDirectory() ||
+      (metadata.mode & 0o777) !== 0o700
+    ) {
+      throw new ResultError(
+        'DISPOSITION_FAILED',
+        'Migration storage parent is unsafe',
+        { stage: 'disposition' }
+      )
+    }
+  }
+
+  const references: Array<{ readonly digest: string; readonly path: string }> = []
+
+  for (const name of names.sort()) {
+    if (!/^[a-f0-9]{64}$/.test(name)) {
+      throw new ResultError(
+        'DISPOSITION_FAILED',
+        'Migration storage contains an unexpected entry',
+        { stage: 'disposition' }
+      )
+    }
+
+    const path = resolve(root, name)
+    const pathMetadata = await lstat(path)
+
+    if (
+      pathMetadata.isSymbolicLink() ||
+      !pathMetadata.isDirectory() ||
+      (pathMetadata.mode & 0o777) !== 0o500 ||
+      !isDeepStrictEqual(await readdir(path), ['record.json'])
+    ) {
+      throw new ResultError(
+        'DISPOSITION_FAILED',
+        'Migration content-addressed leaf is unsafe',
+        { stage: 'disposition' }
+      )
+    }
+
+    const candidate = await readExperimentRecord(resolve(path, 'record.json'))
+    const parsed = v.safeParse(ScoringMigrationRecordV1Schema, candidate)
+
+    if (!parsed.success || experimentHash(parsed.output).slice(7) !== name) {
+      throw new ResultError(
+        'DISPOSITION_FAILED',
+        'Migration record failed validation before disposition',
+        { stage: 'disposition' }
+      )
+    }
+
+    if (parsed.output.entries.some((entry) => entry.run_id === runId)) {
+      references.push({
+        digest: `sha256:${name}`,
+        path
+      })
+    }
+  }
+
+  return references
+}
+
 async function derivedRecordDigests(
   runsRoot: string,
   runId: string
-): Promise<readonly string[]> {
+): Promise<DerivedDispositionInventory> {
   const runResults = resolve(runsRoot, '.results', runId)
   const digests = new Set<string>()
 
   const categories: readonly ResultRecordCategory[] = [
     'exports',
     'normalized',
+    'regrades',
     'restrictions'
   ]
+
+  let migrations: Awaited<ReturnType<typeof migrationReferences>>
+
+  try {
+    migrations = await migrationReferences(runsRoot, runId)
+  } catch (error) {
+    if (error instanceof ResultError) throw error
+
+    throw new ResultError(
+      'DISPOSITION_FAILED',
+      'Migration records failed validation before disposition',
+      {
+        cause: error,
+        stage: 'disposition'
+      }
+    )
+  }
 
   let runMetadata
 
@@ -283,7 +462,10 @@ async function derivedRecordDigests(
     runMetadata = await lstat(runResults)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return []
+      return {
+        digests: migrations.map(({ digest }) => digest),
+        migrationPaths: migrations.map(({ path }) => path)
+      }
     }
 
     throw new ResultError(
@@ -342,6 +524,12 @@ async function derivedRecordDigests(
       const addresses = await readdir(categoryRoot, { withFileTypes: true })
 
       for (const addressEntry of addresses) {
+        if (category === 'regrades' && addressEntry.name.startsWith('.failed-')) {
+          await validateFailedRegrade(resolve(categoryRoot, addressEntry.name))
+
+          continue
+        }
+
         if (
           !addressEntry.isDirectory() ||
           !/^[a-f0-9]{64}$/.test(addressEntry.name)
@@ -374,7 +562,12 @@ async function derivedRecordDigests(
     )
   }
 
-  return [...digests].sort()
+  for (const migration of migrations) digests.add(migration.digest)
+
+  return {
+    digests: [...digests].sort(),
+    migrationPaths: migrations.map(({ path }) => path).sort()
+  }
 }
 
 function tombstoneRecord(
@@ -544,6 +737,7 @@ type SourceDispositionState = 'canonical' | 'deleted' | 'staged'
 type DerivedDispositionState = 'absent' | 'canonical' | 'deleted' | 'staged'
 type TombstoneDispositionState = 'absent' | 'installed' | 'sealed' | 'staging'
 type ReservationDispositionState = 'absent' | 'installed'
+type MigrationDispositionState = 'canonical' | 'deleted' | 'staged'
 
 async function createDispositionReservation(
   runsRoot: string,
@@ -623,10 +817,55 @@ async function existingRecoveryPaths(
   return existing.sort()
 }
 
+async function stageMigrationRecords(
+  migrationPaths: readonly string[],
+  staging: string
+): Promise<void> {
+  await mkdir(staging, { mode: 0o700 })
+
+  for (const path of migrationPaths) {
+    const stagedPath = resolve(staging, basename(path))
+
+    await chmod(path, 0o700)
+    await rename(path, stagedPath)
+    await chmod(stagedPath, 0o500)
+  }
+}
+
+async function restoreStagedMigrationRecords(
+  staging: string,
+  destination: string
+): Promise<'canonical'> {
+  for (const name of await readdir(staging)) {
+    const stagedPath = resolve(staging, name)
+    const restoredPath = resolve(destination, name)
+
+    await chmod(stagedPath, 0o700)
+    await rename(stagedPath, restoredPath)
+    await chmod(restoredPath, 0o500)
+  }
+
+  await rm(staging)
+
+  return 'canonical'
+}
+
+async function deleteStagedMigrationRecords(
+  staging: string,
+  state: MigrationDispositionState
+): Promise<MigrationDispositionState> {
+  if (state !== 'staged') return state
+
+  await deleteStaged(staging)
+
+  return 'deleted'
+}
+
 async function deleteWithTombstone(
   runDirectory: string,
   runsRoot: string,
   runId: string,
+  migrationPaths: readonly string[],
   createRecord: () => RunTombstoneV1,
   runtime: DisposeRuntime
 ): Promise<DisposeRunResult> {
@@ -636,6 +875,13 @@ async function deleteWithTombstone(
   const resultsRoot = resolve(runsRoot, '.results')
   const resultsSource = resolve(resultsRoot, runId)
   const resultsStaging = resolve(resultsRoot, `.dispose-${runId}-${nonce}`)
+
+  const migrationStaging = resolve(
+    runsRoot,
+    '.experiments',
+    `.dispose-migrations-${runId}-${nonce}`
+  )
+
   const reservationPath = runDispositionReservationPath(runsRoot, runId)
   let sourceState: SourceDispositionState = 'canonical'
 
@@ -645,6 +891,10 @@ async function deleteWithTombstone(
 
   let tombstoneState: TombstoneDispositionState = 'absent'
   let reservationState: ReservationDispositionState = 'absent'
+
+  let migrationState: MigrationDispositionState =
+    migrationPaths.length === 0 ? 'deleted' : 'canonical'
+
   let sealed: Awaited<ReturnType<typeof sealTombstoneStaging>> | undefined
 
   try {
@@ -669,6 +919,12 @@ async function deleteWithTombstone(
       derivedState = 'staged'
     }
 
+    if (migrationState === 'canonical') {
+      migrationState = 'staged'
+
+      await stageMigrationRecords(migrationPaths, migrationStaging)
+    }
+
     await runtime.afterStage?.()
     await deleteStaged(sourceStaging)
 
@@ -679,6 +935,11 @@ async function deleteWithTombstone(
 
       derivedState = 'deleted'
     }
+
+    migrationState = await deleteStagedMigrationRecords(
+      migrationStaging,
+      migrationState
+    )
 
     const record = createRecord()
 
@@ -732,6 +993,13 @@ async function deleteWithTombstone(
         derivedState = 'canonical'
       }
 
+      if (migrationState === 'staged' && sourceState === 'canonical') {
+        migrationState = await restoreStagedMigrationRecords(
+          migrationStaging,
+          resolve(runsRoot, '.experiments', 'migrations')
+        )
+      }
+
       if (sourceState === 'canonical' || sourceState === 'deleted') {
         await restrictRemaining(runDirectory)
       }
@@ -744,6 +1012,7 @@ async function deleteWithTombstone(
       await restrictRemaining(runDirectory).catch(() => undefined)
       await restrictRemaining(sourceStaging).catch(() => undefined)
       await restrictRemaining(resultsStaging).catch(() => undefined)
+      await restrictRemaining(migrationStaging).catch(() => undefined)
       await restrictRemaining(tombstoneStaging).catch(() => undefined)
     }
 
@@ -763,6 +1032,7 @@ async function deleteWithTombstone(
       runDirectory,
       sourceStaging,
       resultsStaging,
+      migrationStaging,
       reservationPath
     ]
 
@@ -809,6 +1079,13 @@ async function deleteWithTombstone(
     ) {
       await removeDispositionReservation(reservationPath).catch(() => undefined)
     }
+
+    if (
+      migrationState !== 'staged' &&
+      await pathExists(migrationStaging).catch(() => false)
+    ) {
+      await deleteStaged(migrationStaging).catch(() => undefined)
+    }
   }
 }
 
@@ -844,40 +1121,52 @@ export async function disposeRunWithRuntime(
     ? normalizationResult.record.identities.run.run_id
     : normalizationResult.record.identity.run_id
 
-  return withRunResultLock(runsRoot, runId, async () => {
-    const digests = await derivedRecordDigests(runsRoot, runId)
+  const releaseExperiment = normalizationResult.kind === 'normalized'
+    ? await lockExperimentFamily(
+        runsRoot,
+        normalizationResult.record.identities.experiment.experiment_id
+      )
+    : null
 
-    if (options.disposition === 'incident-retain') {
-      const record = tombstoneRecord(
+  try {
+    return await withRunResultLock(runsRoot, runId, async () => {
+      const inventory = await derivedRecordDigests(runsRoot, runId)
+
+      if (options.disposition === 'incident-retain') {
+        const record = tombstoneRecord(
+          normalizationResult,
+          options,
+          now,
+          inventory.digests
+        )
+
+        return writeContentAddressedRecord(
+          runsRoot,
+          runId,
+          'restrictions',
+          record
+        )
+      }
+
+      const createRecord = () => tombstoneRecord(
         normalizationResult,
         options,
-        now,
-        digests
+        clock(options),
+        inventory.digests
       )
 
-      return writeContentAddressedRecord(
+      return deleteWithTombstone(
+        resolvedRunDirectory,
         runsRoot,
         runId,
-        'restrictions',
-        record
+        inventory.migrationPaths,
+        createRecord,
+        runtime
       )
-    }
-
-    const createRecord = () => tombstoneRecord(
-      normalizationResult,
-      options,
-      clock(options),
-      digests
-    )
-
-    return deleteWithTombstone(
-      resolvedRunDirectory,
-      runsRoot,
-      runId,
-      createRecord,
-      runtime
-    )
-  })
+    })
+  } finally {
+    await releaseExperiment?.()
+  }
 }
 
 export async function disposeRun(

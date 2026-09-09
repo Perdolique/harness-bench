@@ -1845,6 +1845,7 @@ describe(runHarborProcess, () => {
       )).toEqual({
         auth_transport: 'inherited-fd-3',
         harbor_telemetry: 'off',
+        operation: 'run',
         shell: false
       })
     } finally {

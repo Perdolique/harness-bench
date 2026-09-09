@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type {
   ExperimentComparisonSource,
+  ExperimentComparisonRunRecord,
   NormalizedRunRecordV1,
   ReadNormalizedRunRecordResult
 } from '@harness-bench/results'
@@ -28,6 +29,62 @@ const budget = {
   cpu_enforcement_status: 'enforced' as const,
   memory_megabytes: 2048,
   memory_enforcement_status: 'enforced' as const
+}
+
+function migratedRecord(
+  source: ExperimentComparisonSource,
+  armId: string,
+  value: number,
+  classification: 'task_success' | 'task_failure',
+  verifierSeconds: number,
+  replicate = 1
+): void {
+  const selected = record(source, 'task-1', replicate, armId)
+  const originalScore = selected.record.score
+
+  if (originalScore.status !== 'known') throw new Error('Expected score')
+
+  const migratedScore = structuredClone(originalScore.document)
+
+  migratedScore.scoring_revision = 'scoring-2'
+  migratedScore.rubric_revision = 'rubric-2'
+  migratedScore.composite = {
+    status: 'value',
+    value
+  }
+
+  Object.assign(selected as ExperimentComparisonRunRecord, {
+    regrade: {
+      record: {
+        target: {
+          evaluator: {
+            verifier_revision: 'verifier-2',
+            verifier_image_digest: sha('w'),
+
+            verifier_network_enforcement_sidecar_digest: {
+              status: 'not_applicable',
+              reason: 'Docker network mode is none'
+            },
+
+            scoring_revision: 'scoring-2',
+            rubric_revision: 'rubric-2',
+            rubric_digest: sha('2')
+          }
+        },
+
+        outcome: {
+          classification,
+          valid_grade: true
+        },
+
+        score: migratedScore,
+
+        timings: {
+          verifier_seconds: verifierSeconds
+        }
+      }
+    }
+  })
 }
 
 interface FixtureOptions {
@@ -786,6 +843,139 @@ describe(analyzeExperimentComparison, () => {
       ties: 0,
       losses: 0
     })
+  })
+
+  it('uses migrated quality while retaining source operational metrics', () => {
+    const source = comparisonFixture()
+
+    migratedRecord(source, 'a', 0.5, 'task_failure', 7)
+    migratedRecord(source, 'b', 0.875, 'task_success', 9)
+
+    Object.assign(source, {
+      migration: {
+        digest: sha('g'),
+
+        record: {
+          identity: {
+            migration_id: 'scoring-v2',
+            revision: '2'
+          },
+
+          regrade_provider_calls: 0,
+
+          targets: [{
+            task_id: 'task-1',
+
+            source_evaluator: {
+              verifier_revision: 'verifier-1',
+              verifier_image_digest: sha('v'),
+
+              verifier_network_enforcement_sidecar_digest: {
+                status: 'not_applicable',
+                reason: 'Docker network mode is none'
+              },
+
+              scoring_revision: 'scoring-1',
+              rubric_revision: 'rubric-1',
+              rubric_digest: sha('1')
+            },
+
+            target_evaluator: {
+              verifier_revision: 'verifier-2',
+              verifier_image_digest: sha('w'),
+
+              verifier_network_enforcement_sidecar_digest: {
+                status: 'not_applicable',
+                reason: 'Docker network mode is none'
+              },
+
+              scoring_revision: 'scoring-2',
+              rubric_revision: 'rubric-2',
+              rubric_digest: sha('2')
+            }
+          }]
+        }
+      }
+    })
+
+    const analysis = analyzeExperimentComparison(source)
+    const pair = analysis.pairs[0]!
+    const composite = pair.metrics.find(({ metric }) => metric === 'composite')!
+    const totalSeconds = pair.metrics.find(({ metric }) => metric === 'total_seconds')!
+    const verifierSeconds = pair.metrics.find(({ metric }) => metric === 'verifier_seconds')!
+    const passRate = pair.metrics.find(({ metric }) => metric === 'pass_rate')!
+
+    const observedVerifierSeconds = analysis.observed.map((observed) =>
+      observed.metrics.find(({ metric }) => metric === 'verifier_seconds')!
+    )
+
+    expect(composite.leftDistribution.mean).toBe(0.5)
+    expect(composite.rightDistribution.mean).toBe(0.875)
+    expect(passRate.meanDelta).toBe(1)
+    expect(totalSeconds.leftDistribution.mean).toBe(10)
+    expect(totalSeconds.rightDistribution.mean).toBe(10)
+    expect(verifierSeconds.leftDistribution.mean).toBe(1)
+    expect(verifierSeconds.rightDistribution.mean).toBe(1)
+    expect(observedVerifierSeconds[0]!.distribution.mean).toBe(1)
+    expect(observedVerifierSeconds[1]!.distribution.mean).toBe(1)
+
+    expect(pair.tasks[0]!.reliability).toStrictEqual({
+      left: false,
+      right: true,
+      delta: 1
+    })
+
+    expect(analysis.migration?.verifierSeconds).toStrictEqual({
+      knownCount: 2,
+      unknownCount: 0,
+      mean: 8,
+      minimum: 7,
+      firstQuartile: 7.5,
+      median: 8,
+      thirdQuartile: 8.5,
+      maximum: 9
+    })
+
+    expect(analysis.migration?.targets[0]).toMatchObject({
+      sourceVerifierNetworkEnforcementSidecarDigest: {
+        status: 'not_applicable'
+      },
+
+      targetVerifierNetworkEnforcementSidecarDigest: {
+        status: 'not_applicable'
+      }
+    })
+  })
+
+  it('uses migrated classifications in omitted blocks', () => {
+    const source = comparisonFixture({ repeats: 2 })
+    const omitted = source.state.blocks[1]!
+
+    Object.assign(omitted, {
+      status: 'invalidated',
+      cause: 'incomplete',
+      reason: 'Verifier migration changed the outcome'
+    })
+
+    migratedRecord(source, 'a', 0.5, 'task_failure', 7, 2)
+
+    const analysis = analyzeExperimentComparison(source)
+
+    const migrated = analysis.omittedBlocks[0]!.runs.find(
+      ({ armId }) => armId === 'a'
+    )
+
+    expect(migrated?.classification).toBe('task_failure')
+  })
+
+  it('rejects a block that mixes one regraded arm with one original arm', () => {
+    const source = comparisonFixture()
+
+    migratedRecord(source, 'a', 0.5, 'task_success', 7)
+
+    expect(() => analyzeExperimentComparison(source)).toThrowError(
+      'Eligible arm results differ in task, environment, runner, verifier, scoring, or budget identity'
+    )
   })
 
   it('bootstraps task clusters instead of treating repeats as independent rows', () => {

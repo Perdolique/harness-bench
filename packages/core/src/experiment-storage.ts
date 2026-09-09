@@ -182,8 +182,19 @@ export async function saveExperimentPlan(plan: ExperimentPlan): Promise<string> 
   return path
 }
 export async function lockExperiment(plan: ExperimentPlan): Promise<() => Promise<void>> {
-  const root = await prepareExperimentStorage(plan.runs_directory)
-  const family = experimentHash(plan.experiment.experiment_id)
+  return lockExperimentFamily(
+    plan.runs_directory,
+    plan.experiment.experiment_id
+  )
+}
+
+// Serializes operations that mutate shared state for one experiment identity.
+export async function lockExperimentFamily(
+  runsDirectory: string,
+  experimentId: string
+): Promise<() => Promise<void>> {
+  const root = await prepareExperimentStorage(runsDirectory)
+  const family = experimentHash(experimentId)
   const path = resolve(root, '.locks', family.slice(7))
 
   return acquireExecutionLock(path)

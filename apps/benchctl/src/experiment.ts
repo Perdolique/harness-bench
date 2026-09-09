@@ -14,7 +14,12 @@ import {
   type ExperimentRuntime
 } from '@harness-bench/core'
 
-import { readExperimentComparisonSource, readExperimentState } from '@harness-bench/results'
+import {
+  readExperimentComparisonSource,
+  readRegradedExperimentComparisonSource,
+  readExperimentState,
+  regradeExperiment
+} from '@harness-bench/results'
 
 import {
   renderExperimentComparisonReport,
@@ -62,11 +67,14 @@ function experimentOptions(
     case 'run':
     case 'resume':
     case 'report':
-    case 'compare':
       return {}
+    case 'compare':
+      return { migration: { type: 'string' } }
+    case 'regrade':
+      return { definition: { type: 'string' } }
     default:
       throw new CliUsageError(
-        'Expected experiment plan, run, resume, report, compare, rerun-block, or invalidate'
+        'Expected experiment plan, run, resume, report, compare, regrade, rerun-block, or invalidate'
       )
   }
 }
@@ -92,12 +100,18 @@ async function inspectExperiment(path: string): Promise<string> {
   }
 }
 
-async function compareExperiment(path: string): Promise<string> {
+async function compareExperiment(
+  path: string,
+  migrationPath: string | undefined
+): Promise<string> {
   const plan = await readExperimentPlan(path)
   const release = await lockExperiment(plan)
 
   try {
-    const source = await readExperimentComparisonSource(plan)
+    const source = migrationPath === undefined
+      ? await readExperimentComparisonSource(plan)
+      : await readRegradedExperimentComparisonSource(plan, migrationPath)
+
     const analysis = analyzeExperimentComparison(source)
 
     return renderExperimentComparisonReport(analysis)
@@ -163,9 +177,31 @@ export async function experimentCommand(command: string | undefined, args: reado
   }
 
   if (command === 'compare') {
-    const report = await compareExperiment(path)
+    const migration = typeof parsed.values.migration === 'string'
+      ? parsed.values.migration
+      : undefined
+
+    const report = await compareExperiment(path, migration)
 
     io.stdout(report)
+
+    return 0
+  }
+
+  if (command === 'regrade') {
+    const definition = required(parsed.values.definition, '--definition')
+    const result = await regradeExperiment(path, definition)
+
+    io.stdout(`${JSON.stringify({
+      status: 'completed',
+      migration_id: result.migration.record.identity.migration_id,
+      revision: result.migration.record.identity.revision,
+      digest: result.migration.digest,
+      record_path: result.migration.recordPath,
+      regraded_runs: result.regradedRuns,
+      retained_technical_runs: result.retainedTechnicalRuns,
+      regrade_provider_calls: 0
+    }, null, 2)}\n`)
 
     return 0
   }
