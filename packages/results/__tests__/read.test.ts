@@ -391,7 +391,7 @@ describe(readNormalizedRunRecord, () => {
     await expect(readNormalizedRunRecord(stored.recordPath)).rejects.toMatchObject({ code: 'INTEGRITY_MISMATCH' })
   })
 
-  it.each(['initial.json', 'completion.json', 'raw-manifest.json', 'evidence', 'verifier-log', 'normalized', 'run-mode', 'lock', 'restriction'] as const)(
+  it.each(['initial.json', 'completion.json', 'raw-manifest.json', 'evidence', 'unreferenced-raw', 'verifier-log', 'normalized', 'run-mode', 'lock', 'restriction'] as const)(
     'rejects %s changes between inspection and the final snapshot', async (mutation) => {
       const fixture = await createResultFixture(root, {
         rawMutator: async (rawRoot) => {
@@ -425,6 +425,16 @@ describe(readNormalizedRunRecord, () => {
               if (reference === undefined) throw new Error('Expected patch reference')
 
               await replaceSealedFile(reference.localPath, 'changed\n')
+
+              break
+            }
+            case 'unreferenced-raw': {
+              const trialLog = resolve(
+                normalized.runDirectory,
+                'raw/harbor/job/trial-fixture/trial.log'
+              )
+
+              await replaceSealedFile(trialLog, 'changed\n')
 
               break
             }

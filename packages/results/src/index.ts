@@ -58,6 +58,7 @@ export {
 export {
   assertRegradeSourceIntegrity,
   regradeExperiment,
+  type ExperimentRegradeDependencies,
   type ExperimentRegradeResult,
   type ExperimentRegradeRuntime
 } from './regrade.ts'
@@ -68,7 +69,11 @@ export {
   readExperimentState,
   type ExperimentComparisonSource,
   type ExperimentComparisonRunRecord,
-  type ReadExperimentComparisonSourceRuntime
+  type ReadExperimentComparisonSourceRuntime,
+  type ReadExperimentStateRuntime
 } from './experiment.ts'
-export { readRegradedExperimentComparisonSource } from './migration-read.ts'
+export {
+  readRegradedExperimentComparisonSource,
+  type MigrationReadDependencies
+} from './migration-read.ts'
 export type { ExperimentPlan, ExperimentState } from '@harness-bench/core'

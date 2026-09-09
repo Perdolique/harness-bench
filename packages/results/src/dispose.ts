@@ -2,7 +2,14 @@ import { randomUUID } from 'node:crypto'
 import { chmod, lstat, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, relative, resolve } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
-import { experimentHash, readExperimentRecord, runDispositionReservationPath } from '@harness-bench/core'
+
+import {
+  experimentHash,
+  lockExperimentFamily,
+  readExperimentRecord,
+  runDispositionReservationPath
+} from '@harness-bench/core'
+
 import * as v from 'valibot'
 import { ResultError } from './errors.ts'
 import { normalizeRunWithRuntime, type NormalizeRunResult } from './normalize.ts'
@@ -386,7 +393,7 @@ async function migrationReferences(
     if (
       pathMetadata.isSymbolicLink() ||
       !pathMetadata.isDirectory() ||
-      (pathMetadata.mode & 0o777) !== 0o700 ||
+      (pathMetadata.mode & 0o777) !== 0o500 ||
       !isDeepStrictEqual(await readdir(path), ['record.json'])
     ) {
       throw new ResultError(
@@ -730,6 +737,7 @@ type SourceDispositionState = 'canonical' | 'deleted' | 'staged'
 type DerivedDispositionState = 'absent' | 'canonical' | 'deleted' | 'staged'
 type TombstoneDispositionState = 'absent' | 'installed' | 'sealed' | 'staging'
 type ReservationDispositionState = 'absent' | 'installed'
+type MigrationDispositionState = 'canonical' | 'deleted' | 'staged'
 
 async function createDispositionReservation(
   runsRoot: string,
@@ -809,6 +817,50 @@ async function existingRecoveryPaths(
   return existing.sort()
 }
 
+async function stageMigrationRecords(
+  migrationPaths: readonly string[],
+  staging: string
+): Promise<void> {
+  await mkdir(staging, { mode: 0o700 })
+
+  for (const path of migrationPaths) {
+    const stagedPath = resolve(staging, basename(path))
+
+    await chmod(path, 0o700)
+    await rename(path, stagedPath)
+    await chmod(stagedPath, 0o500)
+  }
+}
+
+async function restoreStagedMigrationRecords(
+  staging: string,
+  destination: string
+): Promise<'canonical'> {
+  for (const name of await readdir(staging)) {
+    const stagedPath = resolve(staging, name)
+    const restoredPath = resolve(destination, name)
+
+    await chmod(stagedPath, 0o700)
+    await rename(stagedPath, restoredPath)
+    await chmod(restoredPath, 0o500)
+  }
+
+  await rm(staging)
+
+  return 'canonical'
+}
+
+async function deleteStagedMigrationRecords(
+  staging: string,
+  state: MigrationDispositionState
+): Promise<MigrationDispositionState> {
+  if (state !== 'staged') return state
+
+  await deleteStaged(staging)
+
+  return 'deleted'
+}
+
 async function deleteWithTombstone(
   runDirectory: string,
   runsRoot: string,
@@ -839,7 +891,10 @@ async function deleteWithTombstone(
 
   let tombstoneState: TombstoneDispositionState = 'absent'
   let reservationState: ReservationDispositionState = 'absent'
-  let migrationsStaged = false
+
+  let migrationState: MigrationDispositionState =
+    migrationPaths.length === 0 ? 'deleted' : 'canonical'
+
   let sealed: Awaited<ReturnType<typeof sealTombstoneStaging>> | undefined
 
   try {
@@ -864,14 +919,10 @@ async function deleteWithTombstone(
       derivedState = 'staged'
     }
 
-    if (migrationPaths.length > 0) {
-      await mkdir(migrationStaging, { mode: 0o700 })
+    if (migrationState === 'canonical') {
+      migrationState = 'staged'
 
-      migrationsStaged = true
-
-      for (const path of migrationPaths) {
-        await rename(path, resolve(migrationStaging, basename(path)))
-      }
+      await stageMigrationRecords(migrationPaths, migrationStaging)
     }
 
     await runtime.afterStage?.()
@@ -885,11 +936,10 @@ async function deleteWithTombstone(
       derivedState = 'deleted'
     }
 
-    if (migrationsStaged) {
-      await deleteStaged(migrationStaging)
-
-      migrationsStaged = false
-    }
+    migrationState = await deleteStagedMigrationRecords(
+      migrationStaging,
+      migrationState
+    )
 
     const record = createRecord()
 
@@ -943,17 +993,11 @@ async function deleteWithTombstone(
         derivedState = 'canonical'
       }
 
-      if (migrationsStaged && sourceState === 'canonical') {
-        for (const name of await readdir(migrationStaging)) {
-          await rename(
-            resolve(migrationStaging, name),
-            resolve(runsRoot, '.experiments', 'migrations', name)
-          )
-        }
-
-        await rm(migrationStaging)
-
-        migrationsStaged = false
+      if (migrationState === 'staged' && sourceState === 'canonical') {
+        migrationState = await restoreStagedMigrationRecords(
+          migrationStaging,
+          resolve(runsRoot, '.experiments', 'migrations')
+        )
       }
 
       if (sourceState === 'canonical' || sourceState === 'deleted') {
@@ -1037,7 +1081,7 @@ async function deleteWithTombstone(
     }
 
     if (
-      !migrationsStaged &&
+      migrationState !== 'staged' &&
       await pathExists(migrationStaging).catch(() => false)
     ) {
       await deleteStaged(migrationStaging).catch(() => undefined)
@@ -1077,41 +1121,52 @@ export async function disposeRunWithRuntime(
     ? normalizationResult.record.identities.run.run_id
     : normalizationResult.record.identity.run_id
 
-  return withRunResultLock(runsRoot, runId, async () => {
-    const inventory = await derivedRecordDigests(runsRoot, runId)
+  const releaseExperiment = normalizationResult.kind === 'normalized'
+    ? await lockExperimentFamily(
+        runsRoot,
+        normalizationResult.record.identities.experiment.experiment_id
+      )
+    : null
 
-    if (options.disposition === 'incident-retain') {
-      const record = tombstoneRecord(
+  try {
+    return await withRunResultLock(runsRoot, runId, async () => {
+      const inventory = await derivedRecordDigests(runsRoot, runId)
+
+      if (options.disposition === 'incident-retain') {
+        const record = tombstoneRecord(
+          normalizationResult,
+          options,
+          now,
+          inventory.digests
+        )
+
+        return writeContentAddressedRecord(
+          runsRoot,
+          runId,
+          'restrictions',
+          record
+        )
+      }
+
+      const createRecord = () => tombstoneRecord(
         normalizationResult,
         options,
-        now,
+        clock(options),
         inventory.digests
       )
 
-      return writeContentAddressedRecord(
+      return deleteWithTombstone(
+        resolvedRunDirectory,
         runsRoot,
         runId,
-        'restrictions',
-        record
+        inventory.migrationPaths,
+        createRecord,
+        runtime
       )
-    }
-
-    const createRecord = () => tombstoneRecord(
-      normalizationResult,
-      options,
-      clock(options),
-      inventory.digests
-    )
-
-    return deleteWithTombstone(
-      resolvedRunDirectory,
-      runsRoot,
-      runId,
-      inventory.migrationPaths,
-      createRecord,
-      runtime
-    )
-  })
+    })
+  } finally {
+    await releaseExperiment?.()
+  }
 }
 
 export async function disposeRun(

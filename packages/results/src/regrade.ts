@@ -1,23 +1,24 @@
-import { readFile, readdir } from 'node:fs/promises'
+import { readdir } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 
 import {
   RunError,
+  HarborRegradeExecutionError,
   executeHarborRegrade,
   experimentHash,
-  inspectRunTree,
+  inspectRunTreeInventory,
   lockExperiment,
   preflightHarborRegrade,
   readExperimentPlan,
   resolveScoringMigrationDefinition,
+  scoringMigrationEvaluatorIdentity,
   type ExecuteHarborRegradeOptions,
   type HarborRegradeEvidence,
   type HarborRegradePreflightOptions,
   type ResolvedScoringMigrationTarget
 } from '@harness-bench/core'
 
-import type { TaskDocument } from '@harness-bench/schemas'
 import { readExperimentComparisonSource } from './experiment.ts'
 import { ResultError } from './errors.ts'
 import type { ReadNormalizedRunRecordResult } from './read.ts'
@@ -39,7 +40,7 @@ import {
   type StoredScoringMigrationRecord
 } from './regrade-storage.ts'
 
-import { sha256, withRunResultLocks } from './storage.ts'
+import { hashStableFile, withRunResultLocks } from './storage.ts'
 
 export interface ExperimentRegradeRuntime {
   readonly execute: (
@@ -63,17 +64,44 @@ const defaultRuntime: ExperimentRegradeRuntime = {
   preflight: preflightHarborRegrade
 }
 
-function evaluatorIdentity(task: TaskDocument): RegradeEvaluatorIdentity {
-  return {
-    verifier_revision: task.verifier.revision,
-    verifier_image_digest: task.verifier.image_digest,
+type RegradeComparisonSource = Awaited<
+  ReturnType<typeof readExperimentComparisonSource>
+>
 
-    verifier_network_enforcement_sidecar_digest:
-      task.verifier.network_enforcement_sidecar_digest,
+type ResolvedMigration = Awaited<
+  ReturnType<typeof resolveScoringMigrationDefinition>
+>
 
-    scoring_revision: task.scoring.revision,
-    rubric_revision: task.scoring.rubric_revision
-  }
+export interface ExperimentRegradeDependencies {
+  readonly lockExperiment: typeof lockExperiment;
+  readonly readPlan: typeof readExperimentPlan;
+  readonly readSource: (
+    plan: Awaited<ReturnType<typeof readExperimentPlan>>,
+    resultLocksHeld: boolean
+  ) => Promise<RegradeComparisonSource>;
+  readonly regradeSource: typeof regradeSource;
+  readonly resolveDefinition: (
+    path: string,
+    plan: Awaited<ReturnType<typeof readExperimentPlan>>
+  ) => Promise<ResolvedMigration>;
+  readonly withRunLocks: typeof withRunResultLocks;
+  readonly writeMigration: typeof writeScoringMigrationRecord;
+}
+
+const defaultDependencies: ExperimentRegradeDependencies = {
+  lockExperiment,
+  readPlan: readExperimentPlan,
+
+  readSource: (plan, resultLocksHeld) => readExperimentComparisonSource(
+    plan,
+    new Date(),
+    resultLocksHeld ? { resultLocksHeld: true } : {}
+  ),
+
+  regradeSource,
+  resolveDefinition: resolveScoringMigrationDefinition,
+  withRunLocks: withRunResultLocks,
+  writeMigration: writeScoringMigrationRecord
 }
 
 function sourceEvaluatorIdentity(
@@ -82,7 +110,11 @@ function sourceEvaluatorIdentity(
 ): RegradeEvaluatorIdentity {
   const score = source.record.score
 
-  if (score.status !== 'known') return evaluatorIdentity(target.sourceTask)
+  if (score.status !== 'known') {
+    return scoringMigrationEvaluatorIdentity(target.sourceTask)
+  }
+
+  const sourceTaskEvaluator = scoringMigrationEvaluatorIdentity(target.sourceTask)
 
   return {
     verifier_revision: source.record.revisions.verifier_revision,
@@ -92,12 +124,14 @@ function sourceEvaluatorIdentity(
       source.record.revisions.verifier_network_enforcement_sidecar_digest,
 
     scoring_revision: source.record.revisions.scoring_revision,
-    rubric_revision: score.document.rubric_revision
+    rubric_revision: score.document.rubric_revision,
+    rubric_digest: sourceTaskEvaluator.rubric_digest
   }
 }
 
 function validSourceEvaluatorIdentity(
-  source: ReadNormalizedRunRecordResult
+  source: ReadNormalizedRunRecordResult,
+  sourceTask: ResolvedScoringMigrationTarget['sourceTask']
 ): RegradeEvaluatorIdentity {
   if (source.record.score.status !== 'known') {
     throw new ResultError(
@@ -107,6 +141,8 @@ function validSourceEvaluatorIdentity(
     )
   }
 
+  const evaluator = scoringMigrationEvaluatorIdentity(sourceTask)
+
   return {
     verifier_revision: source.record.revisions.verifier_revision,
     verifier_image_digest: source.record.revisions.verifier_image_digest,
@@ -115,7 +151,8 @@ function validSourceEvaluatorIdentity(
       source.record.revisions.verifier_network_enforcement_sidecar_digest,
 
     scoring_revision: source.record.revisions.scoring_revision,
-    rubric_revision: source.record.score.document.rubric_revision
+    rubric_revision: source.record.score.document.rubric_revision,
+    rubric_digest: evaluator.rubric_digest
   }
 }
 
@@ -144,7 +181,7 @@ function regradedRecord(
   createdAt: string
 ): RegradedRunRecordV1 {
   const originalEvaluator = sourceEvaluatorIdentity(source, target)
-  const targetEvaluator = evaluatorIdentity(target.targetTask)
+  const targetEvaluator = scoringMigrationEvaluatorIdentity(target.targetTask)
 
   return {
     document_type: 'regraded_run',
@@ -260,28 +297,29 @@ async function sourceTrialDirectory(
 }
 
 async function digestFile(path: string): Promise<string> {
-  return sha256(await readFile(path))
+  return (await hashStableFile(path)).digest
 }
 
-export async function assertRegradeSourceIntegrity(
-  regrade: ReadRegradedRunRecordResult,
+async function assertRegradeRecordSourceIntegrity(
+  record: RegradedRunRecordV1,
+  evidenceLeaf: string,
   source: ReadNormalizedRunRecordResult,
+  sourceTask: ResolvedScoringMigrationTarget['sourceTask'],
   migrationDefinitionDigest: string
 ): Promise<void> {
-  const record = regrade.record
-  const sourceTree = await inspectRunTree(source.runDirectory)
+  const sourceTree = await inspectRunTreeInventory(source.runDirectory)
   const sourceTrial = await sourceTrialDirectory(source)
 
   const regradedTrial = dirname(
-    resolve(regrade.leaf, record.evidence.config_path)
+    resolve(evidenceLeaf, record.evidence.config_path)
   )
 
   const [sourceAgent, regradedAgent, sourceArtifacts, regradedArtifacts] =
     await Promise.all([
-      inspectRunTree(resolve(sourceTrial, 'agent')),
-      inspectRunTree(resolve(regradedTrial, 'agent')),
-      inspectRunTree(resolve(sourceTrial, 'artifacts')),
-      inspectRunTree(resolve(regradedTrial, 'artifacts'))
+      inspectRunTreeInventory(resolve(sourceTrial, 'agent')),
+      inspectRunTreeInventory(resolve(regradedTrial, 'agent')),
+      inspectRunTreeInventory(resolve(sourceTrial, 'artifacts')),
+      inspectRunTreeInventory(resolve(regradedTrial, 'artifacts'))
     ])
 
   const [configDigest, lockDigest, resultDigest] = await Promise.all([
@@ -290,37 +328,44 @@ export async function assertRegradeSourceIntegrity(
     digestFile(resolve(sourceTrial, 'result.json'))
   ])
 
-  const expectedSourceEvaluator = validSourceEvaluatorIdentity(source)
+  const expectedSourceEvaluator = validSourceEvaluatorIdentity(source, sourceTask)
 
-  const matches =
+  const expectedNormalizedRecordPath = relative(
+    resolve(
+      dirname(source.runDirectory),
+      '.results',
+      source.record.identities.run.run_id
+    ),
+    source.recordPath
+  ).split('\\').join('/')
+
+  const expectedAgentIdentityDigest = experimentHash(source.record.identities.agent)
+  const expectedUsageDigest = experimentHash(source.record.usage)
+
+  const recordMatchesSource =
     record.migration_definition_digest === migrationDefinitionDigest &&
     record.source.run_id === source.record.identities.run.run_id &&
     record.source.attempt_id === source.record.identities.run.attempt_id &&
     record.source.normalized_digest === source.digest &&
-    record.source.normalized_record_path ===
-      relative(
-        resolve(
-          dirname(source.runDirectory),
-          '.results',
-          source.record.identities.run.run_id
-        ),
-        source.recordPath
-      ).split('\\').join('/') &&
+    record.source.normalized_record_path === expectedNormalizedRecordPath &&
     record.source.raw_manifest_digest ===
       source.record.source_digests.raw_manifest &&
     record.source.run_tree_digest === sourceTree.digest &&
-    record.source.agent_identity_digest ===
-      experimentHash(source.record.identities.agent) &&
-    record.source.usage_digest === experimentHash(source.record.usage) &&
+    record.source.agent_identity_digest === expectedAgentIdentityDigest &&
+    record.source.usage_digest === expectedUsageDigest &&
+    record.target.task_id === source.record.identities.task.id &&
+    isDeepStrictEqual(record.source.evaluator, expectedSourceEvaluator)
+
+  const trialDigestsMatch =
     record.source.trial.config_digest === configDigest &&
     record.source.trial.lock_digest === lockDigest &&
-    record.source.trial.result_digest === resultDigest &&
-    record.target.task_id === source.record.identities.task.id &&
-    isDeepStrictEqual(record.source.evaluator, expectedSourceEvaluator) &&
+    record.source.trial.result_digest === resultDigest
+
+  const retainedTreesMatch =
     sourceAgent.digest === regradedAgent.digest &&
     sourceArtifacts.digest === regradedArtifacts.digest
 
-  if (!matches) {
+  if (!recordMatchesSource || !trialDigestsMatch || !retainedTreesMatch) {
     throw new ResultError(
       'INCOMPATIBLE_EVIDENCE',
       'Regraded result does not match its immutable source or migration target',
@@ -329,20 +374,37 @@ export async function assertRegradeSourceIntegrity(
   }
 }
 
-async function assertRegradeMatchesSource(
+export async function assertRegradeSourceIntegrity(
   regrade: ReadRegradedRunRecordResult,
+  source: ReadNormalizedRunRecordResult,
+  sourceTask: ResolvedScoringMigrationTarget['sourceTask'],
+  migrationDefinitionDigest: string
+): Promise<void> {
+  await assertRegradeRecordSourceIntegrity(
+    regrade.record,
+    regrade.leaf,
+    source,
+    sourceTask,
+    migrationDefinitionDigest
+  )
+}
+
+async function assertRegradeRecordMatchesSource(
+  record: RegradedRunRecordV1,
+  evidenceLeaf: string,
   source: ReadNormalizedRunRecordResult,
   target: ResolvedScoringMigrationTarget,
   migrationDefinitionDigest: string
 ): Promise<void> {
-  await assertRegradeSourceIntegrity(
-    regrade,
+  await assertRegradeRecordSourceIntegrity(
+    record,
+    evidenceLeaf,
     source,
+    target.sourceTask,
     migrationDefinitionDigest
   )
 
-  const record = regrade.record
-  const expectedTargetEvaluator = evaluatorIdentity(target.targetTask)
+  const expectedTargetEvaluator = scoringMigrationEvaluatorIdentity(target.targetTask)
 
   const targetMatches =
     record.target.task_id === target.taskId &&
@@ -357,6 +419,21 @@ async function assertRegradeMatchesSource(
       { stage: 'input' }
     )
   }
+}
+
+async function assertRegradeMatchesSource(
+  regrade: ReadRegradedRunRecordResult,
+  source: ReadNormalizedRunRecordResult,
+  target: ResolvedScoringMigrationTarget,
+  migrationDefinitionDigest: string
+): Promise<void> {
+  await assertRegradeRecordMatchesSource(
+    regrade.record,
+    regrade.leaf,
+    source,
+    target,
+    migrationDefinitionDigest
+  )
 }
 
 function technicalEntry(
@@ -378,6 +455,31 @@ function technicalEntry(
     source_normalized_digest: source.digest,
     status: 'retained_technical',
     classification
+  }
+}
+
+function failureDiagnostic(error: unknown, createdAt: string): unknown {
+  const technicalError = error instanceof Error
+    ? {
+        message: error.message,
+        name: error.name,
+        stack: error.stack ?? null
+      }
+    : {
+        message: 'Unknown regrade failure',
+        name: 'UnknownError',
+        stack: null
+      }
+
+  return {
+    document_type: 'regrade_failure',
+    schema_version: 1,
+    created_at: createdAt,
+    error: technicalError,
+
+    harbor: error instanceof HarborRegradeExecutionError
+      ? error.diagnostic
+      : null
   }
 }
 
@@ -426,18 +528,21 @@ async function regradeSource(
       runtime.now().toISOString()
     )
 
-    const sealed = await sealRegradedRunRecord(staging, record)
-
-    await assertRegradeMatchesSource(
-      sealed,
-      source,
-      target,
-      definitionDigest
+    return sealRegradedRunRecord(
+      staging,
+      record,
+      () => assertRegradeRecordMatchesSource(
+        record,
+        staging,
+        source,
+        target,
+        definitionDigest
+      )
     )
-
-    return sealed
   } catch (error) {
-    await quarantineRegradeStaging(staging).catch(() => undefined)
+    const diagnostic = failureDiagnostic(error, runtime.now().toISOString())
+
+    await quarantineRegradeStaging(staging, diagnostic).catch(() => undefined)
 
     throw error
   }
@@ -460,20 +565,33 @@ function assertExperimentComplete(
   }
 }
 
+function sourceIdentity(
+  source: Awaited<ReturnType<typeof readExperimentComparisonSource>>
+): readonly unknown[] {
+  return source.records
+    .map((record) => ({
+      attemptId: record.record.identities.run.attempt_id,
+      digest: record.digest,
+      runId: record.record.identities.run.run_id
+    }))
+    .sort((left, right) => left.runId.localeCompare(right.runId))
+}
+
 export async function regradeExperiment(
   planPath: string,
   definitionPath: string,
-  runtime: ExperimentRegradeRuntime = defaultRuntime
+  runtime: ExperimentRegradeRuntime = defaultRuntime,
+  dependencies: ExperimentRegradeDependencies = defaultDependencies
 ): Promise<ExperimentRegradeResult> {
-  const plan = await readExperimentPlan(planPath)
-  const releaseExperiment = await lockExperiment(plan)
+  const plan = await dependencies.readPlan(planPath)
+  const releaseExperiment = await dependencies.lockExperiment(plan)
 
   try {
-    const source = await readExperimentComparisonSource(plan)
+    const source = await dependencies.readSource(plan, false)
 
     assertExperimentComplete(source)
 
-    const migration = await resolveScoringMigrationDefinition(
+    const migration = await dependencies.resolveDefinition(
       definitionPath,
       plan
     )
@@ -482,21 +600,30 @@ export async function regradeExperiment(
       ({ record }) => record.identities.run.run_id
     )
 
-    return withRunResultLocks(plan.runs_directory, runIds, async () => {
+    return dependencies.withRunLocks(plan.runs_directory, runIds, async () => {
+      const lockedSource = await dependencies.readSource(plan, true)
+
+      assertExperimentComplete(lockedSource)
+
+      if (!isDeepStrictEqual(sourceIdentity(source), sourceIdentity(lockedSource))) {
+        throw new RunError(
+          'INPUT_CHANGED',
+          'Experiment source records changed before result leases were acquired'
+        )
+      }
+
       const entries: ScoringMigrationEntryV1[] = []
       let regradedRuns = 0
       let retainedTechnicalRuns = 0
 
-      for (const record of source.records) {
-        if (!record.record.outcome.valid_grade) continue
-
+      for (const record of lockedSource.records) {
         await runtime.preflight({
           sourceRunDirectory: record.runDirectory,
           target: targetForSource(migration.targets, record)
         })
       }
 
-      for (const record of source.records) {
+      for (const record of lockedSource.records) {
         const target = targetForSource(migration.targets, record)
 
         if (!record.record.outcome.valid_grade) {
@@ -507,7 +634,7 @@ export async function regradeExperiment(
           continue
         }
 
-        const regraded = await regradeSource(
+        const regraded = await dependencies.regradeSource(
           record,
           target,
           migration.digest,
@@ -556,15 +683,15 @@ export async function regradeExperiment(
           task_id: target.taskId,
           task_document_digest: target.documentDigest,
           task_package_digest: target.packageDigest,
-          source_evaluator: evaluatorIdentity(target.sourceTask),
-          target_evaluator: evaluatorIdentity(target.targetTask)
+          source_evaluator: scoringMigrationEvaluatorIdentity(target.sourceTask),
+          target_evaluator: scoringMigrationEvaluatorIdentity(target.targetTask)
         })),
 
         entries,
         regrade_provider_calls: 0
       }
 
-      const stored = await writeScoringMigrationRecord(plan, migrationRecord)
+      const stored = await dependencies.writeMigration(plan, migrationRecord)
 
       return {
         migration: stored,

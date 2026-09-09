@@ -1,7 +1,15 @@
 import { readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
-import { inspectHarborTaskPackage, inspectRunTree, type ExperimentPlan } from '@harness-bench/core'
+
+import {
+  inspectHarborTaskPackage,
+  inspectRunTree,
+  scoringMigrationEvaluatorIdentity,
+  scoringMigrationTaskBehaviorIdentity,
+  type ExperimentPlan
+} from '@harness-bench/core'
+
 import { TaskDocumentSchema, type TaskDocument } from '@harness-bench/schemas'
 import * as v from 'valibot'
 
@@ -15,36 +23,6 @@ import { ResultError } from './errors.ts'
 import { readStableFile } from './storage.ts'
 import { readRegradedRunRecord, readScoringMigrationRecord } from './regrade-storage.ts'
 import { assertRegradeSourceIntegrity } from './regrade.ts'
-import type { RegradeEvaluatorIdentity } from './regrade-schemas.ts'
-
-function taskBehaviorIdentity(task: TaskDocument): unknown {
-  return {
-    task_id: task.task_id,
-    revision: task.revision,
-    base_commit: task.base_commit,
-    source_digest: task.source_digest,
-    environment: task.environment,
-    collector: task.collector,
-    prompt: task.prompt,
-    declared_artifacts: task.declared_artifacts,
-    scope: task.scope,
-    online_reachability: task.online_reachability,
-    retention: task.retention
-  }
-}
-
-function evaluatorIdentity(task: TaskDocument): RegradeEvaluatorIdentity {
-  return {
-    verifier_revision: task.verifier.revision,
-    verifier_image_digest: task.verifier.image_digest,
-
-    verifier_network_enforcement_sidecar_digest:
-      task.verifier.network_enforcement_sidecar_digest,
-
-    scoring_revision: task.scoring.revision,
-    rubric_revision: task.scoring.rubric_revision
-  }
-}
 
 async function taskDocument(path: string): Promise<TaskDocument | null> {
   const source = await readStableFile(path)
@@ -101,11 +79,11 @@ async function assertTargetContract(
   if (
     targetTask === null ||
     !isDeepStrictEqual(
-      taskBehaviorIdentity(sourceTask),
-      taskBehaviorIdentity(targetTask)
+      scoringMigrationTaskBehaviorIdentity(sourceTask),
+      scoringMigrationTaskBehaviorIdentity(targetTask)
     ) ||
     !isDeepStrictEqual(
-      evaluatorIdentity(targetTask),
+      scoringMigrationEvaluatorIdentity(targetTask),
       regrade.record.target.evaluator
     )
   ) {
@@ -134,6 +112,24 @@ async function assertTargetContract(
   }
 }
 
+export interface MigrationReadDependencies {
+  readonly assertSourceIntegrity: typeof assertRegradeSourceIntegrity;
+  readonly assertTargetContract: typeof assertTargetContract;
+  readonly readMigration: typeof readScoringMigrationRecord;
+  readonly readRegrade: typeof readRegradedRunRecord;
+  readonly readSource: typeof readExperimentComparisonSource;
+  readonly readSourceTask: typeof sourceTaskDocument;
+}
+
+const defaultDependencies: MigrationReadDependencies = {
+  assertSourceIntegrity: assertRegradeSourceIntegrity,
+  assertTargetContract,
+  readMigration: readScoringMigrationRecord,
+  readRegrade: readRegradedRunRecord,
+  readSource: readExperimentComparisonSource,
+  readSourceTask: sourceTaskDocument
+}
+
 function assertExactTargetSet(
   plan: ExperimentPlan,
   migration: Awaited<ReturnType<typeof readScoringMigrationRecord>>
@@ -152,10 +148,11 @@ function assertExactTargetSet(
 
 export async function readRegradedExperimentComparisonSource(
   plan: ExperimentPlan,
-  migrationPath: string
+  migrationPath: string,
+  dependencies: MigrationReadDependencies = defaultDependencies
 ): Promise<ExperimentComparisonSource> {
-  const source = await readExperimentComparisonSource(plan)
-  const migration = await readScoringMigrationRecord(migrationPath, plan)
+  const source = await dependencies.readSource(plan)
+  const migration = await dependencies.readMigration(migrationPath, plan)
 
   assertExactTargetSet(plan, migration)
 
@@ -189,7 +186,7 @@ export async function readRegradedExperimentComparisonSource(
       )
     }
 
-    const sourceTask = await sourceTaskDocument(
+    const sourceTask = await dependencies.readSourceTask(
       normalized.runDirectory,
       normalized.record.identities.task.id
     )
@@ -200,7 +197,10 @@ export async function readRegradedExperimentComparisonSource(
 
     if (
       target === undefined ||
-      !isDeepStrictEqual(target.source_evaluator, evaluatorIdentity(sourceTask))
+      !isDeepStrictEqual(
+        target.source_evaluator,
+        scoringMigrationEvaluatorIdentity(sourceTask)
+      )
     ) {
       throw new ResultError(
         'INCOMPATIBLE_EVIDENCE',
@@ -235,7 +235,7 @@ export async function readRegradedExperimentComparisonSource(
     }
 
     const expectedPath = resolve(plan.runs_directory, entry.regraded_record_path)
-    const regrade = await readRegradedRunRecord(expectedPath)
+    const regrade = await dependencies.readRegrade(expectedPath)
 
     if (
       regrade.digest !== entry.regraded_record_digest ||
@@ -252,9 +252,10 @@ export async function readRegradedExperimentComparisonSource(
       )
     }
 
-    await assertRegradeSourceIntegrity(
+    await dependencies.assertSourceIntegrity(
       regrade,
       normalized,
+      sourceTask,
       migration.record.identity.definition_digest
     )
 
@@ -263,7 +264,7 @@ export async function readRegradedExperimentComparisonSource(
       regrade
     }
 
-    await assertTargetContract(plan, record, regrade, sourceTask)
+    await dependencies.assertTargetContract(plan, record, regrade, sourceTask)
     records.push(record)
   }
 

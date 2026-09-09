@@ -281,7 +281,10 @@ export async function withRunResultLock<T>(
 export async function withRunResultLocks<T>(
   runsRoot: string,
   runIds: readonly string[],
-  operation: () => Promise<T>
+  operation: () => Promise<T>,
+  runtime: {
+    readonly afterAcquire?: (runId: string) => Promise<void>;
+  } = {}
 ): Promise<T> {
   const unique = [...new Set(runIds)].sort()
 
@@ -293,7 +296,11 @@ export async function withRunResultLocks<T>(
     return withRunResultLock(
       runsRoot,
       runId,
-      async () => acquire(index + 1)
+      async () => {
+        await runtime.afterAcquire?.(runId)
+
+        return acquire(index + 1)
+      }
     )
   }
 

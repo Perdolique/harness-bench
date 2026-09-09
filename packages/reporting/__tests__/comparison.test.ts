@@ -372,8 +372,20 @@ describe(renderExperimentComparisonReport, () => {
         taskId: 'task-a',
         sourceVerifierRevision: '1',
         sourceVerifierImageDigest: `sha256:${'c'.repeat(64)}`,
+
+        sourceVerifierNetworkEnforcementSidecarDigest: {
+          status: 'not_applicable',
+          reason: 'Docker network mode is none'
+        },
+
         targetVerifierRevision: '2',
         targetVerifierImageDigest: `sha256:${'d'.repeat(64)}`,
+
+        targetVerifierNetworkEnforcementSidecarDigest: {
+          status: 'known',
+          value: `sha256:${'e'.repeat(64)}`
+        },
+
         sourceScoringRevision: '1',
         targetScoringRevision: '2',
         sourceRubricRevision: '1',
@@ -391,7 +403,7 @@ describe(renderExperimentComparisonReport, () => {
     expect(report).toContain('Regrade verifier seconds: known 2, unknown 0; mean 8.000')
 
     expect(report).toContain(
-      `Task task-a evaluator: verifier 1 sha256:${'c'.repeat(64)} -> 2 sha256:${'d'.repeat(64)}, scoring 1 -> 2, rubric 1 -> 2`
+      `Task task-a evaluator: verifier 1 sha256:${'c'.repeat(64)} -> 2 sha256:${'d'.repeat(64)}, sidecar not_applicable (Docker network mode is none) -> sha256:${'e'.repeat(64)}, scoring 1 -> 2, rubric 1 -> 2`
     )
 
     expect(report).toContain('Operational metrics: immutable source run values')

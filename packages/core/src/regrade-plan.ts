@@ -71,7 +71,8 @@ async function parseDocument<TSchema extends v.BaseSchema<unknown, unknown, v.Ba
   }
 }
 
-function taskBehaviorIdentity(task: TaskDocument): unknown {
+// Projects the task fields that a scoring migration is never allowed to change.
+export function scoringMigrationTaskBehaviorIdentity(task: TaskDocument): unknown {
   return {
     task_id: task.task_id,
     revision: task.revision,
@@ -87,7 +88,34 @@ function taskBehaviorIdentity(task: TaskDocument): unknown {
   }
 }
 
-function evaluatorIdentity(task: TaskDocument): unknown {
+export interface ScoringMigrationEvaluatorIdentity {
+  readonly verifier_revision: string;
+  readonly verifier_image_digest: string;
+  readonly verifier_network_enforcement_sidecar_digest:
+    TaskDocument['verifier']['network_enforcement_sidecar_digest'];
+  readonly scoring_revision: string;
+  readonly rubric_revision: string;
+  readonly rubric_digest: string;
+}
+
+// Projects the evaluator identity persisted in regrade and migration records.
+export function scoringMigrationEvaluatorIdentity(
+  task: TaskDocument
+): ScoringMigrationEvaluatorIdentity {
+  return {
+    verifier_revision: task.verifier.revision,
+    verifier_image_digest: task.verifier.image_digest,
+
+    verifier_network_enforcement_sidecar_digest:
+      task.verifier.network_enforcement_sidecar_digest,
+
+    scoring_revision: task.scoring.revision,
+    rubric_revision: task.scoring.rubric_revision,
+    rubric_digest: experimentHash(task.rubric)
+  }
+}
+
+function evaluatorChangeIdentity(task: TaskDocument): unknown {
   return {
     verifier: task.verifier,
     scoring: task.scoring,
@@ -204,8 +232,8 @@ export async function resolveScoringMigrationDefinition(
     if (
       target.document.task_id !== binding.task_id ||
       !isDeepStrictEqual(
-        taskBehaviorIdentity(source.document),
-        taskBehaviorIdentity(target.document)
+        scoringMigrationTaskBehaviorIdentity(source.document),
+        scoringMigrationTaskBehaviorIdentity(target.document)
       )
     ) {
       throw new RunError(
@@ -214,9 +242,23 @@ export async function resolveScoringMigrationDefinition(
       )
     }
 
+    const sourceRubricDigest = experimentHash(source.document.rubric)
+    const targetRubricDigest = experimentHash(target.document.rubric)
+
+    if (
+      sourceRubricDigest !== targetRubricDigest &&
+      source.document.scoring.rubric_revision ===
+        target.document.scoring.rubric_revision
+    ) {
+      throw new RunError(
+        'RELATIONSHIP_MISMATCH',
+        'Scoring migration changes rubric content without a rubric revision change'
+      )
+    }
+
     evaluatorChanged ||= !isDeepStrictEqual(
-      evaluatorIdentity(source.document),
-      evaluatorIdentity(target.document)
+      evaluatorChangeIdentity(source.document),
+      evaluatorChangeIdentity(target.document)
     )
 
     const packageSnapshot = await inspectRunTree(packagePath)

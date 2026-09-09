@@ -15,6 +15,7 @@ import {
 
 import { readExperimentComparisonSource, readExperimentState } from '../src/experiment.ts'
 import { normalizeRun } from '../src/normalize.ts'
+import { withRunResultLocks } from '../src/storage.ts'
 import { renderExperimentReport } from '../../reporting/src/experiment.ts'
 import { createResultFixture, makeWritable } from './fixture.ts'
 
@@ -385,6 +386,38 @@ describe('verified experiment results', () => {
     expect(source.records[0]!.initialRecord.identity.run_id).toBe('fixture-a')
     expect(source.records[0]!.completionRecord.identity.run_id).toBe('fixture-a')
     expect(source.records[0]!.digest).toBe(result.normalized_digest)
+  })
+
+  it('rereads state and records while the caller holds every result lease', async () => {
+    const { plan } = await prepared()
+    const recovered = await readExperimentState(plan, true, now)
+    const result = recovered.blocks[0]!.runs[0]!.result!
+
+    await appendExperimentProgress(plan, {
+      type: 'finished',
+      run_id: 'fixture-a',
+      block_id: 'fixture-block',
+      normalized_digest: result.normalized_digest
+    }, now.toISOString())
+
+    await withRunResultLocks(
+      plan.runs_directory,
+      ['fixture-a'],
+      async () => {
+        await expect(
+          readExperimentComparisonSource(plan, now)
+        ).rejects.toMatchObject({ code: 'RECORD_CONFLICT' })
+
+        const source = await readExperimentComparisonSource(
+          plan,
+          now,
+          { resultLocksHeld: true }
+        )
+
+        expect(source.records).toHaveLength(1)
+        expect(source.records[0]!.digest).toBe(result.normalized_digest)
+      }
+    )
   })
 
   it('rereads the sealed normalized source after state inspection', async () => {

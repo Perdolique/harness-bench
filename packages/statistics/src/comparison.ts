@@ -899,7 +899,11 @@ function observedSummary(
   }
 }
 
-function omittedBlock(block: ExperimentBlockState, predecessor: boolean): OmittedBlockV1 {
+function omittedBlock(
+  block: ExperimentBlockState,
+  predecessor: boolean,
+  records: ReadonlyMap<string, ExperimentComparisonRunRecord>
+): OmittedBlockV1 {
   const reason = block.reason ?? (predecessor
     ? 'Predecessor block is excluded from the current plan'
     : `Current block is ${block.status}`)
@@ -913,12 +917,19 @@ function omittedBlock(block: ExperimentBlockState, predecessor: boolean): Omitte
     cause: block.cause,
     reason,
 
-    runs: block.runs.map((run) => ({
-      armId: run.assignment.arm_id,
-      runId: run.assignment.run_id,
-      status: run.status,
-      classification: run.result?.classification ?? null
-    }))
+    runs: block.runs.map((run) => {
+      const record = run.result === null ? null : recordForRun(records, run)
+
+      const classification = record?.regrade?.record.outcome.classification ??
+        record?.record.outcome.classification ?? null
+
+      return {
+        armId: run.assignment.arm_id,
+        runId: run.assignment.run_id,
+        status: run.status,
+        classification
+      }
+    })
   }
 }
 
@@ -950,8 +961,16 @@ function migrationSummary(
       taskId: target.task_id,
       sourceVerifierRevision: target.source_evaluator.verifier_revision,
       sourceVerifierImageDigest: target.source_evaluator.verifier_image_digest,
+
+      sourceVerifierNetworkEnforcementSidecarDigest:
+        target.source_evaluator.verifier_network_enforcement_sidecar_digest,
+
       targetVerifierRevision: target.target_evaluator.verifier_revision,
       targetVerifierImageDigest: target.target_evaluator.verifier_image_digest,
+
+      targetVerifierNetworkEnforcementSidecarDigest:
+        target.target_evaluator.verifier_network_enforcement_sidecar_digest,
+
       sourceScoringRevision: target.source_evaluator.scoring_revision,
       targetScoringRevision: target.target_evaluator.scoring_revision,
       sourceRubricRevision: target.source_evaluator.rubric_revision,
@@ -981,9 +1000,11 @@ export function analyzeExperimentComparison(
 
   const currentOmissions = source.state.blocks
     .filter(({ status }) => status !== 'completed')
-    .map((block) => omittedBlock(block, false))
+    .map((block) => omittedBlock(block, false, recordsByRunId))
 
-  const predecessorOmissions = source.state.excluded_blocks.map((block) => omittedBlock(block, true))
+  const predecessorOmissions = source.state.excluded_blocks.map((block) =>
+    omittedBlock(block, true, recordsByRunId)
+  )
 
   return {
     experimentId: plan.experiment.experiment_id,

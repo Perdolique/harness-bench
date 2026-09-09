@@ -39,7 +39,8 @@ const EvaluatorIdentitySchema = v.strictObject({
   ]),
 
   scoring_revision: NonEmptyStringSchema,
-  rubric_revision: NonEmptyStringSchema
+  rubric_revision: NonEmptyStringSchema,
+  rubric_digest: Sha256Schema
 })
 
 const SourceTrialSchema = v.strictObject({

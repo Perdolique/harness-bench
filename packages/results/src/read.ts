@@ -1,7 +1,7 @@
 import { lstat, readdir } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
-import { scanCredentialBytes } from '@harness-bench/core'
+import { inspectRunTreeInventory, isRunError, scanCredentialBytes } from '@harness-bench/core'
 
 import {
   CompletionRunRecordSchema,
@@ -29,6 +29,7 @@ export interface ReadNormalizedRunRecordResult {
 }
 
 export interface ReadNormalizedRunRecordRuntime {
+  readonly resultLockHeld?: boolean;
   readonly beforeFinalSnapshot?: () => Promise<void>;
 }
 
@@ -70,6 +71,46 @@ const ManifestSchema = v.array(v.strictObject({
   size: v.pipe(v.number(), v.integer(), v.minValue(0)),
   executable: v.boolean()
 }))
+
+type ManifestEntry = v.InferOutput<typeof ManifestSchema>[number]
+
+async function assertRawInventory(
+  runDirectory: string,
+  manifest: readonly ManifestEntry[]
+): Promise<void> {
+  const rawRoot = resolve(runDirectory, 'raw')
+  let actual
+
+  try {
+    actual = await inspectRunTreeInventory(rawRoot)
+  } catch (error) {
+    throw new ResultError(
+      'INTEGRITY_MISMATCH',
+      'Raw evidence inventory is unsafe or unavailable',
+      {
+        cause: error,
+        stage: 'input'
+      }
+    )
+  }
+
+  const expectedEntries = [...manifest].sort((left, right) =>
+    left.path.localeCompare(right.path)
+  )
+
+  if (!isDeepStrictEqual(actual.entries, expectedEntries)) {
+    throw new ResultError(
+      'INTEGRITY_MISMATCH',
+      'Raw evidence differs from the complete retained manifest'
+    )
+  }
+
+  for (const entry of expectedEntries) {
+    const localPath = resolve(rawRoot, entry.path)
+
+    await assertFilePath(runDirectory, localPath, entry.executable)
+  }
+}
 
 async function assertDirectory(path: string, mode: number): Promise<void> {
   const metadata = await lstat(path)
@@ -153,7 +194,10 @@ async function readReportSource(path: string, runtime: ReadNormalizedRunRecordRu
   const location = parseManagedRecordPath(path, 'normalized')
 
   await assertDirectory(location.runsRoot, 0o700)
-  await assertReadableState(location.runsRoot, location.runId)
+
+  if (runtime.resultLockHeld !== true) {
+    await assertReadableState(location.runsRoot, location.runId)
+  }
 
   const stored = await readStoredRecord(path, 'normalized', NormalizedRunRecordV1Schema)
   const record = stored.record
@@ -238,6 +282,8 @@ async function readReportSource(path: string, runtime: ReadNormalizedRunRecordRu
     throw new ResultError('INTEGRITY_MISMATCH', 'Raw manifest contains duplicate paths')
   }
 
+  await assertRawInventory(runDirectory, manifest)
+
   const resolvedReferences: ResolvedEvidenceReference[] = []
   const verifiedFiles: VerifiedFileSnapshot[] = []
 
@@ -310,7 +356,12 @@ async function readReportSource(path: string, runtime: ReadNormalizedRunRecordRu
     await assertFileSnapshotUnchanged(runDirectory, snapshot)
   }
 
-  await assertReadableState(location.runsRoot, location.runId)
+  await assertRawInventory(runDirectory, manifest)
+
+  if (runtime.resultLockHeld !== true) {
+    await assertReadableState(location.runsRoot, location.runId)
+  }
+
   await assertDirectory(runDirectory, 0o500)
 
   const finalStored = await readStoredRecord(path, 'normalized', NormalizedRunRecordV1Schema)
@@ -339,6 +390,14 @@ export async function readNormalizedRunRecord(path: string, runtime: ReadNormali
   } catch (error) {
     if (error instanceof ResultError) {
       throw error
+    }
+
+    if (isRunError(error)) {
+      throw new ResultError(
+        'INTEGRITY_MISMATCH',
+        'Report source evidence failed stable inventory inspection',
+        { cause: error }
+      )
     }
 
     throw new ResultError('INVALID_INPUT', 'Report source is unavailable or invalid', { cause: error })

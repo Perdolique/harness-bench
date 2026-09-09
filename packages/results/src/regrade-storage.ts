@@ -25,6 +25,7 @@ import {
 
 import {
   ensureManagedDirectory,
+  hashStableFile,
   parseManagedRecordPath,
   readStableFile,
   serializeRecord,
@@ -86,14 +87,14 @@ async function treeEntries(root: string): Promise<readonly TreeEntry[]> {
         )
       }
 
-      const contents = await readStableFile(path)
+      const hashed = await hashStableFile(path)
       const entryPath = relative(root, path).split('\\').join('/')
 
       entries.push({
-        digest: sha256(contents),
+        digest: hashed.digest,
         executable: (metadata.mode & 0o111) !== 0,
         path: entryPath,
-        size: contents.byteLength
+        size: hashed.size
       })
     }
   }
@@ -156,12 +157,28 @@ async function assertSealedTree(path: string): Promise<void> {
     return
   }
 
-  const expectedMode = (metadata.mode & 0o111) !== 0 ? 0o500 : 0o400
+  const mode = metadata.mode & 0o777
 
-  if ((metadata.mode & 0o777) !== expectedMode) {
+  if (mode !== 0o400 && mode !== 0o500) {
     throw new ResultError(
       'INTEGRITY_MISMATCH',
       'Regrade evidence file is not sealed',
+      { stage: 'input' }
+    )
+  }
+}
+
+async function assertMode(path: string, expectedMode: number): Promise<void> {
+  const metadata = await lstat(path)
+
+  if (
+    metadata.isSymbolicLink() ||
+    !metadata.isFile() ||
+    (metadata.mode & 0o777) !== expectedMode
+  ) {
+    throw new ResultError(
+      'INTEGRITY_MISMATCH',
+      'Regrade metadata file mode differs from its sealed role',
       { stage: 'input' }
     )
   }
@@ -237,6 +254,11 @@ async function validateRegradeLeaf(
       { stage: 'input' }
     )
   }
+
+  await Promise.all([
+    assertMode(location.absolutePath, 0o400),
+    assertMode(resolve(location.leaf, 'raw-manifest.json'), 0o400)
+  ])
 
   const source = await readStableFile(location.absolutePath)
   const digest = sha256(source)
@@ -379,9 +401,21 @@ export async function prepareRegradeStaging(
   return staging
 }
 
-export async function quarantineRegradeStaging(staging: string): Promise<string> {
+export async function quarantineRegradeStaging(
+  staging: string,
+  diagnostic?: unknown
+): Promise<string> {
   const categoryRoot = dirname(staging)
   const destination = resolve(categoryRoot, `.failed-${randomUUID()}`)
+
+  if (diagnostic !== undefined) {
+    const source = serializeRecord(diagnostic)
+
+    await writeFile(resolve(staging, 'failure.json'), source, {
+      flag: 'wx',
+      mode: 0o600
+    })
+  }
 
   await sealTree(staging)
   await rename(staging, destination)
@@ -441,7 +475,8 @@ export async function findRegradedRunRecord(
 
 export async function sealRegradedRunRecord(
   staging: string,
-  record: RegradedRunRecordV1
+  record: RegradedRunRecordV1,
+  validateBeforePublish?: () => Promise<void>
 ): Promise<ReadRegradedRunRecordResult> {
   const parsed = v.parse(RegradedRunRecordV1Schema, record)
   const source = serializeRecord(parsed)
@@ -449,6 +484,8 @@ export async function sealRegradedRunRecord(
   const categoryRoot = dirname(staging)
   const leaf = resolve(categoryRoot, digest.slice(7))
   const recordPath = resolve(leaf, 'record.json')
+
+  await validateBeforePublish?.()
 
   await writeFile(resolve(staging, 'record.json'), source, {
     flag: 'wx',
@@ -512,7 +549,20 @@ export async function writeScoringMigrationRecord(
 
   await ensureExperimentDirectory(root)
 
-  for (const name of await readdir(root)) {
+  for (const name of (await readdir(root)).sort(compareText)) {
+    if (name.startsWith('.staging-')) {
+      const abandoned = resolve(root, name)
+
+      await makeTreeWritable(abandoned)
+
+      await rm(abandoned, {
+        force: true,
+        recursive: true
+      })
+
+      continue
+    }
+
     if (!/^[a-f0-9]{64}$/.test(name)) {
       throw new ResultError(
         'INTEGRITY_MISMATCH',
@@ -556,9 +606,41 @@ export async function writeScoringMigrationRecord(
 
   const digest = experimentHash(parsed)
   const path = migrationRecordPath(plan, digest)
+  const leaf = dirname(path)
+  const staging = resolve(root, `.staging-${randomUUID()}`)
 
-  await ensureExperimentDirectory(dirname(path))
-  await writeExperimentRecord(path, parsed)
+  await mkdir(staging, { mode: 0o700 })
+
+  try {
+    await writeExperimentRecord(resolve(staging, 'record.json'), parsed)
+    await chmod(staging, 0o500)
+    await rename(staging, leaf)
+  } catch (error) {
+    await makeTreeWritable(staging).catch(() => undefined)
+
+    await rm(staging, {
+      force: true,
+      recursive: true
+    }).catch(() => undefined)
+
+    if (!['EEXIST', 'ENOTEMPTY'].includes(
+      (error as NodeJS.ErrnoException).code ?? ''
+    )) {
+      throw error
+    }
+
+    const existing = await readScoringMigrationRecord(path, plan)
+
+    if (!isDeepStrictEqual(existing.record, parsed)) {
+      throw new ResultError(
+        'RECORD_CONFLICT',
+        'Migration content address already exists with different content',
+        { stage: 'normalization' }
+      )
+    }
+
+    return existing
+  }
 
   return {
     digest,
@@ -571,7 +653,37 @@ export async function readScoringMigrationRecord(
   path: string,
   plan: ExperimentPlan
 ): Promise<StoredScoringMigrationRecord> {
-  const candidate = await readExperimentRecord(path)
+  const absolutePath = resolve(path)
+  const leaf = dirname(absolutePath)
+  const root = dirname(leaf)
+
+  const [rootMetadata, leafMetadata, recordMetadata, entries] = await Promise.all([
+    lstat(root),
+    lstat(leaf),
+    lstat(absolutePath),
+    readdir(leaf)
+  ])
+
+  if (
+    rootMetadata.isSymbolicLink() ||
+    !rootMetadata.isDirectory() ||
+    (rootMetadata.mode & 0o777) !== 0o700 ||
+    leafMetadata.isSymbolicLink() ||
+    !leafMetadata.isDirectory() ||
+    (leafMetadata.mode & 0o777) !== 0o500 ||
+    recordMetadata.isSymbolicLink() ||
+    !recordMetadata.isFile() ||
+    (recordMetadata.mode & 0o777) !== 0o400 ||
+    !isDeepStrictEqual(entries, ['record.json'])
+  ) {
+    throw new ResultError(
+      'INTEGRITY_MISMATCH',
+      'Scoring migration content-addressed leaf is not sealed or exact',
+      { stage: 'input' }
+    )
+  }
+
+  const candidate = await readExperimentRecord(absolutePath)
   const parsed = v.safeParse(ScoringMigrationRecordV1Schema, candidate)
 
   if (!parsed.success) {
@@ -585,7 +697,7 @@ export async function readScoringMigrationRecord(
   const expectedPath = migrationRecordPath(plan, digest)
 
   if (
-    resolve(path) !== expectedPath ||
+    absolutePath !== expectedPath ||
     record.experiment.experiment_id !== plan.experiment.experiment_id ||
     record.experiment.experiment_revision !== plan.experiment.revision ||
     record.experiment.plan_digest !== plan.experiment.plan_digest
@@ -600,6 +712,6 @@ export async function readScoringMigrationRecord(
   return {
     digest,
     record,
-    recordPath: resolve(path)
+    recordPath: absolutePath
   }
 }

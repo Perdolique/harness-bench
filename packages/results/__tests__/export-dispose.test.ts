@@ -43,6 +43,97 @@ async function normalizedFixture(options = {}) {
   }
 }
 
+interface MigrationEntryFixture {
+  readonly attemptId: string;
+  readonly digest: string;
+  readonly runId: string;
+}
+
+async function installMigration(
+  runsDirectory: string,
+  entries: readonly MigrationEntryFixture[]
+): Promise<{ readonly digest: string; readonly leaf: string }> {
+  const evaluator = {
+    verifier_revision: '2',
+    verifier_image_digest: `sha256:${'a'.repeat(64)}`,
+
+    verifier_network_enforcement_sidecar_digest: {
+      status: 'not_applicable',
+      reason: 'Docker network mode none is direct'
+    },
+
+    scoring_revision: '2',
+    rubric_revision: '2',
+    rubric_digest: `sha256:${'f'.repeat(64)}`
+  } as const
+
+  const migration = {
+    document_type: 'scoring_migration',
+    schema_version: 1,
+    migration_revision: '1',
+    record_type: 'migration',
+    created_at: '2026-09-06T14:00:00.000Z',
+
+    identity: {
+      migration_id: 'fixture-migration',
+      revision: '2',
+      definition_digest: `sha256:${'b'.repeat(64)}`
+    },
+
+    experiment: {
+      experiment_id: 'fixture-experiment',
+      experiment_revision: '1',
+      plan_digest: `sha256:${'c'.repeat(64)}`
+    },
+
+    targets: [{
+      task_id: 'fixture-task',
+      task_document_digest: `sha256:${'d'.repeat(64)}`,
+      task_package_digest: `sha256:${'e'.repeat(64)}`,
+
+      source_evaluator: {
+        ...evaluator,
+        scoring_revision: '1',
+        rubric_revision: '1',
+        rubric_digest: `sha256:${'9'.repeat(64)}`
+      },
+
+      target_evaluator: evaluator
+    }],
+
+    entries: entries.map((entry) => ({
+      run_id: entry.runId,
+      attempt_id: entry.attemptId,
+      source_normalized_digest: entry.digest,
+      status: 'retained_technical' as const,
+      classification: 'agent_failure' as const
+    })),
+
+    regrade_provider_calls: 0
+  } as const
+
+  const migrationDigest = experimentHash(migration)
+
+  const migrationLeaf = resolve(
+    runsDirectory,
+    '.experiments/migrations',
+    migrationDigest.slice(7)
+  )
+
+  await mkdir(migrationLeaf, {
+    recursive: true,
+    mode: 0o700
+  })
+
+  await writeExperimentRecord(resolve(migrationLeaf, 'record.json'), migration)
+  await chmod(migrationLeaf, 0o500)
+
+  return {
+    digest: migrationDigest,
+    leaf: migrationLeaf
+  }
+}
+
 async function sourceRecordSnapshot(runDirectory: string) {
   const entries: unknown[] = []
 
@@ -493,76 +584,11 @@ describe('disposeRun', () => {
   it('deletes referencing migration manifests and records their digests', async () => {
     const { fixture, normalized } = await normalizedFixture()
 
-    const evaluator = {
-      verifier_revision: '2',
-      verifier_image_digest: `sha256:${'a'.repeat(64)}`,
-
-      verifier_network_enforcement_sidecar_digest: {
-        status: 'not_applicable',
-        reason: 'Docker network mode none is direct'
-      },
-
-      scoring_revision: '2',
-      rubric_revision: '2'
-    } as const
-
-    const migration = {
-      document_type: 'scoring_migration',
-      schema_version: 1,
-      migration_revision: '1',
-      record_type: 'migration',
-      created_at: '2026-09-06T14:00:00.000Z',
-
-      identity: {
-        migration_id: 'fixture-migration',
-        revision: '2',
-        definition_digest: `sha256:${'b'.repeat(64)}`
-      },
-
-      experiment: {
-        experiment_id: 'fixture-experiment',
-        experiment_revision: '1',
-        plan_digest: `sha256:${'c'.repeat(64)}`
-      },
-
-      targets: [{
-        task_id: 'fixture-task',
-        task_document_digest: `sha256:${'d'.repeat(64)}`,
-        task_package_digest: `sha256:${'e'.repeat(64)}`,
-
-        source_evaluator: {
-          ...evaluator,
-          scoring_revision: '1'
-        },
-
-        target_evaluator: evaluator
-      }],
-
-      entries: [{
-        run_id: 'fixture-run',
-        attempt_id: 'fixture-run-attempt-1',
-        source_normalized_digest: normalized.digest,
-        status: 'retained_technical',
-        classification: 'agent_failure'
-      }],
-
-      regrade_provider_calls: 0
-    } as const
-
-    const migrationDigest = experimentHash(migration)
-
-    const migrationLeaf = resolve(
-      fixture.runsDirectory,
-      '.experiments/migrations',
-      migrationDigest.slice(7)
-    )
-
-    await mkdir(migrationLeaf, {
-      recursive: true,
-      mode: 0o700
-    })
-
-    await writeExperimentRecord(resolve(migrationLeaf, 'record.json'), migration)
+    const migration = await installMigration(fixture.runsDirectory, [{
+      attemptId: 'fixture-run-attempt-1',
+      digest: normalized.digest,
+      runId: 'fixture-run'
+    }])
 
     const result = await disposeRun(fixture.runDirectory, {
       confirmRunId: 'fixture-run',
@@ -571,8 +597,71 @@ describe('disposeRun', () => {
       reason: 'owner-request'
     })
 
-    expect(result.record.derived_record_digests).toContain(migrationDigest)
-    await expect(lstat(migrationLeaf)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(result.record.derived_record_digests).toContain(migration.digest)
+    await expect(lstat(migration.leaf)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('serializes disposition across runs that share one migration manifest', async () => {
+    const first = await normalizedFixture({ runId: 'fixture-run-a' })
+    const second = await normalizedFixture({ runId: 'fixture-run-b' })
+
+    const migration = await installMigration(first.fixture.runsDirectory, [
+      {
+        attemptId: 'fixture-run-a-attempt-1',
+        digest: first.normalized.digest,
+        runId: 'fixture-run-a'
+      },
+      {
+        attemptId: 'fixture-run-b-attempt-1',
+        digest: second.normalized.digest,
+        runId: 'fixture-run-b'
+      }
+    ])
+
+    let continueFirst: () => void = () => undefined
+    let reportFirstStaged: () => void = () => undefined
+
+    const firstCanContinue = new Promise<void>((resolvePromise) => {
+      continueFirst = resolvePromise
+    })
+
+    const firstStaged = new Promise<void>((resolvePromise) => {
+      reportFirstStaged = resolvePromise
+    })
+
+    const firstDisposition = disposeRunWithRuntime(
+      first.fixture.runDirectory,
+      {
+        confirmRunId: 'fixture-run-a',
+        disposition: 'delete',
+        reason: 'owner-request'
+      },
+      {
+        afterStage: async () => {
+          reportFirstStaged()
+
+          await firstCanContinue
+        }
+      }
+    )
+
+    await firstStaged
+
+    await expect(
+      disposeRun(second.fixture.runDirectory, {
+        confirmRunId: 'fixture-run-b',
+        disposition: 'delete',
+        reason: 'owner-request'
+      })
+    ).rejects.toMatchObject({ code: 'EXECUTION_FAILED' })
+
+    continueFirst()
+
+    const disposed = await firstDisposition
+
+    expect(disposed.record.derived_record_digests).toContain(migration.digest)
+    await expect(lstat(migration.leaf)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(lstat(second.fixture.runDirectory)).resolves.toMatchObject({})
   })
 
   it('requires credential attestation and can delete restricted bytes', async () => {

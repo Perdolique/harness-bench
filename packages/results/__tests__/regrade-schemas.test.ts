@@ -29,7 +29,8 @@ async function regradedRecord(): Promise<Record<string, unknown>> {
     },
 
     scoring_revision: '2',
-    rubric_revision: '2'
+    rubric_revision: '2',
+    rubric_digest: digest('d')
   }
 
   return {
@@ -54,7 +55,8 @@ async function regradedRecord(): Promise<Record<string, unknown>> {
         ...evaluator,
         verifier_revision: '1',
         scoring_revision: '1',
-        rubric_revision: '1'
+        rubric_revision: '1',
+        rubric_digest: digest('c')
       },
 
       trial: {
@@ -148,7 +150,8 @@ describe('regrade result schemas', () => {
       },
 
       scoring_revision: '2',
-      rubric_revision: '2'
+      rubric_revision: '2',
+      rubric_digest: digest('d')
     }
 
     const entry = {
@@ -197,9 +200,31 @@ describe('regrade result schemas', () => {
 
     expect(v.safeParse(ScoringMigrationRecordV1Schema, record).success).toBe(true)
 
-    expect(v.safeParse(ScoringMigrationRecordV1Schema, {
+    const duplicateRun = {
       ...record,
-      entries: [entry, entry]
-    }).success).toBe(false)
+
+      entries: [entry, {
+        ...entry,
+        attempt_id: 'fixture-attempt-2'
+      }]
+    }
+
+    const duplicateAttempt = {
+      ...record,
+
+      entries: [entry, {
+        ...entry,
+        run_id: 'fixture-run-2'
+      }]
+    }
+
+    const duplicateTarget = {
+      ...record,
+      targets: [record.targets[0], record.targets[0]]
+    }
+
+    expect(v.safeParse(ScoringMigrationRecordV1Schema, duplicateRun).success).toBe(false)
+    expect(v.safeParse(ScoringMigrationRecordV1Schema, duplicateAttempt).success).toBe(false)
+    expect(v.safeParse(ScoringMigrationRecordV1Schema, duplicateTarget).success).toBe(false)
   })
 })

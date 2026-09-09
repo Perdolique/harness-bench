@@ -1,5 +1,6 @@
 import type {
   ArmReferenceV1,
+  ComparisonMigrationTargetV1,
   ComparisonMetricName,
   DistributionSummaryV1,
   ExperimentComparisonAnalysisV1,
@@ -80,6 +81,16 @@ function reliability(value: boolean | null): string {
   return value === null ? 'unknown' : String(value)
 }
 
+function verifierSidecar(
+  identity: ComparisonMigrationTargetV1[
+    'sourceVerifierNetworkEnforcementSidecarDigest'
+  ]
+): string {
+  return identity.status === 'known'
+    ? identity.value
+    : `not_applicable (${text(identity.reason)})`
+}
+
 export function renderExperimentComparisonReport(
   analysis: ExperimentComparisonAnalysisV1
 ): string {
@@ -103,7 +114,15 @@ export function renderExperimentComparisonReport(
     lines.push('  Operational metrics: immutable source run values; regrade verifier time is separate')
 
     for (const target of migration.targets) {
-      lines.push(`  Task ${text(target.taskId)} evaluator: verifier ${text(target.sourceVerifierRevision)} ${target.sourceVerifierImageDigest} -> ${text(target.targetVerifierRevision)} ${target.targetVerifierImageDigest}, scoring ${text(target.sourceScoringRevision)} -> ${text(target.targetScoringRevision)}, rubric ${text(target.sourceRubricRevision)} -> ${text(target.targetRubricRevision)}`)
+      const sourceSidecar = verifierSidecar(
+        target.sourceVerifierNetworkEnforcementSidecarDigest
+      )
+
+      const targetSidecar = verifierSidecar(
+        target.targetVerifierNetworkEnforcementSidecarDigest
+      )
+
+      lines.push(`  Task ${text(target.taskId)} evaluator: verifier ${text(target.sourceVerifierRevision)} ${target.sourceVerifierImageDigest} -> ${text(target.targetVerifierRevision)} ${target.targetVerifierImageDigest}, sidecar ${sourceSidecar} -> ${targetSidecar}, scoring ${text(target.sourceScoringRevision)} -> ${text(target.targetScoringRevision)}, rubric ${text(target.sourceRubricRevision)} -> ${text(target.targetRubricRevision)}`)
     }
   }
 

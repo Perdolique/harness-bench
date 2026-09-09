@@ -19,11 +19,13 @@ export {
   type RunErrorOptions
 } from './run-errors.ts'
 export {
+  inspectRunTreeInventory,
   inspectRunTree,
   resolveRunPlan,
   runDispositionReservationPath,
   type ResolvedRunPlan,
   type ResolveRunPlanOptions,
+  type RunTreeInventory,
   type RunExecutionResult
 } from './run.ts'
 export { executeRunPlan } from './run-execution.ts'

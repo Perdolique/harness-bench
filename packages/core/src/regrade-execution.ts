@@ -16,7 +16,7 @@ import {
   type HarborRegradeExecutionContext
 } from './run-execution.ts'
 
-import { inspectRunTree, readStableRunFile, type RunTreeSnapshot } from './run.ts'
+import { inspectRunTree, inspectRunTreeInventory, readStableRunFile, type RunTreeSnapshot } from './run.ts'
 import { scanCredentialTree } from './secret-scan.ts'
 import { assertHarborArtifactInventory } from './task-artifacts.ts'
 
@@ -27,9 +27,7 @@ interface RawManifestEntry {
   readonly size: number;
 }
 
-interface SourceTrialEvidence {
-  readonly agentResult: Record<string, unknown>;
-  readonly agentInfo: Record<string, unknown>;
+export interface HarborSourceTrialProvenance {
   readonly configDigest: string;
   readonly lockDigest: string;
   readonly resultDigest: string;
@@ -39,7 +37,115 @@ interface SourceTrialEvidence {
   readonly trialPath: string;
 }
 
+interface SourceTrialEvidence extends HarborSourceTrialProvenance {
+  readonly agentResult: Record<string, unknown>;
+  readonly agentInfo: Record<string, unknown>;
+}
+
+export interface HarborRegradeFailureDiagnostic {
+  readonly classification: 'cancellation' | 'infrastructure_failure' | 'verifier_failure';
+  readonly process: HarborExecutionOutcome;
+  readonly termination:
+    | {
+        readonly kind: 'cancelled';
+        readonly reason: string;
+      }
+    | {
+        readonly kind: 'timeout';
+        readonly stage: 'verification';
+        readonly limit_seconds: number;
+        readonly elapsed_seconds: number;
+        readonly observed_cause: string;
+      }
+    | {
+        readonly kind: 'error';
+        readonly reason: string;
+      };
+}
+
+export class HarborRegradeExecutionError extends RunError {
+  readonly diagnostic: HarborRegradeFailureDiagnostic
+
+  constructor(
+    message: string,
+    diagnostic: HarborRegradeFailureDiagnostic,
+    options: ErrorOptions = {}
+  ) {
+    super('EXECUTION_FAILED', message, {
+      ...options,
+      stage: 'verification'
+    })
+
+    this.name = 'HarborRegradeExecutionError'
+    this.diagnostic = diagnostic
+  }
+}
+
+export function harborRegradeFailureDiagnostic(
+  outcome: HarborExecutionOutcome,
+  wallClockSeconds: number
+): HarborRegradeFailureDiagnostic | null {
+  if (
+    !outcome.cancelled &&
+    !outcome.timedOut &&
+    outcome.signal === null &&
+    outcome.exitCode === 0
+  ) {
+    return null
+  }
+
+  if (outcome.cancelled) {
+    return {
+      classification: 'cancellation',
+      process: outcome,
+
+      termination: {
+        kind: 'cancelled',
+        reason: 'User requested cancellation'
+      }
+    }
+  }
+
+  if (outcome.timedOut) {
+    return {
+      classification: 'verifier_failure',
+      process: outcome,
+
+      termination: {
+        kind: 'timeout',
+        stage: 'verification',
+        limit_seconds: wallClockSeconds,
+        elapsed_seconds: wallClockSeconds,
+        observed_cause: 'Verifier-only regrade wall-clock deadline expired'
+      }
+    }
+  }
+
+  if (outcome.signal !== null) {
+    return {
+      classification: 'infrastructure_failure',
+      process: outcome,
+
+      termination: {
+        kind: 'error',
+        reason: `Harbor process terminated by ${outcome.signal}`
+      }
+    }
+  }
+
+  return {
+    classification: 'verifier_failure',
+    process: outcome,
+
+    termination: {
+      kind: 'error',
+      reason: `Harbor verifier exited with status ${String(outcome.exitCode)}`
+    }
+  }
+}
+
 export interface HarborRegradeRuntime {
+  readonly assertPinnedImages?: typeof assertPinnedTaskImages;
   readonly runHarbor: (
     context: HarborRegradeExecutionContext
   ) => Promise<HarborExecutionOutcome>;
@@ -59,6 +165,10 @@ export interface HarborRegradePreflightOptions {
   readonly target: ResolvedScoringMigrationTarget;
 }
 
+export interface HarborRegradePreflightRuntime {
+  readonly assertPinnedImages: typeof assertPinnedTaskImages;
+}
+
 export interface HarborRegradeEvidence {
   readonly classification: 'task_success' | 'task_failure';
   readonly configDigest: string;
@@ -67,14 +177,13 @@ export interface HarborRegradeEvidence {
   readonly lockPath: string;
   readonly materializedPackageDigest: string;
   readonly materializedTargetPackagePath: string;
-  readonly rawManifest: readonly RawManifestEntry[];
   readonly rawManifestDigest: string;
   readonly rawManifestPath: string;
   readonly resultDigest: string;
   readonly resultPath: string;
   readonly score: ScoringMigrationScore;
   readonly sourceRunTreeDigest: string;
-  readonly sourceTrial: SourceTrialEvidence;
+  readonly sourceTrial: HarborSourceTrialProvenance;
   readonly targetDocumentPath: string;
   readonly targetPackagePath: string;
   readonly targetTaskDigest: string;
@@ -289,7 +398,7 @@ async function copySnapshot(
 }
 
 async function rawManifest(rawRoot: string): Promise<readonly RawManifestEntry[]> {
-  const snapshot = await inspectRunTree(rawRoot)
+  const snapshot = await inspectRunTreeInventory(rawRoot)
 
   return snapshot.entries.map((entry) => ({
     digest: entry.digest,
@@ -326,8 +435,8 @@ async function assertSameTree(
   label: string
 ): Promise<void> {
   const [sourceTree, regradedTree] = await Promise.all([
-    inspectRunTree(source),
-    inspectRunTree(regraded)
+    inspectRunTreeInventory(source),
+    inspectRunTreeInventory(regraded)
   ])
 
   if (sourceTree.digest !== regradedTree.digest) {
@@ -346,7 +455,6 @@ async function validateRegradeTrial(
 ): Promise<Omit<HarborRegradeEvidence,
   | 'materializedPackageDigest'
   | 'materializedTargetPackagePath'
-  | 'rawManifest'
   | 'rawManifestDigest'
   | 'rawManifestPath'
   | 'sourceRunTreeDigest'
@@ -388,29 +496,47 @@ async function validateRegradeTrial(
 
   const resolvedExpectedSource = await realpath(source.trialPath)
 
+  const configSourceMatches =
+    configSource.action === 'regrade' &&
+    configSource.type === 'local' &&
+    configSource.trial_id === source.trialId &&
+    resolvedSourcePath === resolvedExpectedSource
+
+  const lockSourceMatches =
+    lockSource.action === 'regrade' &&
+    lockSource.type === 'local' &&
+    lockSource.trial_id === source.trialId &&
+    resolvedLockSourcePath === resolvedExpectedSource &&
+    sourceTask.name === source.taskName &&
+    sourceTask.digest === source.taskDigest
+
+  const targetTaskMatches =
+    targetTask.name === source.taskName &&
+    /^sha256:[a-f0-9]{64}$/.test(targetTaskDigest)
+
+  const verifierIsSeparate =
+    verifier.environment_mode === 'separate' &&
+    verifierEnvironment.HARBOR_RUN_ID === options.runId &&
+    result.verifier_environment_mode === 'separate'
+
+  const verifierOnlyResult =
+    result.exception_info === null &&
+    result.step_results === null &&
+    result.environment_setup === null &&
+    result.agent_setup === null &&
+    result.agent_execution === null
+
+  const agentEvidenceMatches =
+    isDeepStrictEqual(result.agent_info, source.agentInfo) &&
+    isDeepStrictEqual(result.agent_result, source.agentResult)
+
   if (
-    configSource.action !== 'regrade' ||
-    configSource.type !== 'local' ||
-    configSource.trial_id !== source.trialId ||
-    lockSource.action !== 'regrade' ||
-    lockSource.type !== 'local' ||
-    lockSource.trial_id !== source.trialId ||
-    resolvedSourcePath !== resolvedExpectedSource ||
-    resolvedLockSourcePath !== resolvedExpectedSource ||
-    sourceTask.name !== source.taskName ||
-    sourceTask.digest !== source.taskDigest ||
-    targetTask.name !== source.taskName ||
-    !/^sha256:[a-f0-9]{64}$/.test(targetTaskDigest) ||
-    verifier.environment_mode !== 'separate' ||
-    verifierEnvironment.HARBOR_RUN_ID !== options.runId ||
-    result.verifier_environment_mode !== 'separate' ||
-    result.exception_info !== null ||
-    result.step_results !== null ||
-    result.environment_setup !== null ||
-    result.agent_setup !== null ||
-    result.agent_execution !== null ||
-    !isDeepStrictEqual(result.agent_info, source.agentInfo) ||
-    !isDeepStrictEqual(result.agent_result, source.agentResult)
+    !configSourceMatches ||
+    !lockSourceMatches ||
+    !targetTaskMatches ||
+    !verifierIsSeparate ||
+    !verifierOnlyResult ||
+    !agentEvidenceMatches
   ) {
     throw new RunError(
       'INVALID_EVIDENCE',
@@ -494,7 +620,17 @@ async function validateRegradeTrial(
     resultDigest: sha256(resultFile.contents),
     resultPath: relativeEvidencePath(options.staging, resultPath),
     score,
-    sourceTrial: source,
+
+    sourceTrial: {
+      configDigest: source.configDigest,
+      lockDigest: source.lockDigest,
+      resultDigest: source.resultDigest,
+      taskDigest: source.taskDigest,
+      taskName: source.taskName,
+      trialId: source.trialId,
+      trialPath: source.trialPath
+    },
+
     targetTaskDigest,
     verifierResultDigest,
     verifierResultPath: relativeEvidencePath(options.staging, verifierResultPath),
@@ -515,10 +651,15 @@ const defaultRuntime: HarborRegradeRuntime = {
   runHarbor: defaultRunHarbor
 }
 
+const defaultPreflightRuntime: HarborRegradePreflightRuntime = {
+  assertPinnedImages: assertPinnedTaskImages
+}
+
 export async function preflightHarborRegrade(
-  options: HarborRegradePreflightOptions
+  options: HarborRegradePreflightOptions,
+  runtime: HarborRegradePreflightRuntime = defaultPreflightRuntime
 ): Promise<void> {
-  await inspectRunTree(options.sourceRunDirectory)
+  await inspectRunTreeInventory(options.sourceRunDirectory)
 
   const [targetDocument, currentPackage, sourceScan, targetScan] = await Promise.all([
     readStableRunFile(options.target.documentPath),
@@ -551,7 +692,7 @@ export async function preflightHarborRegrade(
     )
   }
 
-  await assertPinnedTaskImages(
+  await runtime.assertPinnedImages(
     options.target.targetTask,
     options.target.packageInspection.imageReferences
   )
@@ -631,32 +772,56 @@ async function executeHarborRegradeOnce(
 
     const trialName = `regrade-${options.runId}-${options.migrationDefinitionDigest.slice(7, 19)}`
 
-    const outcome = await runtime.runHarbor({
-      runDirectory: workRoot,
-      runId: options.runId,
-      sourceTrial: sourceTrial.trialPath,
-      stderrPath: resolve(runnerRoot, 'stderr.log'),
-      stdoutPath: resolve(runnerRoot, 'stdout.log'),
-      targetTaskPath: materializedTarget,
-      trialName,
-      trialsDirectory: harborRoot,
+    const wallClockSeconds =
+      options.target.packageInspection.runtimeControls.verifier_timeout_seconds + 60
 
-      wallClockSeconds:
-        options.target.packageInspection.runtimeControls.verifier_timeout_seconds + 60,
+    let outcome: HarborExecutionOutcome
 
-      ...(options.signal === undefined ? {} : { signal: options.signal })
-    })
+    try {
+      outcome = await runtime.runHarbor({
+        runDirectory: workRoot,
+        runId: options.runId,
+        sourceTrial: sourceTrial.trialPath,
+        stderrPath: resolve(runnerRoot, 'stderr.log'),
+        stdoutPath: resolve(runnerRoot, 'stdout.log'),
+        targetTaskPath: materializedTarget,
+        trialName,
+        trialsDirectory: harborRoot,
+        wallClockSeconds,
+        ...(options.signal === undefined ? {} : { signal: options.signal })
+      })
+    } catch (error) {
+      throw new HarborRegradeExecutionError(
+        'Harbor verifier-only regrade process could not start',
+        {
+          classification: 'infrastructure_failure',
 
-    if (
-      outcome.cancelled ||
-      outcome.timedOut ||
-      outcome.signal !== null ||
-      outcome.exitCode !== 0
-    ) {
-      throw new RunError(
-        'EXECUTION_FAILED',
+          process: {
+            cancelled: false,
+            exitCode: null,
+            signal: null,
+            timedOut: false
+          },
+
+          termination: {
+            kind: 'error',
+            reason: 'Harbor process could not start'
+          }
+        },
+        { cause: error }
+      )
+    }
+
+    const diagnostic = harborRegradeFailureDiagnostic(
+      outcome,
+      wallClockSeconds
+    )
+
+    if (diagnostic !== null) {
+
+      throw new HarborRegradeExecutionError(
         'Harbor verifier-only regrade failed',
-        { stage: 'verification' }
+        diagnostic
       )
     }
 
@@ -686,7 +851,6 @@ async function executeHarborRegradeOnce(
         retainedMaterializedTarget
       ),
 
-      rawManifest: manifest,
       rawManifestDigest: sha256(manifestSource),
       rawManifestPath: relativeEvidencePath(options.staging, rawManifestPath),
       sourceRunTreeDigest,
@@ -707,9 +871,11 @@ export async function executeHarborRegrade(
   options: ExecuteHarborRegradeOptions,
   runtime: HarborRegradeRuntime = defaultRuntime
 ): Promise<HarborRegradeEvidence> {
-  await preflightHarborRegrade(options)
+  await preflightHarborRegrade(options, {
+    assertPinnedImages: runtime.assertPinnedImages ?? assertPinnedTaskImages
+  })
 
-  const sourceBefore = await inspectRunTree(options.sourceRunDirectory)
+  const sourceBefore = await inspectRunTreeInventory(options.sourceRunDirectory)
 
   let execution:
     | { readonly status: 'completed'; readonly evidence: HarborRegradeEvidence }
@@ -732,7 +898,7 @@ export async function executeHarborRegrade(
     }
   }
 
-  const sourceAfter = await inspectRunTree(options.sourceRunDirectory)
+  const sourceAfter = await inspectRunTreeInventory(options.sourceRunDirectory)
 
   if (sourceAfter.digest !== sourceBefore.digest) {
     throw new RunError(

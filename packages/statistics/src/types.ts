@@ -140,13 +140,27 @@ export interface ComparisonMigrationTargetV1 {
   readonly taskId: string;
   readonly sourceVerifierRevision: string;
   readonly sourceVerifierImageDigest: string;
+  readonly sourceVerifierNetworkEnforcementSidecarDigest:
+    VerifierNetworkEnforcementSidecarIdentityV1;
   readonly targetVerifierRevision: string;
   readonly targetVerifierImageDigest: string;
+  readonly targetVerifierNetworkEnforcementSidecarDigest:
+    VerifierNetworkEnforcementSidecarIdentityV1;
   readonly sourceScoringRevision: string;
   readonly targetScoringRevision: string;
   readonly sourceRubricRevision: string;
   readonly targetRubricRevision: string;
 }
+
+export type VerifierNetworkEnforcementSidecarIdentityV1 =
+  | {
+      readonly status: 'known';
+      readonly value: string;
+    }
+  | {
+      readonly status: 'not_applicable';
+      readonly reason: string;
+    }
 
 export interface ComparisonMigrationV1 {
   readonly migrationId: string;

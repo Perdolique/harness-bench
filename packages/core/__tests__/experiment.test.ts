@@ -891,6 +891,17 @@ describe('experiment planning and execution', () => {
 
     expect(relocated.digest).toBe(resolved.digest)
 
+    target.rubric[0].expectation = 'Changed without a rubric revision bump'
+    target.scoring.rubric_revision = source.scoring.rubric_revision
+
+    await writeJson(targetPath, target)
+
+    await expect(
+      resolveScoringMigrationDefinition(definitionPath, plan)
+    ).rejects.toMatchObject({ code: 'RELATIONSHIP_MISMATCH' })
+
+    target.rubric = source.rubric
+    target.scoring.rubric_revision = '2'
     target.scope.allowed = ['src', 'docs']
 
     await writeJson(targetPath, target)
@@ -925,8 +936,9 @@ describe('experiment planning and execution', () => {
     ).rejects.toMatchObject({ code: 'RELATIONSHIP_MISMATCH' })
 
     const candidate = JSON.parse(await readFile(definitionPath, 'utf8'))
+    const validTarget = candidate.targets[0]
 
-    candidate.targets.push(candidate.targets[0])
+    candidate.targets.push(validTarget)
     await writeJson(definitionPath, candidate)
 
     await expect(
@@ -940,6 +952,22 @@ describe('experiment planning and execution', () => {
     await expect(
       resolveScoringMigrationDefinition(definitionPath, plan)
     ).rejects.toMatchObject({ code: 'INVALID_DOCUMENT' })
+
+    candidate.targets = [validTarget]
+
+    await writeJson(definitionPath, candidate)
+
+    const multiTaskPlan = structuredClone(plan)
+    const firstTask = multiTaskPlan.experiment.tasks[0]!
+
+    multiTaskPlan.experiment.tasks.push({
+      ...firstTask,
+      task_id: 'task-b'
+    })
+
+    await expect(
+      resolveScoringMigrationDefinition(definitionPath, multiTaskPlan)
+    ).rejects.toMatchObject({ code: 'RELATIONSHIP_MISMATCH' })
   })
 
 })

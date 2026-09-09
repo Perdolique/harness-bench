@@ -45,6 +45,11 @@ export interface ExperimentComparisonSource {
 
 export interface ReadExperimentComparisonSourceRuntime {
   readonly beforeRecordReread?: () => Promise<void>;
+  readonly resultLocksHeld?: boolean;
+}
+
+export interface ReadExperimentStateRuntime {
+  readonly resultLocksHeld?: boolean;
 }
 
 function compareText(left: string, right: string): number {
@@ -137,7 +142,13 @@ export async function experimentHistoryWithParents(plan: ExperimentPlan, visited
 
   return [...inherited, ...own.entries]
 }
-async function inspectRun(plan: ExperimentPlan, assignment: ExperimentAssignment, recover: boolean, recordedDigest: string | null): Promise<VerifiedExperimentRun | null> {
+async function inspectRun(
+  plan: ExperimentPlan,
+  assignment: ExperimentAssignment,
+  recover: boolean,
+  recordedDigest: string | null,
+  resultLocksHeld: boolean
+): Promise<VerifiedExperimentRun | null> {
   const directory = resolve(plan.runs_directory, assignment.run_id)
 
   try {
@@ -186,7 +197,11 @@ async function inspectRun(plan: ExperimentPlan, assignment: ExperimentAssignment
     recordPath = resolve(normalizedRoot, address, 'record.json')
   }
 
-  const verified = await readNormalizedRunRecord(recordPath)
+  const verified = await readNormalizedRunRecord(
+    recordPath,
+    resultLocksHeld ? { resultLockHeld: true } : {}
+  )
+
   const record = verified.record
 
   if (recordedDigest !== null && verified.digest !== recordedDigest) throw new RunError('INVALID_EVIDENCE', 'Recorded normalized result identity differs')
@@ -311,7 +326,13 @@ export function deriveExperimentState(plan: ExperimentPlan, history: readonly Ex
     superseded
   }
 }
-async function readRunState(plan: ExperimentPlan, assignment: ExperimentAssignment, history: readonly ExperimentProgress[], recover: boolean): Promise<ExperimentRunState> {
+async function readRunState(
+  plan: ExperimentPlan,
+  assignment: ExperimentAssignment,
+  history: readonly ExperimentProgress[],
+  recover: boolean,
+  resultLocksHeld: boolean
+): Promise<ExperimentRunState> {
   const starts = history.filter(({ event }) => event.type === 'started' && event.run_id === assignment.run_id)
   const finishes = history.filter(({ event }) => event.type === 'finished' && event.run_id === assignment.run_id)
 
@@ -329,7 +350,7 @@ async function readRunState(plan: ExperimentPlan, assignment: ExperimentAssignme
   const digest = finish?.event.type === 'finished' ? finish.event.normalized_digest : null
 
   const result = finish !== undefined || recover
-    ? await inspectRun(plan, assignment, recover, digest)
+    ? await inspectRun(plan, assignment, recover, digest, resultLocksHeld)
     : null
 
   if (result !== null && start === undefined) throw new RunError('INVALID_EVIDENCE', 'Run exists without a recorded experiment start')
@@ -345,7 +366,13 @@ async function readRunState(plan: ExperimentPlan, assignment: ExperimentAssignme
     result
   }
 }
-async function readExcludedBlocks(plan: ExperimentPlan, history: readonly ExperimentProgress[], recover: boolean, now: Date): Promise<readonly ExperimentBlockState[]> {
+async function readExcludedBlocks(
+  plan: ExperimentPlan,
+  history: readonly ExperimentProgress[],
+  recover: boolean,
+  now: Date,
+  resultLocksHeld: boolean
+): Promise<readonly ExperimentBlockState[]> {
   const newestFirst: ExperimentBlockState[] = []
   const attempts = new Set<string>()
   let descendant = plan
@@ -371,7 +398,15 @@ async function readExcludedBlocks(plan: ExperimentPlan, history: readonly Experi
 
     const runs: ExperimentRunState[] = []
 
-    for (const assignment of uniqueAssignments) runs.push(await readRunState(parent, assignment, history, recover))
+    for (const assignment of uniqueAssignments) {
+      runs.push(await readRunState(
+        parent,
+        assignment,
+        history,
+        recover,
+        resultLocksHeld
+      ))
+    }
 
     const parentBlock = parent.experiment.blocks.find(({ block_id }) => block_id === replacedBlock)!
 
@@ -382,13 +417,32 @@ async function readExcludedBlocks(plan: ExperimentPlan, history: readonly Experi
 
   return newestFirst.reverse()
 }
-export async function readExperimentState(plan: ExperimentPlan, recover = false, now = new Date()): Promise<ExperimentState> {
+export async function readExperimentState(
+  plan: ExperimentPlan,
+  recover = false,
+  now = new Date(),
+  runtime: ReadExperimentStateRuntime = {}
+): Promise<ExperimentState> {
   const history = await experimentHistoryWithParents(plan)
   const runs: ExperimentRunState[] = []
 
-  for (const assignment of plan.assignments) runs.push(await readRunState(plan, assignment, history, recover))
+  for (const assignment of plan.assignments) {
+    runs.push(await readRunState(
+      plan,
+      assignment,
+      history,
+      recover,
+      runtime.resultLocksHeld === true
+    ))
+  }
 
-  const excludedBlocks = await readExcludedBlocks(plan, history, recover, now)
+  const excludedBlocks = await readExcludedBlocks(
+    plan,
+    history,
+    recover,
+    now,
+    runtime.resultLocksHeld === true
+  )
 
   return deriveExperimentState(plan, history, runs, now, excludedBlocks)
 }
@@ -398,7 +452,12 @@ export async function readExperimentComparisonSource(
   now = new Date(),
   runtime: ReadExperimentComparisonSourceRuntime = {}
 ): Promise<ExperimentComparisonSource> {
-  const state = await readExperimentState(plan, false, now)
+  const state = await readExperimentState(
+    plan,
+    false,
+    now,
+    runtime.resultLocksHeld === true ? { resultLocksHeld: true } : {}
+  )
 
   const runStates = [
     ...state.blocks.flatMap(({ runs }) => runs),
@@ -424,7 +483,16 @@ export async function readExperimentComparisonSource(
 
   for (const runState of uniqueResults.values()) {
     const result = runState.result!
-    const source = await readNormalizedRunRecord(result.normalized_path)
+
+    const readRuntime = runtime.resultLocksHeld === undefined
+      ? {}
+      : { resultLockHeld: runtime.resultLocksHeld }
+
+    const source = await readNormalizedRunRecord(
+      result.normalized_path,
+      readRuntime
+    )
+
     const run = source.record.identities.run
     const experiment = source.record.identities.experiment
     const assignment = runState.assignment
