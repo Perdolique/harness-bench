@@ -5,7 +5,7 @@ This directory contains planning metadata, complete issue bodies and publication
 - `backlog.json` defines 27 dependency-ordered planning items, five milestones, 20 labels, and the direct dependency graph. Purple denotes work type, blue area, red critical priority, orange owner decisions, and green provider-free CI policy. GitHub's native issue dependencies enforce the published graph; `decision-required` remains separate because closing a prerequisite cannot approve an owner gate.
 - `issues/*.md` is the complete local copy of every issue body, including acceptance criteria and owner-gate links. Dependency edges are not duplicated in issue prose.
 - `github-state.json`, when present, records real numbers/URLs and last-published body hashes. Planning IDs are stable and never assumed to equal GitHub numbers.
-- [Roadmap](../docs/roadmap.md) explains dependencies, gates, and the item 18 split.
+- [Roadmap](../docs/roadmap.md) owns the current development sequence and owner decisions. The 2026-09-11 revision brings one-task exploratory feedback into issue 16 and separates provider-free development from private-data and provider authorization. Original milestones and issue IDs remain stable.
 
 ## Validate without GitHub or provider access
 
@@ -41,7 +41,9 @@ If GitHub CLI/access is unavailable, all drafts and definitions remain usable. N
 
 ## Publication scope
 
-The bootstrap authorizes GitHub labels, milestones and issue publication plus a local planning commit. Implementation starts in a fresh session with planning issue 1. The bootstrap does not push the planning branch, close issue 1, enable CI/schedules, or run a provider-backed benchmark.
+The original bootstrap authorized initial labels, milestones, issues, and a local planning commit. It is complete. Later owner-requested plan revisions may update the existing issue bodies and this checkout without recreating the issue graph. Preserve completed issue bodies as historical evidence and apply current workflow rules from CONTRIBUTING.md and the roadmap. Planning edits do not authorize provider calls, private-data access, Git commits, or runtime implementation.
+
+For an approved revision, edit the relevant local bodies, inspect their diff, then run the publisher. It verifies remote bodies against the previous published hashes before updating them and records the new hashes after publication. Local validation requires publication hashes to match, so run it after synchronization. Do not hand-update those hashes to claim unpublished work is already on GitHub. New issues are not required just to record a plan correction.
 
 ## Published bootstrap snapshot
 

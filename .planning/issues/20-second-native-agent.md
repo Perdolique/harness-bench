@@ -64,6 +64,6 @@ Integrate one owner-selected native agent through an existing Harbor adapter whe
 
 - [ ] Every acceptance criterion has concrete evidence; exact commands and actual results are recorded in the PR.
 - [ ] The global Definition of Done in CONTRIBUTING.md is satisfied, including meaningful negative controls, exact pins and updated operational docs.
-- [ ] No unrelated refactoring, next-issue work, credentials/private code, verifier network access, or raw-artifact rewriting.
-- [ ] New assumptions are documented or linked as follow-up issues; required owner gates are recorded.
-- [ ] Commit the focused change with an English conventional commit and stop after this issue.
+- [ ] Work stays within the authorized outcome, including small required fixes; unrelated work is deferred.
+- [ ] Material assumptions and relevant owner decisions are recorded under the current development policy in CONTRIBUTING.md and docs/roadmap.md.
+- [ ] Credentials, private source, offline verification, and immutable raw evidence retain their existing protections.

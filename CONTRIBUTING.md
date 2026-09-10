@@ -1,12 +1,12 @@
 # Contributing
 
-Select one issue whose native GitHub dependencies are complete from [the roadmap](docs/roadmap.md). Dependency closure alone does not replace the owner gates after issues 2, 6, 13, 16, and 17. Record the decision and evidence in the issue or PR before downstream work starts.
+Use [the roadmap](docs/roadmap.md) to choose work that advances the user-authorized outcome. Native GitHub dependencies describe prerequisites; the roadmap distinguishes technical checks from owner decisions. Historical bootstrap gates do not add approval steps to routine development.
 
-Use a focused branch and one PR per issue. Read [AGENTS.md](AGENTS.md), inspect the actual checkout, and map a concise implementation plan to the issue's acceptance criteria. If an independently reviewable outcome is discovered, create a linked follow-up rather than expanding the PR. Do not silently change accepted contracts.
+Keep a branch and PR focused on one reviewable outcome. Link existing issues when applicable; a planning correction or small required fix does not need a new issue. A larger issue may take several useful PRs or sessions. Read [AGENTS.md](AGENTS.md), inspect the checkout, and map the plan to acceptance criteria. Create a linked follow-up for independently useful work outside the authorized outcome. Do not silently change accepted contracts or start unrelated backlog work.
 
 ## Definition of Done
 
-- [ ] Only the selected issue is implemented; no unrelated refactoring.
+- [ ] The authorized outcome is complete; no unrelated refactoring.
 - [ ] Tool versions, image digests, and stable model identifiers are pinned where available; unknown values are explicit.
 - [ ] Meaningful deterministic tests cover changed behavior, including negative controls that fail when the protected contract is removed.
 - [ ] Operational documentation and relevant ADRs reflect actual behavior.
@@ -17,8 +17,14 @@ Use a focused branch and one PR per issue. Read [AGENTS.md](AGENTS.md), inspect 
 - [ ] Verification occurs separately with no network or credentials.
 - [ ] Raw run artifacts remain immutable and new derived records retain provenance.
 - [ ] Task, agent, provider, runner, verifier, infrastructure failure, and cancellation remain distinguishable; timeouts carry the failing stage.
-- [ ] New assumptions are documented or converted into linked follow-up issues.
-- [ ] Required owner gates are satisfied and implementation stops after this issue.
+- [ ] Material assumptions and limits are explained; only necessary out-of-scope work becomes a follow-up.
+- [ ] Relevant owner decisions are recorded. Existing authorization is reused within its scope.
+
+## Development checks and revisions
+
+Before the first reviewed pilot, formats and workflows may evolve. Preserve old raw evidence and its producing commit; follow the [schema policy](docs/architecture.md#versioned-document-boundary) instead of adding speculative compatibility. Run IDs, content digests, contract revisions, and product releases have different purposes. Do not bump every revision or open an issue just because one artifact changes.
+
+Verification follows the change. Documentation and planning edits need relevant lint, links, backlog checks, and diff inspection. Code changes need focused tests plus the applicable repository checks; changes to schemas, collection, credentials, or shared execution need broader coverage. Full Docker calibration is needed when task or execution changes affect its evidence, not after every prose edit. Existing green evidence can be reused while its relevant inputs and toolchain match. A provider-backed canary always needs an explicit invocation budget; ordinary CI remains provider-free.
 
 Use the [PR template](.github/pull_request_template.md) and [ADR format](docs/adr/README.md).
 

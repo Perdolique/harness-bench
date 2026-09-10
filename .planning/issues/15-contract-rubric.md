@@ -6,13 +6,13 @@ Planning item: 15 | Milestone: M3 Pilot benchmark
 
 ## Context
 
-The canonical task has a concrete rubric; real tasks need a reusable evidence format without speculative obligations.
+The canonical task has a concrete rubric. The first imported task needs evidence and checks that another engineer can understand. Use these concrete examples to define the smallest sufficient format.
 
-Source: BOOTSTRAP_PLAN.md, section 9, planning item 15; docs/research-snapshot.md and the accepted ADRs constrain implementation.
+Source: BOOTSTRAP_PLAN.md, section 9, planning item 15. The 2026-09-11 development revision in docs/roadmap.md defines the current sequence; the accepted ADRs retain the trust boundary.
 
 ## Goal
 
-Formalize and validate blast-radius rubrics anchored to pristine repository evidence.
+Validate an evidence-backed rubric usable by the first real task and the existing canonical task.
 
 ## In scope
 
@@ -22,7 +22,7 @@ Formalize and validate blast-radius rubrics anchored to pristine repository evid
 
 ## Out of scope
 
-- LLM judging, reference-diff similarity, full mutation testing, generic unsupported contracts and authoring five tasks.
+- LLM judging, reference-diff similarity, a generalized rule engine, full mutation testing, speculative contract categories, and authoring five tasks.
 
 ## Technical constraints
 
@@ -42,6 +42,7 @@ Formalize and validate blast-radius rubrics anchored to pristine repository evid
 - [ ] Authoring guide includes good/bad examples.
 - [ ] Scope envelope supports allowed, conditional, and forbidden zones.
 - [ ] Rubric validation catches contradictory or unsupported expectations.
+- [ ] The canonical task and a sanitized first-real-task example use the format without extra unused abstractions or mandatory not-applicable checks.
 
 ## Test/evidence plan
 
@@ -67,6 +68,6 @@ Formalize and validate blast-radius rubrics anchored to pristine repository evid
 
 - [ ] Every acceptance criterion has concrete evidence; exact commands and actual results are recorded in the PR.
 - [ ] The global Definition of Done in CONTRIBUTING.md is satisfied, including meaningful negative controls, exact pins and updated operational docs.
-- [ ] No unrelated refactoring, next-issue work, credentials/private code, verifier network access, or raw-artifact rewriting.
-- [ ] New assumptions are documented or linked as follow-up issues; required owner gates are recorded.
-- [ ] Commit the focused change with an English conventional commit and stop after this issue.
+- [ ] Work stays within the authorized outcome, including small required fixes; unrelated work is deferred.
+- [ ] Material assumptions and relevant owner decisions are recorded under the current development policy in CONTRIBUTING.md and docs/roadmap.md.
+- [ ] Credentials, private source, offline verification, and immutable raw evidence retain their existing protections.

@@ -1,6 +1,6 @@
 ---
 name: Focused implementation issue
-about: One dependency-scoped agent session and pull request
+about: One useful outcome with explicit prerequisites and acceptance criteria
 title: ""
 labels: no-provider-call-in-ci
 ---
@@ -49,4 +49,4 @@ Record unknowns directly. Do not invent provider behavior or permission.
 
 - [ ] All acceptance criteria have evidence and the global Definition of Done in CONTRIBUTING.md is satisfied.
 - [ ] Exact commands/results and unverified criteria are recorded in the PR.
-- [ ] Scope remains one issue; implementation stops after this PR.
+- [ ] Scope stays within the authorized outcome; small required fixes are included and unrelated work is deferred.

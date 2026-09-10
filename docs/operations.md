@@ -49,9 +49,9 @@ vp run schemas:check
 vp run schemas:generate
 ```
 
-The first command regenerates all seven JSON Schema documents in memory, verifies the exact `*.schema.json` inventory, fails on missing, stale, or unexpected files, and never writes in check mode. The second rewrites missing or expected inspection artifacts after an intentional pre-freeze structural change, but fails on unexpected artifacts instead of silently deleting them. Both use Draft 2020-12 and fail on unsupported Valibot constructs. Runtime Valibot validation remains authoritative for relationships and rules that JSON Schema cannot express.
+The first command regenerates all seven JSON Schema documents in memory, verifies the exact `*.schema.json` inventory, fails on missing, stale, or unexpected files, and never writes in check mode. The second rewrites missing or expected inspection artifacts after an intentional schema change, but fails on unexpected artifacts instead of silently deleting them. Both use Draft 2020-12 and fail on unsupported Valibot constructs. Runtime Valibot validation remains authoritative for relationships and rules that JSON Schema cannot express.
 
-Once v1 is merged, an incompatible shape or semantic change requires v2 and retained v1 validation/artifacts; `schemas:generate` is not a migration mechanism.
+Follow the [pre-release schema policy](architecture.md#versioned-document-boundary): identify incompatible formats explicitly, preserve historical evidence with its producing commit, and add current-code compatibility only when needed. `schemas:generate` is not a migration mechanism. Documentation-only work needs relevant lint and planning validation, not a new full Docker calibration.
 
 ## Task integrity doctor
 
@@ -275,6 +275,8 @@ The command then runs pristine with Harbor `nop`, two valid solutions and every 
 
 The command writes its complete local jobs and generated `TaskDocument` to the printed `/tmp/harness-bench-issue-6-*` directory. These are disposable local calibration records, not committed benchmark results. The checked-in [evidence card](tasks/order-receipt.md) records the accepted command shape and latest calibration identities for owner review.
 
+The image digest in that evidence card belongs to that build. Fresh builds may differ because of build metadata. Use the newly generated TaskDocument and checked image as one consistent set, then freeze them for execution. Rebuilding to obtain a historical image ID is not required. A changed image inside an already frozen plan still fails validation. Preserve historical gate records and create a new preflight record when replacing a blocked preparation; do not rewrite the old card or reuse its provider authorization for changed controls.
+
 Issue 2 has an isolated historical spike surface outside `benchctl`. The provider-free check remains usable. **Do not run the second command:** all four authorized provider invocations are consumed, and changing the run root does not renew authorization.
 
 ```sh
@@ -418,6 +420,10 @@ A cooperative cancellation leaves Harbor responsible for its ordinary trial clea
 
 An owner review is a go/no-go decision over a short redacted evidence card prepared by the implementing agent; it is not a request for the owner to run Harbor, inspect raw credentials, or invent a test procedure. The owner confirms that the stated risk, task realism, or result is acceptable, or says what must change.
 
-After issue 2: auth safety, daily-stack fidelity, public-agent/offline-verifier boundaries, collection, and trace/usage quality. After issue 6: task realism and fair latent contracts. After issue 13: full dry run plus one explicitly authorized subscription canary before private import. After issue 16: freeze tasks. After issue 17: inspect raw evidence before accepting findings or starting justified M4 work.
+The [roadmap](roadmap.md#owner-gates-and-dependencies) owns current owner decisions. Issue 2 feasibility and issue 6 task-fairness reviews are accepted history. The pending post-13 canary precedes owner private-data use; provider-free implementation on sanitized fixtures can continue. Issue 16's early exploratory comparison and issue 17's final pilot each need their own concrete invocation budget. Review the final task suite and pilot budget together. Inspect final evidence before accepting conclusions or starting M4. Reuse existing approval within its stated scope; routine check reruns and metadata changes do not add owner reviews.
+
+For the pending post-13 canary, prepare one redacted card after green assignment-level dry-run. Keep the pinned Codex/Luna/low profile and calibrated resources unless the owner requests a change. Show the current benchmark commit, task and image identities, auth mode, network, time/resource limits, one invocation, concurrency one, and zero retries. The current v1 document needs a second distinct schema-control arm; it receives no execution authorization. Only the selected canary assignment may run. After execution, inspect native JSONL, ATIF, merged output, independent collection, offline verification, normalization, credential checks, and cleanup. A trustworthy `task_failure` can satisfy the technical gate; execution or integrity failure cannot. The owner reviews that concrete result before private-data use. Neither this planning revision nor green provider-free checks authorize the call.
+
+Reuse the successful provider-free checks when the corresponding source/toolchain/task identities still match. Documentation changes alone do not invalidate task calibration; record the current benchmark commit and link the earlier technical evidence. Rerun affected checks after relevant changes or if retained evidence cannot be verified. Checking the actual pinned images and immutable inputs before execution remains required.
 
 M4 may add provider-free CI integrity checks, static reports, and separately opted-in metered schedules. No scheduled job is enabled by this planning run or v1.

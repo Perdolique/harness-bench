@@ -1,6 +1,31 @@
 # Roadmap
 
-The current backlog is defined by `.planning/backlog.json`, the complete local issue bodies, and their published GitHub counterparts. `BOOTSTRAP_PLAN.md` is retained as source provenance for those published bodies, not as a second requirements authority. Planning IDs below are stable; GitHub numbers and URLs are recorded in `.planning/github-state.json`. Every issue has a complete local body and the global Definition of Done.
+The current backlog is defined by `.planning/backlog.json`, the complete local issue bodies, and their published GitHub counterparts. This roadmap owns the current execution order and owner decisions. `BOOTSTRAP_PLAN.md` and completed issue bodies retain historical requirements; the development policy below supersedes their one-session rules and early format-freeze obligations. Planning IDs below are stable; GitHub numbers and URLs are recorded in `.planning/github-state.json`.
+
+## Current development plan
+
+The 2026-09-11 owner-requested revision keeps the implemented engine and brings real-task feedback forward. This is pre-release development. No provider budget or private-data permission is granted by this roadmap.
+
+1. **Finish the technical smoke check.** Reuse the checked post-#43 environment and provider-free evidence while their relevant inputs and toolchain still match. Prepare the exact current inputs, run assignment-level dry-run, and show the owner one redacted card for one native Codex invocation. Review collection, separate offline verification, native records, normalization, and cleanup. A valid task failure can pass this technical check; missing or untrusted evidence cannot. The check precedes owner private-data use, but does not block provider-free code work on sanitized fixtures.
+2. **Issue 14: import one fixed source.** Deliver the smallest usable import/freeze path with explicit provenance, one-commit source, secret checks, external storage, and retention. Test it with sanitized fixtures. Use owner private data only after the technical check and source permission. Do not build a repository discovery service or require reproducible Docker rebuilds.
+3. **Issue 15: support the first real rubric.** Use the canonical task and the first task's concrete needs to validate evidence, applicability, behavior, and scope. Avoid a generalized rule engine. No model call is needed to implement or calibrate this format.
+4. **Issue 16, first stage: finish one real task end to end.** Calibrate the task, then prepare skill-disabled/v1/v2 with one repeat each: three explicitly authorized exploratory invocations in one block. Inspect the report and changes before spending time on the remaining tasks. This is development feedback, not a reliable skill ranking or part of the final 45-run pilot. If the budget is not authorized, the calibrated task and concrete dry-run plan remain a useful milestone; provider-free authoring can continue.
+5. **Issue 16, second stage: finish the five-task suite.** Reuse the proven authoring path. Freeze the task definitions, checked images, verifier, scoring, and harnesses before final comparison. Disclose exploratory use and outcome-driven tuning; exclude a task tuned from observed arm outcomes from final comparative claims and replace it if needed. Review task fairness and the final budget together.
+6. **Issue 17: run the frozen pilot.** Five tasks, three arms, at least three repeats: 45 initial invocations under a separate explicit authorization. Keep paired blocks, unchanged checked inputs, raw evidence, and failure classifications. Inspect per-task results before accepting findings. M4 stays optional until a real need is shown.
+
+Keep the existing issue IDs and dependency edges. A useful stage may be delivered before an entire issue closes, and a larger issue may span several focused PRs or sessions. Small fixes required for the authorized outcome belong with that work. A new issue is for independent out-of-scope work, not every failed check or changed digest.
+
+### Post-#13 checkpoint and image policy
+
+On commit `bcf3141f58991ccffbb98d80a5e82ae55d1dff24`, the v3 preparation passed ordinary checks, doctor integration, all canonical controls, interruption/resume, normalization, and verifier-only regrade `1 -> 0.875`, with zero provider calls. Upstream Harbor setup also reached `codex-cli 0.153.2` without auth. Preparation stopped before dry-run or canary because a fresh image differed from the historical digest in its run card. No owner canary verdict has been recorded.
+
+The fresh agent image was `sha256:fc05cb893da7ffea0f4455c6107daf7781cd75c244908a309b11a6bc60b2158e`. Inspection found the same source, base commit, dependency content, and built output; timestamps changed the image identity. This does not prove all image behavior equivalent, but the fresh image passed its own calibration. Use its retained calibration and verify its identity before any new run plan. If relevant inputs change or evidence is unavailable, repeat affected checks and record the actual artifact.
+
+[Issue 45](https://github.com/Perdolique/harness-bench/issues/45) is withdrawn from the critical path: reproducible image rebuilds are not a pilot requirement. Build, check, freeze, and reuse an image by digest. Do not replace an image inside a frozen plan or reuse a historical approval for changed runtime controls. A revised preflight card may use a newly checked artifact; preserving v1/v2/v3 evidence does not require implementing a new image builder. Later records must identify the superseded preparation and must not rewrite it.
+
+GitHub issue 45 is closed as not planned. Its diagnosis is retained; the unsupported prerequisite is withdrawn, not implemented.
+
+The current v1 run command requires an experiment with at least two distinct harness/stack arms even for one assignment. For the pending single canary, keep the second schema-control arm non-executable and outside the authorized budget. This existing format limitation does not justify a prerequisite refactor; a real three-arm development comparison uses the normal matrix without that placeholder.
 
 ## Milestones
 
@@ -8,8 +33,8 @@ The current backlog is defined by `.planning/backlog.json`, the complete local i
 | --- | --- |
 | M0 Feasibility | Issues 1–3: pinned development skeleton, end-to-end subscription feasibility, then evidence-based decisions. Owner gate after issue 2. |
 | M1 Vertical-slice MVP | Issues 4–9: schemas, immutable harness, canonical task, one-run execution, normalization and terminal evidence. Owner calibration gate after issue 6. |
-| M2 Controlled experiments | Issues 10–13: blocked/repeated execution, paired uncertainty, integrity checks and verifier-only regrade. Owner dry-run/canary gate after issue 13. |
-| M3 Pilot benchmark | Issues 14–17: import/freeze real tasks, evidence rubric, five calibrated tasks and first skill comparison. Freeze gate after 16; evidence review after 17. |
+| M2 Controlled experiments | Issues 10–13 are implemented: execution, analysis, integrity and regrade. Technical canary remains pending before owner private-data use. |
+| M3 Pilot benchmark | Issues 14–17: import, concrete rubric, one real development comparison, then five calibrated tasks and a frozen pilot. |
 | M4 Hardening and expansion | Issues 18–27: optional evidence-justified work after the pilot, outside the v1 critical path. Metered schedules are a separate opt-in issue. |
 
 ## Dependency graph
@@ -45,7 +70,7 @@ flowchart TD
 
 ## Recommended execution order
 
-Use one issue per agent session and PR. Complete 1 → 2 → owner gate → 3. Issue 4 precedes 5; issue 6 depends only on 3 and can be developed independently of 4/5 after feasibility acceptance. Complete 4/5/6 and the issue 6 owner gate before 7, then 8 → 9. Issue 10 follows 9; issue 12 can proceed independently once 6–8 are complete. Finish 11 after 10, then 13 after 8/11/12, then 14 → 15 → 16 → 17 with the owner gates below. No implementation is part of the bootstrap session.
+Issues 1–13 are complete; do not rebuild that platform or repeat accepted historical reviews. Follow the current development plan above: technical canary, minimal import/rubric work in 14 → 15, early one-task feedback within 16, then the frozen pilot in 17. Technical prerequisites remain enforced by the graph. User-authorized work can continue across useful stages; a session boundary is not an acceptance criterion.
 
 ## Complete issue index
 
@@ -83,11 +108,12 @@ Use one issue per agent session and PR. Complete 1 → 2 → owner gate → 3. I
 
 | Gate | Evidence required before downstream work |
 | --- | --- |
-| After 2 | Accept subscription auth safety, native workflow fidelity, unrestricted agent internet and offline verifier, traces/usage, independent patch collection and separate offline verifier. If not green, stop issues 4–13 and open a narrow fallback issue/ADR. |
-| After 6 | Accept prompt realism, inferable evidence-backed obligations, alternate implementations and fair scope grading before issue 7. |
-| After 13 | Review a complete local dry run and one explicitly authorized subscription canary before importing private real tasks in 14. |
-| After 16 | Approve calibration and freeze task/suite/verifier/scoring revisions before comparative experiment 17. |
-| After 17 | Inspect per-task trajectories and patches; decide whether measured behavior is useful before activating M4. |
+| After 2, accepted | Subscription feasibility, native fidelity, independent collection and separate verification. Revisit only if relevant assumptions change. |
+| After 6, accepted | Canonical task realism and fair grading. Ordinary calibration remains an implementation check. |
+| After 13, pending | Approve the one-call card and review the resulting technical evidence before owner private-data use. Provider-free fixture work can continue. |
+| During 16 | Authorize the concrete three-call exploratory plan if desired; inspect the first real task before expanding authoring. |
+| Before 17 | Review the five-task suite and 45-call pilot plan together; this freezes comparative inputs and authorizes only the stated budget. |
+| After 17 | Inspect per-task evidence and accept or reject conclusions. Authorize M4 only for a demonstrated need. |
 
 The issue 2 owner gate was accepted on 2026-09-05 with explicit qualifications: the public-network medium and low runs passed. A separately authorized additional low run then passed, completing the matching-input low pair; issue 3 accepted the architecture with a future one-base-commit Git workspace, fail-closed owner login for unproved auth refresh, and native stream-merging, public-network, and platform limitations. See the [evidence report](spikes/harbor-codex-subscription.md) and [accepted ADRs](adr/README.md).
 
@@ -101,4 +127,4 @@ M4 item dependencies are in the table rather than speculative parallel tracks. I
 
 ## Current boundary
 
-M0 and M1 are complete. Issues 10 and 11 add blocked experiment orchestration and paired comparison. Issue 12 adds provider-free task integrity diagnosis and deterministic calibration using the existing Harbor lifecycle and trusted evidence boundary. The issue 6 realism and fairness gate remains accepted in [PR #34](https://github.com/Perdolique/harness-bench/pull/34). Verifier-only regrade remains separate issue 13 work; its later owner dry-run/subscription-canary gate is not satisfied by doctor’s provider-free calibration.
+M0–M2 implementation is complete. The technical canary and real-task work remain. The 2026-09-11 planning revision changes development sequencing, compatibility obligations, and workflow rules; it does not change runtime schemas, authorize native execution, approve private-data access, or claim that the pending canary passed.
