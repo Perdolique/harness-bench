@@ -21,6 +21,8 @@ const imageTags = {
   verifier: 'harness-bench-order-receipt-verifier:issue-6'
 } as const
 
+const harborCodexSystemCommands = ['curl', 'bash', 'node', 'npm', 'rg'] as const
+
 interface TaskPackageOptions {
   readonly baseCommit: string;
   readonly sourceDigest: string;
@@ -167,6 +169,25 @@ function inspectImage(tag: string): string {
   }).trim()
 }
 
+function assertNativeCodexSystemCommands(image: string): void {
+  const checks = harborCodexSystemCommands
+    .map((command) => `command -v ${command} >/dev/null 2>&1`)
+    .join(' && ')
+
+  run('docker', [
+    'run',
+    '--rm',
+    '--network=none',
+    '--entrypoint',
+    '/bin/bash',
+    image,
+    '-lc',
+    `set -eu; ${checks}`
+  ])
+
+  console.log(`Native Codex system commands: ${harborCodexSystemCommands.join(', ')}.`)
+}
+
 async function renderTemplate(path: string, replacements: Readonly<Record<string, string>>): Promise<string> {
   let source = await readFile(path, 'utf8')
 
@@ -302,6 +323,8 @@ async function main(): Promise<void> {
     collector: inspectImage(imageTags.collector),
     verifier: inspectImage(imageTags.verifier)
   }
+
+  assertNativeCodexSystemCommands(imageDigests.agent)
 
   const taskDocument = await buildOrderReceiptTaskDocument({
     baseCommit: materialized.baseCommit,

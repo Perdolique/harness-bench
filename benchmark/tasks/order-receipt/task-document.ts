@@ -52,7 +52,7 @@ export async function buildOrderReceiptTaskDocument(
     environment: {
       digest: inputs.environmentImageDigest,
       id: 'order-receipt-playwright-arm64',
-      revision: 'order-receipt-environment-v1'
+      revision: 'order-receipt-environment-v2'
     },
 
     collector: {
