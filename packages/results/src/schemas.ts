@@ -678,7 +678,7 @@ const SanitizedRunExportV1StructureSchema = v.strictObject({
   })),
 
   redaction_report: v.strictObject({
-    scanner_revision: v.literal('credential-patterns-v1'),
+    scanner_revision: v.literal('credential-patterns-v2'),
     credential_findings: v.literal(0),
     content_bytes_included: v.literal(false),
     local_paths_included: v.literal(false),

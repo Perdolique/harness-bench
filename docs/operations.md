@@ -140,7 +140,50 @@ python3 .planning/sync-github.py --check
 
 The first command validates local documents and the issue graph without network or providers. The second reads GitHub and checks publication state without mutation. Publication uses `python3 .planning/sync-github.py --apply`; see [planning maintenance](../.planning/README.md). The implemented `benchctl harness` commands above do not run Harbor; run orchestration remains issue 7.
 
-Canonical task materialization creates an agent-visible local Git repository with one deterministic base commit. It does not copy the source object database, refs, remotes, hooks, credentials, alternates, or future history and retains only objects reachable from the new commit. The trusted collector snapshots the stopped workspace twice, ignores agent-controlled Git metadata, and emits exactly `workspace.patch` and `workspace-metadata.json`. Replay checks the exact inventory, hashes, source identity, base commit, safe paths, regular-file types, and final tree before grading. The completed issue 2 spike remains Git-free; issue 14 owns the later private-import path.
+Canonical task materialization creates an agent-visible local Git repository with one deterministic base commit. It does not copy the source object database, refs, remotes, hooks, credentials, alternates, or future history and retains only objects reachable from the new commit. The trusted collector snapshots the stopped workspace twice, ignores agent-controlled Git metadata, and emits exactly `workspace.patch` and `workspace-metadata.json`. Replay checks the exact inventory, hashes, source identity, base commit, safe paths, regular-file types, and final tree before grading. The completed issue 2 spike remains Git-free.
+
+## Task source import
+
+Issue 14 adds a local, provider-free import lifecycle for one exact Git SHA-1 commit:
+
+```sh
+vp run benchctl -- task import /absolute/task-import-definition.json \
+  --store /absolute/external/task-imports
+
+vp run benchctl -- task validate \
+  /absolute/external/task-imports/<64-lowercase-hex-digest>
+
+vp run benchctl -- task materialize \
+  /absolute/external/task-imports/<64-lowercase-hex-digest> \
+  --destination /absolute/new-workspace
+```
+
+The definition selects an absolute local repository, full lowercase commit, opaque repository ID, optional known merged-PR ancestry, explicit `eligible` or `ineligible` online-reachability decision, and public/private retention. The store must be a real mode-`0700` directory outside both the complete source Git worktree and this checkout; passing a nested repository directory does not weaken that check. Import never clones, fetches, calls GitHub, runs filters or hooks, or follows symlinks. It rejects submodules, Git LFS hydration, symlinks, special modes, unsafe/colliding paths, files the source reader would omit, credential-like names/content, and non-SHA-1 commit identities.
+
+Definitions and retained metadata are bounded and scanned before storage. Task and repository identifiers are at most 100 characters, task revisions are short identifier tokens, and reachability reasons must not contain credentials, URLs, absolute paths, or control characters. A definition or stored JSON file is at most 1 MiB. One import accepts at most 10,000 regular files, 64 MiB per file, and 256 MiB in total; larger sources fail closed before finalization.
+
+An active address contains only `manifest.json` and `source/`. The manifest contains safe provenance and hashes, not the repository path, remote URL, Git config, prompt, or source bytes. Its `materialized_base_commit`, `source_digest`, reachability, and retention map directly into the existing `TaskDocument`; pass its `source/` to `task_source`. Image building, verifier authoring, and package preparation remain explicit existing steps.
+
+Dispose one private import only after inspecting the exact address and digest:
+
+```sh
+vp run benchctl -- task dispose /absolute/external/task-imports/<digest> \
+  --confirm-import-digest sha256:<64-lowercase-hex> \
+  --reason owner-request
+```
+
+`retention-expired` is valid only at or after expiry. `credential-detected` also requires `--credential-action rotated|revoked`; this emergency path still accepts a content-addressed, schema-valid manifest when the source itself now fails credential or integrity scanning. Public imports are immutable and rejected by this lifecycle.
+
+Every address operation uses the same restricted reservation, so import, validation, materialization, disposal, and recovery cannot race through one address. Disposal seals the complete tombstone before moving or deleting source bytes. A failure before deletion restores and revalidates the active import. A failure after deletion, during tombstone installation, or during reservation cleanup returns exit `2` and keeps the reservation plus restricted deterministic recovery state. After confirming that no disposal process is still active, complete that state with the exact digest:
+
+```sh
+vp run benchctl -- task recover /absolute/external/task-imports/<digest> \
+  --confirm-import-digest sha256:<64-lowercase-hex>
+```
+
+Recovery restores and validates staged active source when deletion did not finish, or installs the already sealed tombstone when managed source is gone. It rejects a live disposal owner, conflicting paths, incomplete state, and a mismatched digest. Only after the final tombstone or restored source validates and reservation removal succeeds does the command report success. External repositories and backups are not managed, and there is no automatic expiry sweep.
+
+All task commands emit one compact JSON object. Exit `0` means success. Usage, integrity, conflict, and lifecycle failures return exit `2` with a safe error code and no source bytes or remote URL. `vp run task:canonical:check` now creates a sanitized repository with future history and extra Git state, imports only its base commit, and passes the imported source through the existing package and doctor smoke calibration. It makes no provider call.
 
 ## One-run orchestration
 
@@ -273,7 +316,7 @@ The command builds the pinned agent, collector, and verifier images first. Image
 
 The command then runs pristine with Harbor `nop`, two valid solutions and every negative control with deterministic `oracle`, and an identical reference replay. Effective concurrency is one, attempts are one, automatic retries are zero, provider calls are zero, and `HARBOR_TELEMETRY` is `off`. The verifier runs in a fresh separate container with `network_mode: none`, no credentials, its own immutable base, and only the two validated declared artifacts. Harbor's implicit `/logs/artifacts` transfer must remain empty. A verifier or integrity failure produces an invalid score and no numeric reward; an ordinary task failure remains a valid graded result.
 
-The command writes its complete local jobs and generated `TaskDocument` to the printed `/tmp/harness-bench-issue-6-*` directory. These are disposable local calibration records, not committed benchmark results. The checked-in [evidence card](tasks/order-receipt.md) records the accepted command shape and latest calibration identities for owner review.
+The command writes its complete local jobs and generated `TaskDocument` to the printed `/tmp/harness-bench-issue-14-*` directory. These are disposable local calibration records, not committed benchmark results. The checked-in [evidence card](tasks/order-receipt.md) records the accepted command shape and latest calibration identities for owner review.
 
 The image digest in that evidence card belongs to that build. Fresh builds may differ because of build metadata. Use the newly generated TaskDocument and checked image as one consistent set, then freeze them for execution. Rebuilding to obtain a historical image ID is not required. A changed image inside an already frozen plan still fails validation. Preserve historical gate records and create a new preflight record when replacing a blocked preparation; do not rewrite the old card or reuse its provider authorization for changed controls.
 

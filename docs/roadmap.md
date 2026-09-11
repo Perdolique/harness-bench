@@ -7,7 +7,7 @@ The current backlog is defined by `.planning/backlog.json`, the complete local i
 The 2026-09-11 owner-requested revision keeps the implemented engine and brings real-task feedback forward. This is pre-release development. No provider budget or private-data permission is granted by this roadmap.
 
 1. **Finish the technical smoke check.** Reuse the checked post-#43 environment and provider-free evidence while their relevant inputs and toolchain still match. Prepare the exact current inputs, run assignment-level dry-run, and show the owner one redacted card for one native Codex invocation. Review collection, separate offline verification, native records, normalization, and cleanup. A valid task failure can pass this technical check; missing or untrusted evidence cannot. The check precedes owner private-data use, but does not block provider-free code work on sanitized fixtures.
-2. **Issue 14: import one fixed source.** Deliver the smallest usable import/freeze path with explicit provenance, one-commit source, secret checks, external storage, and retention. Test it with sanitized fixtures. Use owner private data only after the technical check and source permission. Do not build a repository discovery service or require reproducible Docker rebuilds.
+2. **Issue 14: import one fixed source — implemented.** The provider-free path imports an exact local commit with explicit provenance, one-commit materialization, secret checks, external content-addressed storage, private retention, disposal, and a redacted tombstone. Sanitized fixtures cover it end to end. Owner private-data use still requires the technical check and source permission. Repository discovery and reproducible Docker rebuilds remain out of scope.
 3. **Issue 15: support the first real rubric.** Use the canonical task and the first task's concrete needs to validate evidence, applicability, behavior, and scope. Avoid a generalized rule engine. No model call is needed to implement or calibrate this format.
 4. **Issue 16, first stage: finish one real task end to end.** Calibrate the task, then prepare skill-disabled/v1/v2 with one repeat each: three explicitly authorized exploratory invocations in one block. Inspect the report and changes before spending time on the remaining tasks. This is development feedback, not a reliable skill ranking or part of the final 45-run pilot. If the budget is not authorized, the calibrated task and concrete dry-run plan remain a useful milestone; provider-free authoring can continue.
 5. **Issue 16, second stage: finish the five-task suite.** Reuse the proven authoring path. Freeze the task definitions, checked images, verifier, scoring, and harnesses before final comparison. Disclose exploratory use and outcome-driven tuning; exclude a task tuned from observed arm outcomes from final comparative claims and replace it if needed. Review task fairness and the final budget together.
@@ -70,7 +70,7 @@ flowchart TD
 
 ## Recommended execution order
 
-Issues 1–13 are complete; do not rebuild that platform or repeat accepted historical reviews. Follow the current development plan above: technical canary, minimal import/rubric work in 14 → 15, early one-task feedback within 16, then the frozen pilot in 17. Technical prerequisites remain enforced by the graph. User-authorized work can continue across useful stages; a session boundary is not an acceptance criterion.
+Issues 1–14 are implemented; do not rebuild that platform or repeat accepted historical reviews. Follow the current development plan above: technical canary, rubric work in 15, early one-task feedback within 16, then the frozen pilot in 17. Technical prerequisites remain enforced by the graph. User-authorized work can continue across useful stages; a session boundary is not an acceptance criterion.
 
 ## Complete issue index
 
@@ -127,4 +127,4 @@ M4 item dependencies are in the table rather than speculative parallel tracks. I
 
 ## Current boundary
 
-M0–M2 implementation is complete. The technical canary and real-task work remain. The 2026-09-11 planning revision changes development sequencing, compatibility obligations, and workflow rules; it does not change runtime schemas, authorize native execution, approve private-data access, or claim that the pending canary passed.
+M0–M2 and the issue 14 task-import implementation are complete. The technical canary, real rubric, and real-task authoring remain. The 2026-09-11 planning revision changes development sequencing, compatibility obligations, and workflow rules; it does not change runtime schemas, authorize native execution, approve private-data access, or claim that the pending canary passed.

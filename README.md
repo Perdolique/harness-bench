@@ -2,7 +2,7 @@
 
 Evaluate complete coding-agent stacks on repository-native engineering tasks. A stack includes the native agent and version, model and effort, authentication mode, harness, tools, permissions, repository snapshot, prompt, budget, and runner. A result is evidence about that stack on those tasks, never a bare-model score.
 
-**Status: pre-release development; the engine is implemented through issue 13.** It supports pinned toolchains, provider-free CI, seven v1 schemas, immutable harnesses, a calibrated synthetic task, Harbor execution, result retention and reports, repeated comparisons, integrity checks, and verifier-only regrade. Real task import and pilot authoring remain ahead. The next useful outcome is one real task with an inspected exploratory comparison, before expanding to five tasks. See the [current development plan](docs/roadmap.md#current-development-plan).
+**Status: pre-release development; the engine is implemented through issue 14.** It supports pinned toolchains, provider-free CI, seven v1 schemas, immutable harnesses, a calibrated synthetic task, Harbor execution, result retention and reports, repeated comparisons, integrity checks, verifier-only regrade, and content-addressed import of one exact Git task source. Real rubric and pilot authoring remain ahead. The next useful outcome is one real task with an inspected exploratory comparison, before expanding to five tasks. See the [current development plan](docs/roadmap.md#current-development-plan).
 
 Three accepted native feasibility runs prove only the recorded synthetic path. Token refresh was not exercised and an auth failure requires owner login. Harbor irreversibly merged native stdout and stderr. The agent had unrestricted network access, including possible access to remote content, host services, and its temporary credentials. The result applies only to the recorded macOS Apple Silicon and Docker Desktop Linux/arm64 environment.
 
@@ -26,6 +26,8 @@ V1 excludes neutral model evaluation, dashboards, distributed execution, a secon
 ## Project guide
 
 Inspect a retained normalized run with `vp run benchctl -- results report /absolute/path/to/normalized/<sha256>/record.json`. Inspect experiment state with `vp run benchctl -- experiment report /absolute/path/to/plan.json`, or derive the revision-1 paired analysis with `vp run benchctl -- experiment compare /absolute/path/to/plan.json`. Reports show identities, quality, reliability, timing, usage, coverage, and checked evidence without mutating source records or invoking a provider. See [report usage and exit codes](docs/operations.md#single-run-terminal-report) and [experiment matrices](docs/operations.md#experiment-matrices).
+
+Import an exact local Git commit with `vp run benchctl -- task import /absolute/task-import-definition.json --store /absolute/external/task-imports`, then validate and materialize the returned content address. Private disposal failures retain a restricted reservation and can be completed with `task recover`. Import is provider-free and does not authorize private-data use; see the [task source import lifecycle](docs/operations.md#task-source-import).
 
 - [Development rules](AGENTS.md) and [contribution workflow](CONTRIBUTING.md).
 - [Product specification](docs/product-spec.md) and [architecture](docs/architecture.md).

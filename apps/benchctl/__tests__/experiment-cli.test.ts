@@ -195,7 +195,7 @@ describe('benchctl experiment usage', () => {
     expect(exit).toBe(2)
 
     expect(captured.stderr.join('')).toContain(
-      'USAGE_ERROR: Expected doctor, experiment, run, harness, or results command group'
+      'USAGE_ERROR: Expected doctor, experiment, run, task, harness, or results command group'
     )
   })
 })
