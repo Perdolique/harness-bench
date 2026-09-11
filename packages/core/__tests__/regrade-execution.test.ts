@@ -111,6 +111,7 @@ async function preflightFixture(): Promise<{
       imageReferences: {},
 
       runtimeControls: {
+        agent_user: 'pwuser',
         verifier_timeout_seconds: 60
       }
     },
@@ -151,6 +152,12 @@ describe('preflightHarborRegrade', () => {
     await expect(
       preflightHarborRegrade(fixture, preflightRuntime)
     ).resolves.toBeUndefined()
+
+    expect(preflightRuntime.assertPinnedImages).toHaveBeenLastCalledWith(
+      fixture.target.targetTask,
+      fixture.target.packageInspection.imageReferences,
+      'pwuser'
+    )
   })
 
   it.each([

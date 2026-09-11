@@ -694,7 +694,8 @@ export async function preflightHarborRegrade(
 
   await runtime.assertPinnedImages(
     options.target.targetTask,
-    options.target.packageInspection.imageReferences
+    options.target.packageInspection.imageReferences,
+    options.target.packageInspection.runtimeControls.agent_user
   )
 }
 

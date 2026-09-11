@@ -35,7 +35,7 @@ afterEach(async () => {
   for (const root of roots.splice(0)) await removeDoctorFixture(root)
 })
 
-type Fault = 'pristine-pass' | 'pristine-drift' | 'reference-fail' | 'nondeterminism' | 'check-order' | 'reward-order' | 'semantic-drift' | 'network' | 'credential' | 'missing-check' | 'stop' | 'extra-artifact' | 'oracle' | 'visibility' | 'cancelled' | 'timeout' | 'image-layer' | 'image-id' | 'host'
+type Fault = 'pristine-pass' | 'pristine-drift' | 'reference-fail' | 'nondeterminism' | 'check-order' | 'reward-order' | 'semantic-drift' | 'network' | 'credential' | 'missing-check' | 'stop' | 'extra-artifact' | 'oracle' | 'visibility' | 'cancelled' | 'timeout' | 'image-layer' | 'image-id' | 'image-user' | 'image-root' | 'host'
 
 function fakeRuntime(root: string, fault?: Fault): DoctorRuntime {
   const command = vi.fn(async (executable: string, args: readonly string[]): Promise<string> => {
@@ -57,8 +57,16 @@ function fakeRuntime(root: string, fault?: Fault): DoctorRuntime {
       if (args[0] === 'image' && args[1] === 'inspect') return JSON.stringify({
         Id: fault === 'image-id' ? 'wrong' : args[3],
         Os: 'linux',
-        Architecture: 'arm64'
+        Architecture: 'arm64',
+
+        Config: {
+          User: args[3] === `sha256:${'1'.repeat(64)}`
+            ? (fault === 'image-user' ? 'other-user' : 'pwuser')
+            : ''
+        }
       })
+
+      if (args[0] === 'run') return fault === 'image-root' ? '0' : '1000'
 
       return ''
     }
@@ -268,7 +276,7 @@ describe('doctor', { timeout: 15_000 }, () => {
     expect((await lstat(resolve(input.outputDirectory, 'raw'))).mode & 0o777).toBe(0o500)
 
     for (const [context] of vi.mocked(runtime.runHarbor).mock.calls) {
-      expect(context.authDescriptor).toBeUndefined()
+      expect(context.authPath).toBeUndefined()
       expect(context.signal).toBeInstanceOf(AbortSignal)
 
       const job = JSON.parse(await readFile(context.configPath, 'utf8'))
@@ -428,7 +436,7 @@ describe('doctor', { timeout: 15_000 }, () => {
     expect(runtime.runHarbor).not.toHaveBeenCalled()
   })
 
-  it.each(['pristine-pass', 'pristine-drift', 'reference-fail', 'nondeterminism', 'network', 'missing-check', 'stop', 'extra-artifact', 'oracle', 'visibility', 'cancelled', 'timeout', 'image-layer', 'image-id', 'host'] satisfies Fault[])('rejects %s without claiming complete calibration', async (fault) => {
+  it.each(['pristine-pass', 'pristine-drift', 'reference-fail', 'nondeterminism', 'network', 'missing-check', 'stop', 'extra-artifact', 'oracle', 'visibility', 'cancelled', 'timeout', 'image-layer', 'image-id', 'image-user', 'image-root', 'host'] satisfies Fault[])('rejects %s without claiming complete calibration', async (fault) => {
     const input = await fixture()
     const runtime = fakeRuntime(input.root, fault)
 
