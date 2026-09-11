@@ -8,7 +8,7 @@
   "ineligible-action": ["availability"],
   "keyboard-inaccessible": ["keyboard"],
   "missing-analytics": ["analytics"],
-  "missing-navigation-key": ["direct-behavior"],
+  "missing-navigation-key": ["direct-receipt"],
   "regression-disabled": ["regression", "scope"],
   "stale-selection": ["selected-context"],
   "wrong-order": ["selected-context"]

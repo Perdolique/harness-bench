@@ -635,6 +635,37 @@ describe('versioned document schemas', () => {
     ).toContain('rubric.0.justification')
   })
 
+  it('rejects zero rubric weights and duplicate evidence paths', () => {
+    const task = v.parse(TaskDocumentSchema, readExample('valid', 'task'))
+    const first = task.rubric[0]!
+
+    const zeroWeight = {
+      ...task,
+
+      rubric: [{
+        ...first,
+        weight: 0
+      }, ...task.rubric.slice(1)]
+    }
+
+    const duplicateEvidence = {
+      ...task,
+
+      rubric: [{
+        ...first,
+        evidence_paths: [first.evidence_paths[0]!, first.evidence_paths[0]!]
+      }, ...task.rubric.slice(1)]
+    }
+
+    expect(pathsFor(v.safeParse(TaskDocumentSchema, zeroWeight))).toContain(
+      'rubric.0.weight'
+    )
+
+    expect(
+      pathsFor(v.safeParse(TaskDocumentSchema, duplicateEvidence))
+    ).toContain('rubric.0.evidence_paths')
+  })
+
   it('rejects overlapping scope zones', () => {
     const task = v.parse(TaskDocumentSchema, readExample('valid', 'task'))
 

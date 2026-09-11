@@ -43,10 +43,48 @@ export async function prepareDoctorFixture(root: string, images = fixtureImages)
   const task = {
     ...base,
 
-    rubric: base.rubric.map((obligation) => ({
-      ...obligation,
-      evidence_paths: ['README.md']
-    })),
+    rubric: [
+      {
+        obligation_id: 'direct',
+        facet: 'direct_behavior',
+        expectation: 'Create the requested fixture result',
+        evidence_paths: ['README.md'],
+        justification: 'The pristine fixture describes the requested result',
+        deterministic_check: 'tests/fixture#direct',
+        applicability: 'required',
+        weight: 1
+      },
+      {
+        obligation_id: 'contracts',
+        facet: 'repository_contracts',
+        expectation: 'Add a candidate test',
+        evidence_paths: ['README.md'],
+        justification: 'The pristine fixture defines the candidate test contract',
+        deterministic_check: 'tests/fixture#contracts',
+        applicability: 'required',
+        weight: 1
+      },
+      {
+        obligation_id: 'regression',
+        facet: 'regression',
+        expectation: 'Preserve the enabled regression marker',
+        evidence_paths: ['regression.txt'],
+        justification: 'The pristine marker records the protected behavior',
+        deterministic_check: 'tests/fixture#regression',
+        applicability: 'required',
+        weight: 1
+      },
+      {
+        obligation_id: 'scope',
+        facet: 'scope_integrity',
+        expectation: 'Keep the forbidden fixture file unchanged',
+        evidence_paths: ['forbidden.txt'],
+        justification: 'The pristine file records the task scope boundary',
+        deterministic_check: 'tests/fixture#scope',
+        applicability: 'required',
+        weight: 1
+      }
+    ],
 
     task_id: 'doctor-fixture',
 

@@ -12,6 +12,7 @@ import { inspectTaskSource, materializeTaskWorkspace } from './task.ts'
 import { inspectHarborTaskPackage, type TaskPackageInspection } from './task-package.ts'
 import { assertNonRootAgentIdentity, validateTaskEvidence } from './run-execution.ts'
 import { scanCredentialBytes, scanCredentialTree } from './secret-scan.ts'
+import { assertRubricDoctorControls, assertRubricEvidencePaths } from './task-rubric.ts'
 
 import {
   DoctorDefinitionSchema,
@@ -372,10 +373,14 @@ export async function runDoctor(options: DoctorOptions, suppliedRuntime: DoctorR
 
     assertDependencyPins(source)
 
-    for (const obligation of task.rubric) {
-      for (const path of obligation.evidence_paths) {
-        if (!source.files.has(path)) throw new DoctorError('RUBRIC_EVIDENCE', 'Rubric evidence is absent from the pristine source')
-      }
+    try {
+      assertRubricEvidencePaths(task, new Set(source.files.keys()))
+    } catch (cause) {
+      throw new DoctorError(
+        'RUBRIC_EVIDENCE',
+        'Rubric evidence is absent from the pristine source',
+        { cause }
+      )
     }
 
     const copied = resolve(raw, 'inputs/source')
@@ -424,6 +429,18 @@ export async function runDoctor(options: DoctorOptions, suppliedRuntime: DoctorR
   await check('CONTROL_INPUTS', 'Provide complete deterministic control solutions and expectations.', async () => {
     const reference = definition.controls.find((control) => control.kind === 'reference')!
     const checkIds = Object.keys(reference.expected_checks).sort()
+
+    if (task === undefined) throw new DoctorError('TASK_REQUIRED', 'A valid task document is required')
+
+    try {
+      assertRubricDoctorControls(task, definition.controls)
+    } catch (cause) {
+      throw new DoctorError(
+        'CONTROL_EXPECTATIONS',
+        'Doctor controls do not satisfy the task rubric contract',
+        { cause }
+      )
+    }
 
     for (const control of definition.controls) {
       const ids = Object.keys(control.expected_checks).sort()

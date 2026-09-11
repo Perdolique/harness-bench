@@ -10,19 +10,19 @@ Prompt:
 
 > Add a “View receipt” action next to “View details” in the order history cards. It should open the existing receipt page for the selected order.
 
-Latest complete local calibration on 2026-09-10 (Europe/Tallinn), through doctor v1:
+Latest complete local calibration on 2026-09-11 (Europe/Tallinn), with `order-receipt-doctor-v2` on doctor report schema/revision v1:
 
 | Identity | Value |
 | --- | --- |
-| Source digest | `sha256:154f809e842bd8b5980346429a60b370edf3719647a20b18037cc915ad6f458c` |
+| Source digest | `sha256:177fde56566127fe7f1bf4551b7a6fec3821da53eaf254777954154cecd9ac86` |
 | Prompt digest | `sha256:c033e4b5443b824263b30be28ddb82a46a7c162de61997a299d73e56922419c9` |
-| Deterministic base commit | `cc4cba29d7ca0ebab2beacdfa357b6ce4e6a4cc1` |
-| Agent image | `sha256:635941ecca104bf43d812cbbc064829c7f0189d9bba004df163117d4da55269b` |
-| Collector image | `sha256:bb78ff30e2aa5053479fc77d1038a2d0b74c330b3072efcb1181aa34cb1b7d7d` |
-| Verifier image | `sha256:6b8fc8a5ac3d1632f830215f6f8c16545c1b3f7cb2300048feced5afedc0f455` |
+| Deterministic base commit | `5b560875fc44347d19762c1205ce908384ab39b0` |
+| Agent image | `sha256:aba01c7363ac0643f5e3652aceb801cd6da6110520efa2767dee97b2e7717ca4` |
+| Collector image | `sha256:513cbccf96af18f3adcdfd2e0d9c98cf22c69b4fd58aa85c0d21e143a442685b` |
+| Verifier image | `sha256:3c96991781c51898434f936d3f21262b3803c9264738f90a2168c871c6bed8b4` |
 | Playwright base image | `sha256:941cc91e5022880ac1d14ae90b476b624deb6399dbbc28d612d5d5bd7928fcbd` |
 
-The generated document uses `TaskDocument` v1 with independent `order-receipt-task-v2`, `order-receipt-environment-v2`, `order-receipt-collector-v3`, `order-receipt-verifier-v3`, `order-receipt-scoring-v1`, and `order-receipt-rubric-v2` revisions. Environment v2 pins Ubuntu Noble `ripgrep=14.1.0-1`, preserving the Playwright image's existing Node/npm installation while satisfying Harbor 0.22.0's complete Codex system-command prerequisite check. Canonical preparation proves `curl`, `bash`, `node`, `npm`, and `rg` are all present from a network-disabled container before Harbor starts. Codex remains installed by Harbor so agent CLI and task-environment identities stay independent. The public synthetic fixture is explicitly `online_reachability.status: ineligible`; it cannot support a claim that checks or future solutions were hidden from an internet-enabled agent.
+The generated document uses `TaskDocument` v1 with independent `order-receipt-task-v3`, `order-receipt-environment-v2`, `order-receipt-collector-v3`, `order-receipt-verifier-v4`, `order-receipt-scoring-v2`, and `order-receipt-rubric-v3` revisions. Verifier v4 emits strict rubric checks with explicit credit, scoring v2 binds weighted credit, and rubric v3 uses the same `direct-receipt` obligation ID from declaration through evidence. Environment v2 pins Ubuntu Noble `ripgrep=14.1.0-1`, preserving the Playwright image's existing Node/npm installation while satisfying Harbor 0.22.0's complete Codex system-command prerequisite check. Canonical preparation proves `curl`, `bash`, `node`, `npm`, and `rg` are all present from a network-disabled container before Harbor starts. Codex remains installed by Harbor so agent CLI and task-environment identities stay independent. The public synthetic fixture is explicitly `online_reachability.status: ineligible`; it cannot support a claim that checks or future solutions were hidden from an internet-enabled agent.
 
 ## Evidence-backed requirements
 
@@ -68,6 +68,8 @@ All thirteen controls completed their oracle script and failed the intended chec
 
 Doctor completed all 17 controls with exit `0` and `allowed_use: smoke`. The repeated reference produced identical patch/metadata hashes and semantic checks, facets, gates, scope violations, four numeric rewards, and composite. Canonical score assertions independently required the exact numeric matrix above, with composite `0` for pristine and `1` for all three positive runs. The nop-only probe confirmed the pristine source, one-commit Git, installed dependency pins, and declared hidden-material/credential absences; every agent image layer passed the declared forbidden-path inspection. Input/tooling stability and complete evidence inventory passed. Cleanup inspected containers, volumes, and networks for all 34 exact main/verifier Compose projects and found no remaining resources. Every untrusted test stage used a fresh candidate or trusted workspace and home, and the verifier cleanup control proved that a detached candidate child process could not survive into a later stage. Hidden tests and localization probes were root-owned and read-only before candidate code ran. Every verifier container exposed only loopback interfaces, received no credentials, and rejected unexpected conventional Harbor artifacts. The complete run used one concurrent job, one attempt, zero retries, zero model/provider calls, and Harbor telemetry off.
 
+The issue 15 calibration is retained locally at `/tmp/harness-bench-issue-14-WHRCoN/doctor/`. Its evidence-manifest digest is `sha256:da7f69c45f0d6deb0e417bedd624384858b2e7f40f527a534a8b2d88a16f693c`; the core tooling digest is `sha256:478932a3c0494ecc56c9a0eed2b2869cab8d5e2305cc4a9498cde4b002cc9d90`; and the adjacent `canonical-score-checks.json` digest is `sha256:55d4c6ec37fb2e5fd472f2fc971d1d8bd42f8db3dc5c6a5a42cc8d303b8325c2`.
+
 ## Commands
 
 ```sh
@@ -85,4 +87,4 @@ The complete doctor record is `/tmp/harness-bench-issue-6-pEb0KL/doctor/` on the
 
 The independent Docker integration summary is `/tmp/harness-bench-doctor-integration-rRgPgk/summary.json`. All seven scenarios met their assertions: healthy passed seven controls; network, sentinel credential, hidden file, collector exit 42, and missing artifact each blocked the result; a forbidden file deleted by a later image layer was rejected before any Harbor call. Each executed scenario confirmed cleanup. The provider canary observed zero requests, and the executable/config audit permitted only provider-free execution.
 
-Verifier v3 supplies the facet bindings required by the existing production evidence validator and allows up to one second for SIGKILL delivery before rejecting surviving untrusted processes. Earlier failed or interrupted attempts remain separate. One intentionally interrupted attempt reported leftover Harbor verifier resources; targeted cleanup used its retained Compose configuration and did not rewrite the failed record. Passing normal cleanup does not establish infallible cleanup after cancellation.
+Verifier v4 supplies strict obligation-keyed facet, outcome, credit, and detail evidence and allows up to one second for SIGKILL delivery before rejecting surviving untrusted processes. Earlier v3, failed, or interrupted attempts remain separate. One intentionally interrupted attempt reported leftover Harbor verifier resources; targeted cleanup used its retained Compose configuration and did not rewrite the failed record. Passing normal cleanup does not establish infallible cleanup after cancellation.

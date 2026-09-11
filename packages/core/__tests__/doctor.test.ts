@@ -304,6 +304,60 @@ describe('doctor', { timeout: 15_000 }, () => {
     expect(runtime.runHarbor).not.toHaveBeenCalled()
   })
 
+  it('rejects a rubric evidence path absent from pristine source', async () => {
+    const input = await fixture()
+    const taskPath = resolve(input.root, 'task.json')
+    const task = JSON.parse(await readFile(taskPath, 'utf8'))
+
+    task.rubric[0].evidence_paths = ['src/missing-evidence.ts']
+
+    await writeFile(taskPath, `${JSON.stringify(task, null, 2)}\n`)
+
+    const runtime = fakeRuntime(input.root)
+
+    const report = await runDoctor({
+      ...input,
+      purpose: 'smoke'
+    }, runtime)
+
+    expect(report.checks.find((check) => check.code === 'TASK_SOURCE')).toMatchObject({
+      failure_code: 'RUBRIC_EVIDENCE',
+      status: 'failed'
+    })
+
+    expect(runtime.runHarbor).not.toHaveBeenCalled()
+  })
+
+  it('rejects a doctor control with an unknown rubric obligation', async () => {
+    const input = await fixture()
+    const definition = JSON.parse(await readFile(input.definition, 'utf8'))
+
+    const disabled = definition.controls.find(
+      (control: { kind: string }) => control.kind === 'test_disablement'
+    )
+
+    disabled.expected_checks.unknown = false
+
+    await writeFile(
+      input.definition,
+      `${JSON.stringify(definition, null, 2)}\n`
+    )
+
+    const runtime = fakeRuntime(input.root)
+
+    const report = await runDoctor({
+      ...input,
+      purpose: 'smoke'
+    }, runtime)
+
+    expect(report.checks.find((check) => check.code === 'CONTROL_INPUTS')).toMatchObject({
+      failure_code: 'CONTROL_EXPECTATIONS',
+      status: 'failed'
+    })
+
+    expect(runtime.runHarbor).not.toHaveBeenCalled()
+  })
+
   it.each(['check-order', 'reward-order'] as const)('compares semantic outcomes regardless of %s in verifier JSON', async (fault) => {
     const input = await fixture()
 
@@ -316,7 +370,7 @@ describe('doctor', { timeout: 15_000 }, () => {
     expect(report.checks.find((check) => check.code === 'DETERMINISM')?.status).toBe('passed')
   })
 
-  it('rejects a semantic score change even when repeated artifacts and checks match', async () => {
+  it('fails closed on a weighted score change before determinism comparison', async () => {
     const input = await fixture()
 
     const report = await runDoctor({
@@ -324,9 +378,9 @@ describe('doctor', { timeout: 15_000 }, () => {
       purpose: 'smoke'
     }, fakeRuntime(input.root, 'semantic-drift'))
 
-    expect(report.exit_code).toBe(1)
-    expect(report.checks.find((check) => check.code === 'CONTROL_reference-repeat')?.status).toBe('passed')
-    expect(report.checks.find((check) => check.code === 'DETERMINISM')?.failure_code).toBe('NONDETERMINISM')
+    expect(report.exit_code).toBe(2)
+    expect(report.checks.find((check) => check.code === 'CONTROL_reference-repeat')?.failure_code).toBe('INVALID_EVIDENCE')
+    expect(report.checks.find((check) => check.code === 'DETERMINISM')?.status).toBe('not_run')
   })
 
   it.each(['container', 'volume', 'network'] as const)('rejects an orphan %s by its exact Compose project label', async (kind) => {

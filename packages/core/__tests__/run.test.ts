@@ -577,6 +577,7 @@ describe(assertNonRootAgentIdentity, () => {
 })
 
 interface FixtureVerifierCheck {
+  readonly credit: number;
   readonly detail: string;
   readonly facet: string;
   readonly passed: boolean;
@@ -750,24 +751,28 @@ async function writeSuccessfulHarborEvidence(
 
   const checks = {
     contracts: {
+      credit: 1,
       detail: 'fixture contract check',
       facet: 'repository_contracts',
       passed: true
     },
 
     direct: {
+      credit: Number(success),
       detail: 'fixture direct check',
       facet: 'direct_behavior',
       passed: success
     },
 
     regression: {
+      credit: 1,
       detail: 'fixture regression check',
       facet: 'regression',
       passed: true
     },
 
     scope: {
+      credit: 1,
       detail: 'fixture scope check',
       facet: 'scope_integrity',
       passed: true
@@ -812,10 +817,16 @@ type SemanticEvidenceControl =
   | 'facet-mismatch'
   | 'gate-mismatch'
   | 'integrity-passed'
+  | 'invalid-credit'
+  | 'missing-check'
+  | 'missing-credit'
   | 'network-integrity'
+  | 'numeric-absent-facet'
+  | 'not-applicable-declared-facet'
   | 'omitted-check'
   | 'outcome-mismatch'
   | 'scope-mismatch'
+  | 'weighted-score'
 
 async function removeEvidence(
   context: HarborExecutionContext,
@@ -873,7 +884,12 @@ async function mutateSemanticEvidence(
 
   const score = JSON.parse(await readFile(scorePath, 'utf8')) as {
     composite: Record<string, unknown>;
-    facets: Record<string, { evidence: Array<Record<string, unknown>> }>;
+    facets: Record<string, {
+      evidence: Array<Record<string, unknown>>;
+      reason?: string;
+      status?: string;
+      value?: number;
+    }>;
     gates: Record<string, unknown>;
     scope_violations: Array<Record<string, unknown>>;
     verifier_result_digest: string;
@@ -910,12 +926,43 @@ async function mutateSemanticEvidence(
       verifierResult.integrity.passed = false
 
       break
+    case 'invalid-credit':
+      verifierResult.checks.direct!.credit = 1.1
+      directEvidence.evidence_digest = digest(JSON.stringify(verifierResult.checks.direct))
+
+      break
+    case 'missing-check':
+      delete verifierResult.checks.direct
+
+      break
+    case 'missing-credit':
+      delete verifierResult.checks.direct!.credit
+      directEvidence.evidence_digest = digest(JSON.stringify(verifierResult.checks.direct))
+
+      break
     case 'network-integrity':
       verifierResult.integrity.networkIsolated = false
 
       break
+    case 'numeric-absent-facet':
+      score.facets.maintainability = {
+        status: 'value',
+        value: 1,
+        evidence: []
+      }
+
+      break
+    case 'not-applicable-declared-facet':
+      score.facets.direct_behavior = {
+        status: 'not_applicable',
+        reason: 'Incorrectly omitted',
+        evidence: []
+      }
+
+      break
     case 'omitted-check':
       verifierResult.checks.unreported = {
+        credit: 1,
         detail: 'unreported check',
         facet: 'maintainability',
         passed: true
@@ -931,6 +978,10 @@ async function mutateSemanticEvidence(
         path: 'package.json',
         reason: 'Fixture scope violation'
       })
+
+      break
+    case 'weighted-score':
+      score.facets.direct_behavior!.value = 0.5
 
       break
   }
@@ -1729,10 +1780,16 @@ describe(executeRunPlanWithRuntime, () => {
     'facet-mismatch',
     'gate-mismatch',
     'integrity-passed',
+    'invalid-credit',
+    'missing-check',
+    'missing-credit',
     'network-integrity',
+    'numeric-absent-facet',
+    'not-applicable-declared-facet',
     'omitted-check',
     'outcome-mismatch',
-    'scope-mismatch'
+    'scope-mismatch',
+    'weighted-score'
   ] as const)('rejects %s verifier/score evidence drift', async (control) => {
     const test = await fixture()
     const authPath = resolve(test.root, 'selected-auth.json')

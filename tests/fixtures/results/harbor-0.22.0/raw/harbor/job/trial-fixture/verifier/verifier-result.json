@@ -2,19 +2,27 @@
   "checks": {
     "direct": {
       "facet": "direct_behavior",
-      "passed": true
+      "passed": true,
+      "credit": 1,
+      "detail": "Fixture direct check"
     },
     "contracts": {
       "facet": "repository_contracts",
-      "passed": true
+      "passed": true,
+      "credit": 1,
+      "detail": "Fixture contract check"
     },
     "regression": {
       "facet": "regression",
-      "passed": true
+      "passed": true,
+      "credit": 1,
+      "detail": "Fixture regression check"
     },
     "scope": {
       "facet": "scope_integrity",
-      "passed": true
+      "passed": true,
+      "credit": 1,
+      "detail": "Fixture scope check"
     }
   },
   "integrity": {

@@ -408,9 +408,10 @@ async function scoreAndWriteOutputs(result) {
   await mkdir(verifierLogs, { recursive: true })
 
   for (const [id, check] of Object.entries(result.checks)) {
-    check.facet = id === 'direct-behavior' ? 'direct_behavior'
+    check.facet = id === 'direct-receipt' ? 'direct_behavior'
       : id === 'regression' ? 'regression'
       : id === 'scope' ? 'scope_integrity' : 'repository_contracts'
+    check.credit = Number(check.passed)
   }
 
   const verifierResultSource = `${JSON.stringify(result, null, 2)}\n`
@@ -425,8 +426,8 @@ async function scoreAndWriteOutputs(result) {
       score_id: `order-receipt-${runId}`,
       run_id: runId,
       verifier_result_digest: verifierResultDigest,
-      scoring_revision: 'order-receipt-scoring-v1',
-      rubric_revision: 'order-receipt-rubric-v2',
+      scoring_revision: 'order-receipt-scoring-v2',
+      rubric_revision: 'order-receipt-rubric-v3',
       valid_grade: false,
 
       gates: {
@@ -493,7 +494,7 @@ async function scoreAndWriteOutputs(result) {
     evidence_digest: sha256(JSON.stringify(result.checks[id]))
   })
 
-  const direct = result.checks['direct-behavior'].passed
+  const direct = result.checks['direct-receipt'].passed
   const regression = result.checks.regression.passed
   const scope = result.checks.scope.passed
 
@@ -516,8 +517,8 @@ async function scoreAndWriteOutputs(result) {
     score_id: `order-receipt-${runId}`,
     run_id: runId,
     verifier_result_digest: verifierResultDigest,
-    scoring_revision: 'order-receipt-scoring-v1',
-    rubric_revision: 'order-receipt-rubric-v2',
+    scoring_revision: 'order-receipt-scoring-v2',
+    rubric_revision: 'order-receipt-rubric-v3',
     valid_grade: true,
 
     gates: {
@@ -530,7 +531,7 @@ async function scoreAndWriteOutputs(result) {
       direct_behavior: {
         status: 'value',
         value: Number(direct),
-        evidence: [evidence('direct-behavior', direct)]
+        evidence: [evidence('direct-receipt', direct)]
       },
 
       repository_contracts: {
@@ -894,7 +895,7 @@ async function verify() {
           passed: candidateTestsPassed
         },
 
-        'direct-behavior': {
+        'direct-receipt': {
           detail: hidden.detail,
           passed: directBehavior
         },

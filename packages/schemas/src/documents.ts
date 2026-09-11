@@ -201,7 +201,12 @@ export const HarnessDocumentSchema = v.pipe(
   )
 )
 
-const RubricObligationSchema = v.strictObject({
+const PositiveUnitIntervalSchema = v.pipe(
+  UnitIntervalSchema,
+  v.minValue(Number.MIN_VALUE, 'Rubric obligation weight must be greater than zero')
+)
+
+const RubricObligationStructureSchema = v.strictObject({
   obligation_id: IdentifierSchema,
 
   facet: v.picklist([
@@ -224,6 +229,17 @@ const RubricObligationSchema = v.strictObject({
   applicability: v.picklist(['required', 'optional']),
   weight: UnitIntervalSchema
 })
+
+const RubricObligationSchema = v.pipe(v.strictObject({
+  ...RubricObligationStructureSchema.entries,
+  weight: PositiveUnitIntervalSchema
+}), v.forward(
+  v.check(
+    ({ evidence_paths }) => hasUniqueValues(evidence_paths),
+    'Rubric evidence paths must be unique within an obligation'
+  ),
+  ['evidence_paths']
+))
 
 const PublicRetentionSchema = v.strictObject({
   classification: v.literal('public'),
@@ -291,7 +307,7 @@ export const TaskDocumentStructureSchema = v.strictObject({
   ),
 
   rubric: v.pipe(
-    v.array(RubricObligationSchema),
+    v.array(RubricObligationStructureSchema),
     v.minLength(1, 'Task must declare at least one rubric obligation')
   ),
 
@@ -314,7 +330,14 @@ export const TaskDocumentStructureSchema = v.strictObject({
 })
 
 export const TaskDocumentSchema = v.pipe(
-  TaskDocumentStructureSchema,
+  v.strictObject({
+    ...TaskDocumentStructureSchema.entries,
+
+    rubric: v.pipe(
+      v.array(RubricObligationSchema),
+      v.minLength(1, 'Task must declare at least one rubric obligation')
+    )
+  }),
   v.forward(
     v.check(
       ({ declared_artifacts }) =>

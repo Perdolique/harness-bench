@@ -37,6 +37,7 @@ import { inspectTaskSource } from './task.ts'
 import { assertHarborArtifactInventory, verifyWorkspaceArtifacts } from './task-artifacts.ts'
 import type { TaskPackageInspection } from './task-package.ts'
 import { scanCredentialTree } from './secret-scan.ts'
+import { assertTaskScoreEvidence } from './task-rubric.ts'
 
 const execFileAsync = promisify(execFile)
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024
@@ -1364,108 +1365,6 @@ async function parseJsonFile(path: string, label: string): Promise<unknown> {
   }
 }
 
-export function assertScoreEvidence(
-  score: ScoreDocument,
-  verifierResult: Record<string, unknown>
-): void {
-  const checks = verifierResult.checks
-  const scopeViolations = verifierResult.scopeViolations
-
-  if (!isRecord(checks) || !Array.isArray(scopeViolations)) {
-    throw new RunError(
-      'INVALID_EVIDENCE',
-      'Verifier checks or scope violations are missing'
-    )
-  }
-
-  const facetEntries = Object.entries(score.facets)
-  const referencedChecks = new Set<string>()
-
-  for (const [facetName, facet] of facetEntries) {
-    for (const evidence of facet.evidence) {
-      const check = checks[evidence.check_id]
-
-      if (
-        !isRecord(check) ||
-        typeof check.passed !== 'boolean' ||
-        check.facet !== facetName ||
-        referencedChecks.has(evidence.check_id)
-      ) {
-        throw new RunError(
-          'INVALID_EVIDENCE',
-          'Score does not bind each verifier check to exactly one matching facet'
-        )
-      }
-
-      referencedChecks.add(evidence.check_id)
-
-      const expectedOutcome = check.passed ? 'passed' : 'failed'
-      const expectedDigest = sha256(JSON.stringify(check))
-
-      if (
-        evidence.outcome !== expectedOutcome ||
-        evidence.evidence_digest !== expectedDigest
-      ) {
-        throw new RunError(
-          'INVALID_EVIDENCE',
-          'Score evidence does not match the verifier check'
-        )
-      }
-    }
-  }
-
-  if (
-    referencedChecks.size !== Object.keys(checks).length ||
-    Object.keys(checks).some((checkId) => !referencedChecks.has(checkId))
-  ) {
-    throw new RunError(
-      'INVALID_EVIDENCE',
-      'Score omits one or more verifier checks'
-    )
-  }
-
-  const directEvidence = score.facets.direct_behavior.evidence
-  const regressionEvidence = score.facets.regression.evidence
-
-  const directPassed = directEvidence.length > 0 && directEvidence.every(
-    ({ outcome }) => outcome === 'passed'
-  )
-
-  const regressionPassed = regressionEvidence.length > 0 && regressionEvidence.every(
-    ({ outcome }) => outcome === 'passed'
-  )
-
-  if (
-    score.gates.direct_behavior_pass !== directPassed ||
-    score.gates.regression_pass !== regressionPassed
-  ) {
-    throw new RunError('INVALID_EVIDENCE', 'Score gates do not match verifier checks')
-  }
-
-  const expectedViolations = scopeViolations.map((violation) => {
-    if (
-      !isRecord(violation) ||
-      typeof violation.path !== 'string' ||
-      typeof violation.reason !== 'string'
-    ) {
-      throw new RunError('INVALID_EVIDENCE', 'Verifier scope violation is invalid')
-    }
-
-    return {
-      path: violation.path,
-      reason: violation.reason,
-      evidence_digest: sha256(JSON.stringify(violation))
-    }
-  })
-
-  if (JSON.stringify(score.scope_violations) !== JSON.stringify(expectedViolations)) {
-    throw new RunError(
-      'INVALID_EVIDENCE',
-      'Score scope violations do not match verifier evidence'
-    )
-  }
-}
-
 export async function validateTaskEvidence(
   plan: TaskEvidenceIdentity,
   rawRoot: string,
@@ -1573,7 +1472,18 @@ export async function validateTaskEvidence(
     )
   }
 
-  assertScoreEvidence(score, verifierResult)
+  try {
+    assertTaskScoreEvidence(plan.task, score, verifierResult)
+  } catch (cause) {
+    throw new RunError(
+      'INVALID_EVIDENCE',
+      'Score does not satisfy the task rubric contract',
+      {
+        cause,
+        stage: 'finalization'
+      }
+    )
+  }
 
   const classification =
     score.gates.direct_behavior_pass &&

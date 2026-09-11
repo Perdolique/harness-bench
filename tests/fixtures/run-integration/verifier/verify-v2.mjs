@@ -84,27 +84,32 @@ const networkIsolated = Object.values(networkInterfaces())
   .every(({ internal }) => internal)
 
 const passed = result === 'fixture-success\n' && credentialsAbsent && networkIsolated
+const directCredit = passed ? 0.5 : 0
 
 const checks = {
   contracts: {
+    credit: Number(passed),
     detail: 'fixture contract check',
     facet: 'repository_contracts',
     passed
   },
 
   direct: {
+    credit: directCredit,
     detail: 'fixture direct check with partial v2 credit',
     facet: 'direct_behavior',
     passed
   },
 
   regression: {
+    credit: Number(passed),
     detail: 'fixture regression check',
     facet: 'regression',
     passed
   },
 
   scope: {
+    credit: 1,
     detail: 'fixture scope check',
     facet: 'scope_integrity',
     passed: true
@@ -125,7 +130,6 @@ const verifierResult = {
 
 const verifierSource = `${JSON.stringify(verifierResult, null, 2)}\n`
 const verifierResultDigest = sha256(verifierSource)
-const directCredit = passed ? 0.5 : 0
 const composite = passed ? 0.875 : 0
 
 const evidence = (checkId) => ({

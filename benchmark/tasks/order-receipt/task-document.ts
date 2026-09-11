@@ -45,7 +45,7 @@ export async function buildOrderReceiptTaskDocument(
     document_type: 'task',
     schema_version: 1,
     task_id: 'order-receipt',
-    revision: 'order-receipt-task-v2',
+    revision: 'order-receipt-task-v3',
     base_commit: inputs.baseCommit,
     source_digest: inputs.sourceDigest,
 
@@ -68,12 +68,12 @@ export async function buildOrderReceiptTaskDocument(
         status: 'not_applicable'
       },
 
-      revision: 'order-receipt-verifier-v3'
+      revision: 'order-receipt-verifier-v4'
     },
 
     scoring: {
-      revision: 'order-receipt-scoring-v1',
-      rubric_revision: 'order-receipt-rubric-v2'
+      revision: 'order-receipt-scoring-v2',
+      rubric_revision: 'order-receipt-rubric-v3'
     },
 
     prompt: {

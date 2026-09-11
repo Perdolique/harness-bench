@@ -19,6 +19,8 @@ Validate an evidence-backed rubric usable by the first real task and the existin
 - Support direct behavior, analytics, logging, tests, accessibility, localization, regression and scope.
 - Represent facet applicability, evidence paths, expectations and deterministic check references.
 - Define allowed, conditional and forbidden scope zones with justified exceptions.
+- Keep `TaskDocument.schema_version: 1` and the existing rubric shape; bind every obligation ID to one strict verifier check with `facet`, `passed`, `credit`, and `detail`.
+- Recompute weighted facet credit in core and use only required direct-behavior and regression outcomes for hard gates.
 
 ## Out of scope
 
@@ -27,6 +29,7 @@ Validate an evidence-backed rubric usable by the first real task and the existin
 ## Technical constraints
 
 - Evidence must resolve at the pristine base, not a solution or agent-edited snapshot.
+- Every declared obligation, including an optional one, has a verifier check and contributes to its facet. A facet with no obligations is not applicable and has no evidence.
 - A presence-only static check is insufficient when behavior can be verified.
 - Follow AGENTS.md and the accepted architecture; no custom sandbox/runner.
 - Keep verifier execution separate, network-disabled and credential-free; never expose hidden tests, reference solutions or future history to the agent.
@@ -46,9 +49,9 @@ Validate an evidence-backed rubric usable by the first real task and the existin
 
 ## Test/evidence plan
 
-- Reject nonexistent evidence, contradictory expectations and unsupported obligations.
-- Validate not-applicable facets and justified alternate file choices.
-- Provide good/bad examples including behavioral negative controls.
+- Reject nonexistent evidence, unknown or missing checks, facet mismatches, invalid credit, incorrect weighted values, gate mismatches, and invalid applicability.
+- Validate not-applicable facets and the sanitized `notification-retry` direct-edit and conditional-helper alternatives.
+- Run pristine, reference, alternate, repeat, test deletion, test disablement, forbidden edit, and all task-specific behavioral negative controls with provider calls at zero.
 
 ## Documentation changes
 

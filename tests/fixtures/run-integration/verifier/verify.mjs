@@ -91,24 +91,28 @@ const passed = result === 'fixture-success\n' && credentialsAbsent && networkIso
 
 const checks = {
   contracts: {
+    credit: Number(passed),
     detail: 'fixture contract check',
     facet: 'repository_contracts',
     passed
   },
 
   direct: {
+    credit: Number(passed),
     detail: 'fixture direct check',
     facet: 'direct_behavior',
     passed
   },
 
   regression: {
+    credit: Number(passed),
     detail: 'fixture regression check',
     facet: 'regression',
     passed
   },
 
   scope: {
+    credit: 1,
     detail: 'fixture scope check',
     facet: 'scope_integrity',
     passed: true

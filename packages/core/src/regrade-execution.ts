@@ -9,13 +9,13 @@ import { RunError } from './run-errors.ts'
 
 import {
   assertPinnedTaskImages,
-  assertScoreEvidence,
   materializePinnedTaskPackage,
   runHarborRegradeProcess,
   type HarborExecutionOutcome,
   type HarborRegradeExecutionContext
 } from './run-execution.ts'
 
+import { assertTaskScoreEvidence } from './task-rubric.ts'
 import { inspectRunTree, inspectRunTreeInventory, readStableRunFile, type RunTreeSnapshot } from './run.ts'
 import { scanCredentialTree } from './secret-scan.ts'
 import { assertHarborArtifactInventory } from './task-artifacts.ts'
@@ -602,7 +602,18 @@ async function validateRegradeTrial(
     )
   }
 
-  assertScoreEvidence(score, verifierResult)
+  try {
+    assertTaskScoreEvidence(options.target.targetTask, score, verifierResult)
+  } catch (cause) {
+    throw new RunError(
+      'INVALID_EVIDENCE',
+      'Regrade score does not satisfy the target task rubric contract',
+      {
+        cause,
+        stage: 'finalization'
+      }
+    )
+  }
 
   const classification =
     score.gates.direct_behavior_pass &&

@@ -17,24 +17,28 @@ export function fixtureScore(runId: string, values: FixtureChecks, integrity: Fi
 
   const checks = {
     contracts: {
+      credit: Number(values.contracts),
       detail: 'The candidate retains the required test.',
       facet: 'repository_contracts',
       passed: values.contracts
     },
 
     direct: {
+      credit: Number(values.direct),
       detail: 'The requested result exists.',
       facet: 'direct_behavior',
       passed: values.direct
     },
 
     regression: {
+      credit: Number(values.regression),
       detail: 'The pristine regression remains enabled.',
       facet: 'regression',
       passed: values.regression
     },
 
     scope: {
+      credit: Number(values.scope),
       detail: 'The forbidden file is unchanged.',
       facet: 'scope_integrity',
       passed: values.scope
