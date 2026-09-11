@@ -139,13 +139,13 @@ describe(renderSingleRunReport, () => {
         regression_pass: passed
         verifier_integrity_pass: passed
         direct_behavior: 1.000
-          direct: passed sha256:1111111111111111111111111111111111111111111111111111111111111111
+          direct: passed sha256:31e96f81b16bfae89ded89cdb52abf70b0c893f53b38f1f7a6b6a002885d7ba6
         repository_contracts: 1.000
-          contracts: passed sha256:2222222222222222222222222222222222222222222222222222222222222222
+          contracts: passed sha256:f85346a43efdb57b3f42c10b48210866c940d5328937b776653de5da32de641e
         regression: 1.000
-          regression: passed sha256:3333333333333333333333333333333333333333333333333333333333333333
+          regression: passed sha256:21bfdffecb173c384b66ebda28213d1ebd9b638c4cfe63933d5badeb1a941117
         scope_integrity: 1.000
-          scope: passed sha256:4444444444444444444444444444444444444444444444444444444444444444
+          scope: passed sha256:a771646667bea34af2b38ac4977fce2833c44fb14e9a8e173c89f438e3459ed9
         maintainability: not applicable (Not measured by this fixture)
         Scope violations: 0
         Composite (convenience): 1.000
@@ -204,13 +204,13 @@ describe(renderSingleRunReport, () => {
         regression_pass: passed
         verifier_integrity_pass: passed
         direct_behavior: 0.000
-          direct: failed sha256:1111111111111111111111111111111111111111111111111111111111111111
+          direct: failed sha256:31e96f81b16bfae89ded89cdb52abf70b0c893f53b38f1f7a6b6a002885d7ba6
         repository_contracts: 1.000
-          contracts: passed sha256:2222222222222222222222222222222222222222222222222222222222222222
+          contracts: passed sha256:f85346a43efdb57b3f42c10b48210866c940d5328937b776653de5da32de641e
         regression: 1.000
-          regression: passed sha256:3333333333333333333333333333333333333333333333333333333333333333
+          regression: passed sha256:21bfdffecb173c384b66ebda28213d1ebd9b638c4cfe63933d5badeb1a941117
         scope_integrity: 1.000
-          scope: passed sha256:4444444444444444444444444444444444444444444444444444444444444444
+          scope: passed sha256:a771646667bea34af2b38ac4977fce2833c44fb14e9a8e173c89f438e3459ed9
         maintainability: not applicable (Not measured by this fixture)
         Scope violations: 0
         Composite (convenience): 0.000"
@@ -245,10 +245,10 @@ describe(renderSingleRunReport, () => {
         regression_pass: passed
         verifier_integrity_pass: passed
         direct_behavior: 1.000
-          direct: passed sha256:1111111111111111111111111111111111111111111111111111111111111111
+          direct: passed sha256:31e96f81b16bfae89ded89cdb52abf70b0c893f53b38f1f7a6b6a002885d7ba6
         repository_contracts: not applicable (No justified contracts)
         regression: 1.000
-          regression: passed sha256:3333333333333333333333333333333333333333333333333333333333333333
+          regression: passed sha256:21bfdffecb173c384b66ebda28213d1ebd9b638c4cfe63933d5badeb1a941117
         scope_integrity: unknown (Scope evidence unavailable)
         maintainability: not applicable (Not measured by this fixture)
         Scope violations: 0

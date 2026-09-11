@@ -8,7 +8,7 @@ The 2026-09-11 owner-requested revision keeps the implemented engine and brings 
 
 1. **Finish the technical smoke check.** Reuse the checked post-#43 environment and provider-free evidence while their relevant inputs and toolchain still match. Prepare the exact current inputs, run assignment-level dry-run, and show the owner one redacted card for one native Codex invocation. Review collection, separate offline verification, native records, normalization, and cleanup. A valid task failure can pass this technical check; missing or untrusted evidence cannot. The check precedes owner private-data use, but does not block provider-free code work on sanitized fixtures.
 2. **Issue 14: import one fixed source — implemented.** The provider-free path imports an exact local commit with explicit provenance, one-commit materialization, secret checks, external content-addressed storage, private retention, disposal, and a redacted tombstone. Sanitized fixtures cover it end to end. Owner private-data use still requires the technical check and source permission. Repository discovery and reproducible Docker rebuilds remain out of scope.
-3. **Issue 15: support the first real rubric.** Use the canonical task and the first task's concrete needs to validate evidence, applicability, behavior, and scope. Avoid a generalized rule engine. No model call is needed to implement or calibrate this format.
+3. **Issue 15: support the first real rubric — implemented.** Task obligations now bind pristine evidence, doctor controls, strict verifier checks, weighted facet credit, applicability, and required behavior gates. The canonical task and sanitized `notification-retry` example calibrate the contract without a generalized rule engine or model call.
 4. **Issue 16, first stage: finish one real task end to end.** Calibrate the task, then prepare skill-disabled/v1/v2 with one repeat each: three explicitly authorized exploratory invocations in one block. Inspect the report and changes before spending time on the remaining tasks. This is development feedback, not a reliable skill ranking or part of the final 45-run pilot. If the budget is not authorized, the calibrated task and concrete dry-run plan remain a useful milestone; provider-free authoring can continue.
 5. **Issue 16, second stage: finish the five-task suite.** Reuse the proven authoring path. Freeze the task definitions, checked images, verifier, scoring, and harnesses before final comparison. Disclose exploratory use and outcome-driven tuning; exclude a task tuned from observed arm outcomes from final comparative claims and replace it if needed. Review task fairness and the final budget together.
 6. **Issue 17: run the frozen pilot.** Five tasks, three arms, at least three repeats: 45 initial invocations under a separate explicit authorization. Keep paired blocks, unchanged checked inputs, raw evidence, and failure classifications. Inspect per-task results before accepting findings. M4 stays optional until a real need is shown.
@@ -26,6 +26,8 @@ The fresh agent image was `sha256:fc05cb893da7ffea0f4455c6107daf7781cd75c244908a
 GitHub issue 45 is closed as not planned. Its diagnosis is retained; the unsupported prerequisite is withdrawn, not implemented.
 
 The current v1 run command requires an experiment with at least two distinct harness/stack arms even for one assignment. For the pending single canary, keep the second schema-control arm non-executable and outside the authorized budget. This existing format limitation does not justify a prerequisite refactor; a real three-arm development comparison uses the normal matrix without that placeholder.
+
+Issue 15 changed the canonical task, verifier, scoring, rubric, and doctor identities. The older pending smoke-canary card is therefore stale and must be regenerated against the v3/v4/v2/v3/v2 identities before owner review. This does not authorize the canary, private-data access, or provider spend.
 
 ## Milestones
 
@@ -70,7 +72,7 @@ flowchart TD
 
 ## Recommended execution order
 
-Issues 1–14 are implemented; do not rebuild that platform or repeat accepted historical reviews. Follow the current development plan above: technical canary, rubric work in 15, early one-task feedback within 16, then the frozen pilot in 17. Technical prerequisites remain enforced by the graph. User-authorized work can continue across useful stages; a session boundary is not an acceptance criterion.
+Issues 1–15 are implemented; do not rebuild that platform or repeat accepted historical reviews. Follow the current development plan above: regenerate and review the pending technical canary card against the current rubric identities, then get early one-task feedback within 16 and run the frozen pilot in 17. Technical prerequisites remain enforced by the graph. User-authorized work can continue across useful stages; a session boundary is not an acceptance criterion.
 
 ## Complete issue index
 
@@ -127,4 +129,4 @@ M4 item dependencies are in the table rather than speculative parallel tracks. I
 
 ## Current boundary
 
-M0–M2 and the issue 14 task-import implementation are complete. The technical canary, real rubric, and real-task authoring remain. The 2026-09-11 planning revision changes development sequencing, compatibility obligations, and workflow rules; it does not change runtime schemas, authorize native execution, approve private-data access, or claim that the pending canary passed.
+M0–M2 and the issue 15 executable-rubric implementation are complete. The refreshed technical canary and real-task authoring remain. The 2026-09-11 planning revision changes development sequencing, compatibility obligations, and workflow rules; it does not authorize native execution, approve private-data access, or claim that the pending canary passed.

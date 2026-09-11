@@ -301,6 +301,26 @@ export async function fixture(options: { readonly selectedRules?: boolean } = {}
         deterministic_check: 'tests/regression.test.ts',
         applicability: 'required',
         weight: 1
+      },
+      {
+        obligation_id: 'contracts',
+        facet: 'repository_contracts',
+        expectation: 'Preserve the repository contract',
+        evidence_paths: ['README.md'],
+        justification: 'Fixture repository evidence',
+        deterministic_check: 'tests/contracts.test.ts',
+        applicability: 'required',
+        weight: 1
+      },
+      {
+        obligation_id: 'scope',
+        facet: 'scope_integrity',
+        expectation: 'Keep changes in scope',
+        evidence_paths: ['README.md'],
+        justification: 'Fixture scope evidence',
+        deterministic_check: 'tests/scope.test.ts',
+        applicability: 'required',
+        weight: 1
       }
     ],
 

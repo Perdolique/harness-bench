@@ -201,8 +201,21 @@ export const HarnessDocumentSchema = v.pipe(
   )
 )
 
-const RubricObligationSchema = v.strictObject({
-  obligation_id: IdentifierSchema,
+const PositiveUnitIntervalSchema = v.pipe(
+  UnitIntervalSchema,
+  v.gtValue(0, 'Rubric obligation weight must be greater than zero')
+)
+
+export const RubricObligationIdSchema = v.pipe(
+  NonEmptyStringSchema,
+  v.regex(
+    /^[a-z][a-z0-9-]{0,63}$/,
+    'Rubric obligation ID must start with a lowercase letter and contain at most 64 lowercase letters, numbers, or dashes'
+  )
+)
+
+const RubricObligationStructureSchema = v.strictObject({
+  obligation_id: RubricObligationIdSchema,
 
   facet: v.picklist([
     'direct_behavior',
@@ -224,6 +237,17 @@ const RubricObligationSchema = v.strictObject({
   applicability: v.picklist(['required', 'optional']),
   weight: UnitIntervalSchema
 })
+
+const RubricObligationSchema = v.pipe(v.strictObject({
+  ...RubricObligationStructureSchema.entries,
+  weight: PositiveUnitIntervalSchema
+}), v.forward(
+  v.check(
+    ({ evidence_paths }) => hasUniqueValues(evidence_paths),
+    'Rubric evidence paths must be unique within an obligation'
+  ),
+  ['evidence_paths']
+))
 
 const PublicRetentionSchema = v.strictObject({
   classification: v.literal('public'),
@@ -291,7 +315,7 @@ export const TaskDocumentStructureSchema = v.strictObject({
   ),
 
   rubric: v.pipe(
-    v.array(RubricObligationSchema),
+    v.array(RubricObligationStructureSchema),
     v.minLength(1, 'Task must declare at least one rubric obligation')
   ),
 
@@ -314,7 +338,14 @@ export const TaskDocumentStructureSchema = v.strictObject({
 })
 
 export const TaskDocumentSchema = v.pipe(
-  TaskDocumentStructureSchema,
+  v.strictObject({
+    ...TaskDocumentStructureSchema.entries,
+
+    rubric: v.pipe(
+      v.array(RubricObligationSchema),
+      v.minLength(1, 'Task must declare at least one rubric obligation')
+    )
+  }),
   v.forward(
     v.check(
       ({ declared_artifacts }) =>
@@ -1131,7 +1162,7 @@ export const RunDocumentSchema = v.union([
 const ScoreEvidenceSchema = v.pipe(
   v.array(
     v.strictObject({
-      check_id: IdentifierSchema,
+      check_id: RubricObligationIdSchema,
       outcome: v.picklist(['passed', 'failed']),
       evidence_digest: Sha256Schema
     })

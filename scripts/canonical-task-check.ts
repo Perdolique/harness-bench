@@ -496,7 +496,7 @@ async function main(): Promise<void> {
     analytics: false,
     availability: false,
     'candidate-tests': false,
-    'direct-behavior': false,
+    'direct-receipt': false,
     keyboard: false,
     localization: false,
     regression: true,
@@ -546,7 +546,7 @@ async function main(): Promise<void> {
   const definition: DoctorDefinition = {
     document_type: 'doctor_definition',
     schema_version: 1,
-    revision: 'order-receipt-doctor-v1',
+    revision: 'order-receipt-doctor-v2',
     task_document: resolve(temporaryRoot, 'task-document.json'),
     task_source: prepared.source,
     task_package: taskPackage,

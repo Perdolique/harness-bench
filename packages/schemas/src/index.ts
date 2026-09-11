@@ -3,6 +3,7 @@ export {
   ExperimentDocumentSchema,
   HarnessDocumentSchema,
   InitialRunRecordSchema,
+  RubricObligationIdSchema,
   RunDocumentSchema,
   ScoreDocumentSchema,
   StackDocumentSchema,

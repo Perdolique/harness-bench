@@ -784,6 +784,26 @@ async function main(): Promise<void> {
         deterministic_check: 'tests/test.sh',
         applicability: 'required',
         weight: 1
+      },
+      {
+        obligation_id: 'contracts',
+        facet: 'repository_contracts',
+        expectation: 'The fixture retains its repository contract',
+        evidence_paths: ['README.md'],
+        justification: 'The public fixture records the repository contract',
+        deterministic_check: 'tests/test.sh#contracts',
+        applicability: 'required',
+        weight: 1
+      },
+      {
+        obligation_id: 'scope',
+        facet: 'scope_integrity',
+        expectation: 'The fixture change stays in scope',
+        evidence_paths: ['README.md'],
+        justification: 'The public fixture records the scope boundary',
+        deterministic_check: 'tests/test.sh#scope',
+        applicability: 'required',
+        weight: 1
       }
     ],
 

@@ -1,4 +1,5 @@
 import * as v from 'valibot'
+import { RubricObligationIdSchema } from '@harness-bench/schemas'
 
 const text = v.pipe(v.string(), v.minLength(1))
 const id = v.pipe(v.string(), v.regex(/^[a-z][a-z0-9-]{0,63}$/))
@@ -7,7 +8,7 @@ const controlSchema = v.strictObject({
   id,
   kind: v.picklist(['pristine', 'reference', 'alternate', 'test_deletion', 'test_disablement', 'forbidden_edit', 'negative']),
   solution: v.optional(text),
-  expected_checks: v.record(id, v.boolean())
+  expected_checks: v.record(RubricObligationIdSchema, v.boolean())
 })
 
 export const DoctorDefinitionSchema = v.pipe(
@@ -43,6 +44,8 @@ export const DoctorDefinitionSchema = v.pipe(
       if (control.solution === undefined) return false
 
       if (control.kind === 'reference' || control.kind === 'alternate') return expected.every(Boolean)
+
+      if (control.kind === 'forbidden_edit') return true
 
       return expected.includes(false)
     })

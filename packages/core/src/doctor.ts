@@ -12,6 +12,7 @@ import { inspectTaskSource, materializeTaskWorkspace } from './task.ts'
 import { inspectHarborTaskPackage, type TaskPackageInspection } from './task-package.ts'
 import { assertNonRootAgentIdentity, validateTaskEvidence } from './run-execution.ts'
 import { scanCredentialBytes, scanCredentialTree } from './secret-scan.ts'
+import { assertRubricDoctorControls, assertRubricEvidencePaths } from './task-rubric.ts'
 
 import {
   DoctorDefinitionSchema,
@@ -107,15 +108,6 @@ function assertDependencyPins(snapshot: RunTreeSnapshot): void {
 }
 
 function semanticScore(score: ScoreDocument): unknown {
-  const facets = Object.fromEntries(Object.entries(score.facets).map(([name, facet]) => {
-    const value = facet.status === 'value' ? facet.value : null
-
-    return [name, {
-      status: facet.status,
-      value
-    }]
-  }))
-
   const rewards = Object.entries(score.harbor_reward.numeric_values ?? {})
 
   rewards.sort(([left], [right]) => left.localeCompare(right, 'en'))
@@ -125,7 +117,7 @@ function semanticScore(score: ScoreDocument): unknown {
   return {
     valid_grade: score.valid_grade,
     gates: score.gates,
-    facets,
+    facets: score.facets,
     composite: score.composite,
     scope_violations: score.scope_violations,
     reward
@@ -372,10 +364,14 @@ export async function runDoctor(options: DoctorOptions, suppliedRuntime: DoctorR
 
     assertDependencyPins(source)
 
-    for (const obligation of task.rubric) {
-      for (const path of obligation.evidence_paths) {
-        if (!source.files.has(path)) throw new DoctorError('RUBRIC_EVIDENCE', 'Rubric evidence is absent from the pristine source')
-      }
+    try {
+      assertRubricEvidencePaths(task, new Set(source.files.keys()))
+    } catch (cause) {
+      throw new DoctorError(
+        'RUBRIC_EVIDENCE',
+        'Rubric evidence is absent from the pristine source',
+        { cause }
+      )
     }
 
     const copied = resolve(raw, 'inputs/source')
@@ -422,16 +418,19 @@ export async function runDoctor(options: DoctorOptions, suppliedRuntime: DoctorR
   })
 
   await check('CONTROL_INPUTS', 'Provide complete deterministic control solutions and expectations.', async () => {
-    const reference = definition.controls.find((control) => control.kind === 'reference')!
-    const checkIds = Object.keys(reference.expected_checks).sort()
+    if (task === undefined) throw new DoctorError('TASK_REQUIRED', 'A valid task document is required')
+
+    try {
+      assertRubricDoctorControls(task, definition.controls)
+    } catch (cause) {
+      throw new DoctorError(
+        'CONTROL_EXPECTATIONS',
+        'Doctor controls do not satisfy the task rubric contract',
+        { cause }
+      )
+    }
 
     for (const control of definition.controls) {
-      const ids = Object.keys(control.expected_checks).sort()
-
-      if (ids.some((id) => !checkIds.includes(id))) throw new DoctorError('CONTROL_EXPECTATIONS', 'Control references an unknown check')
-
-      if (['pristine', 'alternate'].includes(control.kind) && JSON.stringify(ids) !== JSON.stringify(checkIds)) throw new DoctorError('CONTROL_EXPECTATIONS', 'Positive and pristine controls must declare the complete check inventory')
-
       if (control.solution !== undefined) {
         const snapshot = await inspectRunTree(resolve(base, control.solution))
 
@@ -741,8 +740,12 @@ export async function runDoctor(options: DoctorOptions, suppliedRuntime: DoctorR
 
         const artifactInventory = await doctorInventory(resolve(trial, 'artifacts/trusted-collector'))
 
+        const semanticChecks = Object.fromEntries(
+          checkIds.map((id) => [id, verifierChecks[id]])
+        )
+
         const semantic = {
-          checks: passed,
+          checks: semanticChecks,
           score: semanticScore(evidence.score)
         }
 
@@ -758,6 +761,16 @@ export async function runDoctor(options: DoctorOptions, suppliedRuntime: DoctorR
 
         for (const [id, expected] of Object.entries(control.expected_checks)) {
           if (passed[id] !== expected) throw new DoctorError('CONTROL_MISMATCH', 'Verifier did not produce the expected control outcome')
+        }
+
+        if (
+          control.kind === 'forbidden_edit' &&
+          evidence.score.scope_violations.length === 0
+        ) {
+          throw new DoctorError(
+            'CONTROL_MISMATCH',
+            'Forbidden edit produced no scope violation evidence'
+          )
         }
 
         if (control.kind === 'pristine') {

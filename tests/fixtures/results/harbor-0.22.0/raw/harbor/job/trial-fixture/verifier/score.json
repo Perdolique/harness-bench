@@ -3,7 +3,7 @@
   "schema_version": 1,
   "score_id": "fixture-score",
   "run_id": "fixture-run",
-  "verifier_result_digest": "sha256:ddd7764074f73dda5d0955bd2ac1c4bb7c5b0c1a44c65f107716c5259908c05a",
+  "verifier_result_digest": "sha256:14261f2bbf55a18cfe8a7f4aa840d681601dba21a93f2f2ff4c2bea23312ac0d",
   "scoring_revision": "fixture-scoring-v1",
   "rubric_revision": "fixture-rubric-v1",
   "valid_grade": true,
@@ -16,22 +16,22 @@
     "direct_behavior": {
       "status": "value",
       "value": 1,
-      "evidence": [{"check_id":"direct","outcome":"passed","evidence_digest":"sha256:1111111111111111111111111111111111111111111111111111111111111111"}]
+      "evidence": [{"check_id":"direct","outcome":"passed","evidence_digest":"sha256:31e96f81b16bfae89ded89cdb52abf70b0c893f53b38f1f7a6b6a002885d7ba6"}]
     },
     "repository_contracts": {
       "status": "value",
       "value": 1,
-      "evidence": [{"check_id":"contracts","outcome":"passed","evidence_digest":"sha256:2222222222222222222222222222222222222222222222222222222222222222"}]
+      "evidence": [{"check_id":"contracts","outcome":"passed","evidence_digest":"sha256:f85346a43efdb57b3f42c10b48210866c940d5328937b776653de5da32de641e"}]
     },
     "regression": {
       "status": "value",
       "value": 1,
-      "evidence": [{"check_id":"regression","outcome":"passed","evidence_digest":"sha256:3333333333333333333333333333333333333333333333333333333333333333"}]
+      "evidence": [{"check_id":"regression","outcome":"passed","evidence_digest":"sha256:21bfdffecb173c384b66ebda28213d1ebd9b638c4cfe63933d5badeb1a941117"}]
     },
     "scope_integrity": {
       "status": "value",
       "value": 1,
-      "evidence": [{"check_id":"scope","outcome":"passed","evidence_digest":"sha256:4444444444444444444444444444444444444444444444444444444444444444"}]
+      "evidence": [{"check_id":"scope","outcome":"passed","evidence_digest":"sha256:a771646667bea34af2b38ac4977fce2833c44fb14e9a8e173c89f438e3459ed9"}]
     },
     "maintainability": {
       "status": "not_applicable",

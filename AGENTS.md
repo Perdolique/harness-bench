@@ -2,7 +2,7 @@
 
 ## Current phase and work scope
 
-This is a pre-release benchmark under development. The engine is implemented through issue 13; real task import and the first pilot remain ahead. Follow the current sequence in `docs/roadmap.md`. The bootstrap plan and completed issue bodies describe history, not additional gates for new work.
+This is a pre-release benchmark under development. The engine is implemented through issue 15; the first real task and pilot remain ahead. Follow the current sequence in `docs/roadmap.md`. The bootstrap plan and completed issue bodies describe history, not additional gates for new work.
 
 Work on the user-authorized outcome. Use an existing issue when it fits and keep PRs focused, but do not require a new issue or session for small fixes needed to finish that outcome. Create a follow-up only for independently useful work outside the authorized scope. Do not start unrelated backlog work.
 

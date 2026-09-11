@@ -24,6 +24,7 @@ import * as v from 'valibot'
 import { inspectHarnessBundleForRun } from './harness.ts'
 import { RunError } from './run-errors.ts'
 import { inspectTaskSource, type TaskTreeEntry } from './task.ts'
+import { assertRubricEvidencePaths } from './task-rubric.ts'
 
 const PINNED_CODEX_VERSION = '0.153.2'
 const PINNED_HARBOR_VERSION = '0.22.0'
@@ -1003,6 +1004,23 @@ export async function resolveRunPlan(
 
   if (sourceSnapshot.digest !== task.source_digest) {
     throw new RunError('INPUT_CHANGED', 'Task source digest does not match TaskDocument')
+  }
+
+  try {
+    const pristinePaths = new Set(
+      sourceSnapshot.entries.map(({ path }) => path)
+    )
+
+    assertRubricEvidencePaths(task, pristinePaths)
+  } catch (cause) {
+    throw new RunError(
+      'INVALID_EVIDENCE',
+      'Task rubric evidence is absent from the pristine source',
+      {
+        cause,
+        stage: 'input'
+      }
+    )
   }
 
   const baseCommit = await deterministicBaseCommit(
