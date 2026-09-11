@@ -41,6 +41,18 @@ const contractIds = [
   'candidate-tests'
 ]
 
+const facetByCheckId = {
+  analytics: 'repository_contracts',
+  availability: 'repository_contracts',
+  'candidate-tests': 'repository_contracts',
+  'direct-receipt': 'direct_behavior',
+  keyboard: 'repository_contracts',
+  localization: 'repository_contracts',
+  regression: 'regression',
+  scope: 'scope_integrity',
+  'selected-context': 'repository_contracts'
+}
+
 if (sourceDigest === undefined || baseCommit === undefined) {
   throw new Error('Verifier requires TASK_SOURCE_DIGEST and TASK_BASE_COMMIT')
 }
@@ -404,17 +416,50 @@ async function replaceLocaleLabel(workspace, replacement) {
   return replacements > 0
 }
 
+function completeChecks(checks) {
+  const actualIds = Object.keys(checks).sort()
+  const expectedIds = Object.keys(facetByCheckId).sort()
+
+  if (JSON.stringify(actualIds) !== JSON.stringify(expectedIds)) {
+    throw new Error('Verifier check inventory is incomplete or unexpected')
+  }
+
+  return Object.fromEntries(Object.entries(checks).map(([id, check]) => {
+    const facet = facetByCheckId[id]
+
+    if (
+      facet === undefined ||
+      typeof check.passed !== 'boolean' ||
+      typeof check.detail !== 'string'
+    ) {
+      throw new Error(`Verifier check ${id} is invalid`)
+    }
+
+    return [id, {
+      facet,
+      passed: check.passed,
+      credit: Number(check.passed),
+      detail: check.detail
+    }]
+  }))
+}
+
 async function scoreAndWriteOutputs(result) {
   await mkdir(verifierLogs, { recursive: true })
 
-  for (const [id, check] of Object.entries(result.checks)) {
-    check.facet = id === 'direct-receipt' ? 'direct_behavior'
-      : id === 'regression' ? 'regression'
-      : id === 'scope' ? 'scope_integrity' : 'repository_contracts'
-    check.credit = Number(check.passed)
+  if (result.integrity.passed) {
+    process.stdout.write(`${JSON.stringify({ checks: result.checks }, null, 2)}\n`)
   }
 
-  const verifierResultSource = `${JSON.stringify(result, null, 2)}\n`
+  const checks = result.integrity.passed ? completeChecks(result.checks) : {}
+
+  const verifierResult = {
+    checks,
+    integrity: result.integrity,
+    scopeViolations: result.scopeViolations
+  }
+
+  const verifierResultSource = `${JSON.stringify(verifierResult, null, 2)}\n`
   const verifierResultDigest = sha256(verifierResultSource)
 
   await writeFile(resolve(verifierLogs, 'verifier-result.json'), verifierResultSource)
@@ -491,15 +536,15 @@ async function scoreAndWriteOutputs(result) {
   const evidence = (id, passed) => ({
     check_id: id,
     outcome: outcome(passed),
-    evidence_digest: sha256(JSON.stringify(result.checks[id]))
+    evidence_digest: sha256(JSON.stringify(verifierResult.checks[id]))
   })
 
-  const direct = result.checks['direct-receipt'].passed
-  const regression = result.checks.regression.passed
-  const scope = result.checks.scope.passed
+  const direct = verifierResult.checks['direct-receipt'].passed
+  const regression = verifierResult.checks.regression.passed
+  const scope = verifierResult.checks.scope.passed
 
   const contractValue =
-    contractIds.filter((id) => result.checks[id].passed).length / contractIds.length
+    contractIds.filter((id) => verifierResult.checks[id].passed).length / contractIds.length
 
   const gate = Number(direct && regression)
   const composite = gate * (0.45 * Number(direct) + 0.35 * contractValue + 0.2 * Number(scope))
@@ -537,7 +582,7 @@ async function scoreAndWriteOutputs(result) {
       repository_contracts: {
         status: 'value',
         value: contractValue,
-        evidence: contractIds.map((id) => evidence(id, result.checks[id].passed))
+        evidence: contractIds.map((id) => evidence(id, verifierResult.checks[id].passed))
       },
 
       regression: {
@@ -559,7 +604,7 @@ async function scoreAndWriteOutputs(result) {
       }
     },
 
-    scope_violations: result.scopeViolations.map((violation) => ({
+    scope_violations: verifierResult.scopeViolations.map((violation) => ({
       ...violation,
       evidence_digest: sha256(JSON.stringify(violation))
     })),
@@ -869,47 +914,52 @@ async function verify() {
 
     const directBehavior = hidden.detail.includes('direct receipt behavior') && !directFailure
 
+    const hiddenCheckDetail = (id, passed) =>
+      `Hidden ${id} behavioral check ${passed ? 'passed' : 'failed'}`
+
     return {
       checks: {
         analytics: {
-          detail: hidden.detail,
+          detail: hiddenCheckDetail('analytics', parsedContracts.analytics),
           passed: parsedContracts.analytics
         },
 
         availability: {
-          detail: hidden.detail,
+          detail: hiddenCheckDetail('availability', parsedContracts.availability),
           passed: parsedContracts.availability
         },
 
         'candidate-tests': {
           detail: JSON.stringify({
-            build,
-            candidateBrowser,
+            build: build.passed,
+            candidateBrowser: candidateBrowser.passed,
             candidateTests,
-            candidateUnit,
-            pristineBrowserBuild,
-            pristineCandidateBrowser,
-            pristineCandidateUnit
+            candidateTestShape,
+            candidateUnit: candidateUnit.passed,
+            pristineBrowserBuild: pristineBrowserBuild.passed,
+            pristineCandidateBrowser: pristineCandidateBrowser.passed,
+            pristineCandidateUnit: pristineCandidateUnit.passed
           }),
 
           passed: candidateTestsPassed
         },
 
         'direct-receipt': {
-          detail: hidden.detail,
+          detail: hiddenCheckDetail('direct receipt', directBehavior),
           passed: directBehavior
         },
 
         keyboard: {
-          detail: hidden.detail,
+          detail: hiddenCheckDetail('keyboard', parsedContracts.keyboard),
           passed: parsedContracts.keyboard
         },
 
         localization: {
           detail: JSON.stringify({
-            hidden,
-            localizationBuild,
-            localizationProbe
+            hidden: hidden.passed,
+            localeReplacement,
+            localizationBuild: localizationBuild.passed,
+            localizationProbe: localizationProbe.passed
           }),
 
           passed: parsedContracts.localization
@@ -917,10 +967,10 @@ async function verify() {
 
         regression: {
           detail: JSON.stringify({
-            build,
-            regressionBrowser,
+            build: build.passed,
+            regressionBrowser: regressionBrowser.passed,
             regressionShape,
-            regressionUnit
+            regressionUnit: regressionUnit.passed
           }),
 
           passed: regressionPassed
@@ -932,7 +982,7 @@ async function verify() {
         },
 
         'selected-context': {
-          detail: hidden.detail,
+          detail: hiddenCheckDetail('selected context', parsedContracts['selected-context']),
           passed: parsedContracts['selected-context']
         }
       },

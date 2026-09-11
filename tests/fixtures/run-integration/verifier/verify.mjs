@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import { networkInterfaces } from 'node:os'
 import { access, lstat, readFile, readdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
@@ -89,6 +90,22 @@ const networkIsolated = Object.values(networkInterfaces())
 
 const passed = result === 'fixture-success\n' && credentialsAbsent && networkIsolated
 
+const changedPaths = execFileSync(
+  'git',
+  ['-C', workspace, 'diff', '--name-only', 'HEAD'],
+  { encoding: 'utf8' }
+).trim().split('\n').filter(Boolean)
+
+const scopeViolations = changedPaths
+  .filter((path) => path === 'README.md')
+  .map((path) => ({
+    path,
+    reason: 'The integration fixture forbids README.md changes'
+  }))
+
+const scopePassed = scopeViolations.length === 0
+const composite = passed ? 0.8 + 0.2 * Number(scopePassed) : 0
+
 const checks = {
   contracts: {
     credit: Number(passed),
@@ -112,10 +129,10 @@ const checks = {
   },
 
   scope: {
-    credit: 1,
+    credit: Number(scopePassed),
     detail: 'fixture scope check',
     facet: 'scope_integrity',
-    passed: true
+    passed: scopePassed
   }
 }
 
@@ -128,7 +145,7 @@ const verifierResult = {
     passed
   },
 
-  scopeViolations: []
+  scopeViolations
 }
 
 const verifierSource = `${JSON.stringify(verifierResult, null, 2)}\n`
@@ -177,7 +194,7 @@ const score = {
 
     scope_integrity: {
       status: 'value',
-      value: 1,
+      value: Number(scopePassed),
       evidence: [evidence('scope')]
     },
 
@@ -188,20 +205,23 @@ const score = {
     }
   },
 
-  scope_violations: [],
+  scope_violations: scopeViolations.map((violation) => ({
+    ...violation,
+    evidence_digest: sha256(JSON.stringify(violation))
+  })),
 
   harbor_reward: {
     status: 'retained_upstream',
 
     numeric_values: {
-      reward: Number(passed),
+      reward: composite,
       provider_calls: 0
     }
   },
 
   composite: {
     status: 'value',
-    value: Number(passed)
+    value: composite
   }
 }
 
@@ -211,7 +231,7 @@ await writeFile(resolve(verifierLogs, 'score.json'), `${JSON.stringify(score, nu
 await writeFile(
   resolve(verifierLogs, 'reward.json'),
   `${JSON.stringify({
-    reward: Number(passed),
+    reward: composite,
     provider_calls: 0
   })}\n`
 )

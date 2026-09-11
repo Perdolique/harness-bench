@@ -219,6 +219,28 @@ describe(resolveRunPlan, () => {
     }
   })
 
+  it('rejects rubric evidence absent from the pristine task source', async () => {
+    const test = await fixture()
+    const taskPath = test.options.taskDocuments[0]!
+
+    try {
+      const task = JSON.parse(await readFile(taskPath, 'utf8')) as {
+        rubric: Array<{ evidence_paths: string[] }>;
+      }
+
+      task.rubric[0]!.evidence_paths = ['src/missing-evidence.ts']
+
+      await writeJson(taskPath, task)
+
+      await expect(resolveRunPlan(test.options)).rejects.toMatchObject({
+        code: 'INVALID_EVIDENCE',
+        message: 'Task rubric evidence is absent from the pristine source'
+      })
+    } finally {
+      await removeFixture(test.root)
+    }
+  })
+
   it('rejects a selected bundle whose rules cannot be enforced by Harbor', async () => {
     const test = await fixture({ selectedRules: true })
 

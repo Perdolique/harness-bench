@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import type { TaskDocument } from '@harness-bench/schemas'
+import { RubricObligationIdSchema, type TaskDocument } from '@harness-bench/schemas'
 import * as v from 'valibot'
 
 const FACETS = [
@@ -10,9 +10,7 @@ const FACETS = [
   'maintainability'
 ] as const
 
-const CHECK_ID_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
 const SCORE_TOLERANCE = 1e-12
-const CheckIdSchema = v.pipe(v.string(), v.regex(CHECK_ID_PATTERN))
 
 export const RubricCheckSchema = v.strictObject({
   facet: v.picklist(FACETS),
@@ -21,7 +19,10 @@ export const RubricCheckSchema = v.strictObject({
   detail: v.string()
 })
 
-export const RubricChecksSchema = v.record(CheckIdSchema, RubricCheckSchema)
+export const RubricChecksSchema = v.record(
+  RubricObligationIdSchema,
+  RubricCheckSchema
+)
 
 const ScopeViolationSchema = v.strictObject({
   path: v.pipe(v.string(), v.minLength(1)),
@@ -45,17 +46,21 @@ interface ScoreFacet {
   readonly evidence: readonly ScoreEvidence[];
 }
 
+interface RubricScoreGates {
+  readonly direct_behavior_pass: boolean;
+  readonly regression_pass: boolean;
+}
+
+interface RubricScoreScopeViolation {
+  readonly path: string;
+  readonly reason: string;
+  readonly evidence_digest: string;
+}
+
 interface RubricScore {
   readonly facets: Readonly<Record<RubricFacet, ScoreFacet>>;
-  readonly gates: {
-    readonly direct_behavior_pass: boolean;
-    readonly regression_pass: boolean;
-  };
-  readonly scope_violations: readonly {
-    readonly path: string;
-    readonly reason: string;
-    readonly evidence_digest: string;
-  }[];
+  readonly gates: RubricScoreGates;
+  readonly scope_violations: readonly RubricScoreScopeViolation[];
 }
 
 export interface RubricDoctorControl {
@@ -151,6 +156,10 @@ export function assertRubricDoctorControls(
       applicability === 'required' && facet === 'regression'
   )
 
+  const repositoryContracts = task.rubric.filter(
+    ({ facet }) => facet === 'repository_contracts'
+  )
+
   const scopeObligations = task.rubric.filter(
     ({ facet }) => facet === 'scope_integrity'
   )
@@ -158,6 +167,7 @@ export function assertRubricDoctorControls(
   const pristine = controls.find(({ kind }) => kind === 'pristine')
   const reference = controls.find(({ kind }) => kind === 'reference')
   const alternate = controls.find(({ kind }) => kind === 'alternate')
+  const deletion = controls.find(({ kind }) => kind === 'test_deletion')
   const disablement = controls.find(({ kind }) => kind === 'test_disablement')
   const forbidden = controls.find(({ kind }) => kind === 'forbidden_edit')
 
@@ -187,6 +197,17 @@ export function assertRubricDoctorControls(
   }
 
   if (
+    deletion === undefined ||
+    !repositoryContracts.some(({ obligation_id }) =>
+      deletion.expected_checks[obligation_id] === false
+    )
+  ) {
+    throw new RubricValidationError(
+      'Test deletion must fail a repository contract obligation'
+    )
+  }
+
+  if (
     disablement === undefined ||
     !requiredRegression.some(({ obligation_id }) =>
       disablement.expected_checks[obligation_id] === false
@@ -197,9 +218,12 @@ export function assertRubricDoctorControls(
     )
   }
 
+  if (forbidden === undefined) {
+    throw new RubricValidationError('Forbidden edit control is required')
+  }
+
   if (
-    forbidden === undefined ||
-    scopeObligations.length === 0 ||
+    scopeObligations.length > 0 &&
     !scopeObligations.some(({ obligation_id }) =>
       forbidden.expected_checks[obligation_id] === false
     )
@@ -259,6 +283,10 @@ export function assertTaskScoreEvidence(
       )
     }
 
+    const weightScale = Math.max(
+      ...facetObligations.map(({ weight }) => weight)
+    )
+
     let weightedCredit = 0
     let totalWeight = 0
 
@@ -275,19 +303,23 @@ export function assertTaskScoreEvidence(
 
       referencedChecks.add(checkId)
 
+      const rawCheck = (rawChecks as Record<string, unknown>)[checkId]
+      const expectedOutcome = check.passed ? 'passed' : 'failed'
+      const expectedDigest = digest(rawCheck)
+
       if (
-        evidence.outcome !== (check.passed ? 'passed' : 'failed') ||
-        evidence.evidence_digest !== digest(
-          (rawChecks as Record<string, unknown>)[checkId]
-        )
+        evidence.outcome !== expectedOutcome ||
+        evidence.evidence_digest !== expectedDigest
       ) {
         throw new RubricValidationError(
           `Score evidence does not match verifier check ${checkId}`
         )
       }
 
-      weightedCredit += obligation.weight * check.credit
-      totalWeight += obligation.weight
+      const normalizedWeight = obligation.weight / weightScale
+
+      weightedCredit += normalizedWeight * check.credit
+      totalWeight += normalizedWeight
     }
 
     const expectedValue = weightedCredit / totalWeight
@@ -342,5 +374,24 @@ export function assertTaskScoreEvidence(
     throw new RubricValidationError(
       'Score scope violations do not match verifier evidence'
     )
+  }
+
+  const scopeChecks = task.rubric
+    .filter(({ facet }) => facet === 'scope_integrity')
+    .map(({ obligation_id }) => checks[obligation_id]!)
+
+  if (scopeChecks.length > 0) {
+    const failedScopeChecks = scopeChecks.filter(({ passed }) => !passed)
+    const hasScopeViolations = scopeResult.output.length > 0
+    const hasFailedScopeChecks = failedScopeChecks.length > 0
+
+    if (
+      hasScopeViolations !== hasFailedScopeChecks ||
+      failedScopeChecks.some(({ credit }) => credit === 1)
+    ) {
+      throw new RubricValidationError(
+        'Scope violations must match failed scope checks with reduced credit'
+      )
+    }
   }
 }

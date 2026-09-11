@@ -666,6 +666,45 @@ describe('versioned document schemas', () => {
     ).toContain('rubric.0.evidence_paths')
   })
 
+  it.each([
+    'retry_once',
+    '1-retry',
+    'retry.once',
+    'a'.repeat(65)
+  ])('rejects rubric obligation ID %s outside the verifier key contract', (id) => {
+    const task = v.parse(TaskDocumentSchema, readExample('valid', 'task'))
+
+    const invalid = {
+      ...task,
+
+      rubric: task.rubric.map((obligation, index) => index === 0
+        ? {
+            ...obligation,
+            obligation_id: id
+          }
+        : obligation)
+    }
+
+    expect(pathsFor(v.safeParse(TaskDocumentSchema, invalid))).toContain(
+      'rubric.0.obligation_id'
+    )
+  })
+
+  it('uses the rubric obligation ID contract for score evidence', () => {
+    const score = v.parse(ScoreDocumentSchema, readExample('valid', 'score'))
+    const direct = score.facets.direct_behavior
+
+    if (direct.status !== 'value') {
+      throw new Error('The valid score fixture must have direct behavior evidence')
+    }
+
+    direct.evidence[0]!.check_id = 'direct_check'
+
+    expect(pathsFor(v.safeParse(ScoreDocumentSchema, score))).toContain(
+      'facets.direct_behavior.evidence.0.check_id'
+    )
+  })
+
   it('rejects overlapping scope zones', () => {
     const task = v.parse(TaskDocumentSchema, readExample('valid', 'task'))
 

@@ -7,11 +7,16 @@ import { inspectRunTree } from '../src/run.ts'
 
 import {
   executeHarborRegrade,
+  HarborRegradeExecutionError,
   harborRegradeFailureDiagnostic,
   preflightHarborRegrade
 } from '../src/regrade-execution.ts'
 
 import type { ResolvedScoringMigrationTarget } from '../src/regrade-plan.ts'
+import type { HarborRegradeExecutionContext } from '../src/run-execution.ts'
+import { inspectTaskSource } from '../src/task.ts'
+import { fixtureScore } from '../../../tests/fixtures/doctor/score.ts'
+import { notificationRetryTask } from '../../../tests/fixtures/rubric/notification-retry.ts'
 
 const digest = (character: string): string => `sha256:${character.repeat(64)}`
 let root: string
@@ -48,6 +53,14 @@ async function preflightFixture(): Promise<{
   )
 
   await cp(rawFixture, resolve(sourceRunDirectory, 'raw'), { recursive: true })
+
+  const pristineSourcePath = resolve(sourceRunDirectory, 'inputs/task-source')
+
+  await mkdir(pristineSourcePath, { recursive: true })
+  await writeFile(resolve(pristineSourcePath, 'README.md'), 'fixture source\n')
+
+  const pristineSource = await inspectTaskSource(pristineSourcePath)
+
   await writeFile(resolve(sourceRunDirectory, 'src-auth-marker'), 'safe\n')
   await mkdir(resolve(sourceRunDirectory, 'src/auth'), { recursive: true })
   await writeFile(resolve(sourceRunDirectory, 'src/auth/login.ts'), 'export {}\n')
@@ -83,7 +96,43 @@ async function preflightFixture(): Promise<{
   const targetRoot = resolve(root, 'target')
   const documentPath = resolve(targetRoot, 'task.json')
   const packagePath = resolve(targetRoot, 'package')
-  const document = '{}\n'
+  const targetTask = structuredClone(notificationRetryTask) as TaskDocument
+
+  Object.assign(targetTask, {
+    task_id: 'fixture-task',
+    source_digest: pristineSource.digest
+  })
+
+  Object.assign(targetTask.scoring, {
+    revision: '2',
+    rubric_revision: '2'
+  })
+
+  targetTask.rubric = [
+    {
+      ...targetTask.rubric[0]!,
+      obligation_id: 'direct',
+      evidence_paths: ['README.md']
+    },
+    {
+      ...targetTask.rubric[1]!,
+      obligation_id: 'contracts',
+      evidence_paths: ['README.md'],
+      weight: 1
+    },
+    {
+      ...targetTask.rubric.find(({ facet }) => facet === 'regression')!,
+      obligation_id: 'regression',
+      evidence_paths: ['README.md']
+    },
+    {
+      ...targetTask.rubric.find(({ facet }) => facet === 'scope_integrity')!,
+      obligation_id: 'scope',
+      evidence_paths: ['README.md']
+    }
+  ]
+
+  const document = `${JSON.stringify(targetTask, null, 2)}\n`
 
   await mkdir(targetRoot, { mode: 0o700 })
   await writeFile(documentPath, document)
@@ -119,13 +168,7 @@ async function preflightFixture(): Promise<{
     packagePath,
     packageSnapshot,
     sourceTask: {} as TaskDocument,
-
-    targetTask: {
-      environment: { digest: digest('b') },
-      collector: { image_digest: digest('c') },
-      verifier: { image_digest: digest('d') }
-    } as TaskDocument,
-
+    targetTask,
     taskId: 'fixture-task'
   } as unknown as ResolvedScoringMigrationTarget
 
@@ -133,6 +176,116 @@ async function preflightFixture(): Promise<{
     sourceRunDirectory,
     target
   }
+}
+
+async function writeInvalidRegradeTrial(
+  context: HarborRegradeExecutionContext,
+  target: ResolvedScoringMigrationTarget
+): Promise<void> {
+  const sourceResult = JSON.parse(
+    await readFile(resolve(context.sourceTrial, 'result.json'), 'utf8')
+  )
+
+  const sourceLock = JSON.parse(
+    await readFile(resolve(context.sourceTrial, 'lock.json'), 'utf8')
+  )
+
+  const trial = resolve(context.trialsDirectory, 'regrade-trial')
+
+  await mkdir(resolve(trial, 'verifier'), { recursive: true })
+
+  await cp(resolve(context.sourceTrial, 'agent'), resolve(trial, 'agent'), {
+    recursive: true
+  })
+
+  await cp(
+    resolve(context.sourceTrial, 'artifacts'),
+    resolve(trial, 'artifacts'),
+    { recursive: true }
+  )
+
+  await writeJson(resolve(trial, 'config.json'), {
+    source_trial: {
+      action: 'regrade',
+      path: context.sourceTrial,
+      trial_id: sourceResult.id,
+      type: 'local'
+    }
+  })
+
+  await writeJson(resolve(trial, 'lock.json'), {
+    source_trial: {
+      action: 'regrade',
+      path: context.sourceTrial,
+      task: sourceLock.task,
+      trial_id: sourceResult.id,
+      type: 'local'
+    },
+
+    task: {
+      digest: digest('f'),
+      name: sourceLock.task.name
+    },
+
+    verifier: {
+      environment_mode: 'separate',
+      env: { HARBOR_RUN_ID: context.runId }
+    }
+  })
+
+  await writeJson(resolve(trial, 'result.json'), {
+    agent_execution: null,
+    agent_info: sourceResult.agent_info,
+    agent_result: sourceResult.agent_result,
+    agent_setup: null,
+    environment_setup: null,
+    exception_info: null,
+    step_results: null,
+    verifier_environment_mode: 'separate',
+
+    verifier: {
+      started_at: '2026-09-11T10:00:00.000Z',
+      finished_at: '2026-09-11T10:00:01.000Z'
+    }
+  })
+
+  const result = fixtureScore(context.runId, {
+    contracts: true,
+    direct: true,
+    regression: true,
+    scope: true
+  }, {
+    credentialsAbsent: true,
+    networkIsolated: true
+  })
+
+  const verifierResult = JSON.parse(result.verifierSource)
+
+  verifierResult.checks.extra = {
+    credit: 1,
+    detail: 'Unexpected but structurally valid check',
+    facet: 'direct_behavior',
+    passed: true
+  }
+
+  const verifierSource = `${JSON.stringify(verifierResult, null, 2)}\n`
+
+  Object.assign(result.score, {
+    verifier_result_digest: digestBytes(verifierSource),
+    scoring_revision: target.targetTask.scoring.revision,
+    rubric_revision: target.targetTask.scoring.rubric_revision
+  })
+
+  Object.assign(result.score.harbor_reward.numeric_values, {
+    provider_calls: 0
+  })
+
+  await writeFile(
+    resolve(trial, 'verifier/verifier-result.json'),
+    verifierSource
+  )
+
+  await writeJson(resolve(trial, 'verifier/score.json'), result.score)
 }
 
 function digestBytes(source: string): string {
@@ -213,6 +366,23 @@ describe('preflightHarborRegrade', () => {
       code: expect.stringMatching(/INVALID|INPUT_CHANGED/)
     })
   })
+
+  it('rejects target rubric evidence absent from the retained pristine source', async () => {
+    const fixture = await preflightFixture()
+
+    fixture.target.targetTask.rubric[0]!.evidence_paths = [
+      'src/missing-evidence.ts'
+    ]
+
+    await expect(
+      preflightHarborRegrade(fixture, preflightRuntime)
+    ).rejects.toMatchObject({
+      code: 'INVALID_EVIDENCE',
+      message: 'Regrade rubric evidence is absent from the pristine source'
+    })
+
+    expect(preflightRuntime.assertPinnedImages).not.toHaveBeenCalled()
+  })
 })
 
 describe('harborRegradeFailureDiagnostic', () => {
@@ -265,6 +435,52 @@ describe('harborRegradeFailureDiagnostic', () => {
 })
 
 describe('executeHarborRegrade', () => {
+  it('fails as verifier_failure when target-rubric evidence does not match', async () => {
+    const fixture = await preflightFixture()
+    const staging = resolve(root, 'staging')
+
+    await mkdir(staging, { mode: 0o700 })
+
+    const execution = executeHarborRegrade(
+      {
+        migrationDefinitionDigest: digest('e'),
+        runId: 'fixture-run',
+        sourceRunDirectory: fixture.sourceRunDirectory,
+        staging,
+        target: fixture.target
+      },
+      {
+        assertPinnedImages: preflightRuntime.assertPinnedImages,
+
+        runHarbor: async (context) => {
+          await writeInvalidRegradeTrial(context, fixture.target)
+
+          return {
+            cancelled: false,
+            exitCode: 0,
+            signal: null,
+            timedOut: false
+          }
+        }
+      }
+    )
+
+    await expect(execution).rejects.toBeInstanceOf(
+      HarborRegradeExecutionError
+    )
+
+    await expect(execution).rejects.toMatchObject({
+      diagnostic: {
+        classification: 'verifier_failure',
+
+        termination: {
+          kind: 'error',
+          reason: 'Regrade score does not satisfy the target task rubric contract'
+        }
+      }
+    })
+  })
+
   it.each(['source-root', 'agent-tree'] as const)(
     'rejects a %s mutation even when Harbor already failed',
     async (mutation) => {

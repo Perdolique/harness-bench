@@ -173,15 +173,26 @@ export const notificationRetryControls: readonly RubricDoctorControl[] = [
   }
 ]
 
-export function notificationRetryEvidence(
-  credits: Readonly<Record<string, number>> = {}
+interface RubricEvidenceOptions {
+  readonly credits?: Readonly<Record<string, number>>;
+  readonly passed?: Readonly<Record<string, boolean>>;
+  readonly scopeViolations?: readonly {
+    readonly path: string;
+    readonly reason: string;
+  }[];
+}
+
+export function taskRubricEvidence(
+  task: TaskDocument,
+  options: RubricEvidenceOptions = {}
 ) {
-  const checks = Object.fromEntries(notificationRetryTask.rubric.map((obligation) => {
-    const credit = credits[obligation.obligation_id] ?? 1
+  const checks = Object.fromEntries(task.rubric.map((obligation) => {
+    const passed = options.passed?.[obligation.obligation_id] ?? true
+    const credit = options.credits?.[obligation.obligation_id] ?? Number(passed)
 
     return [obligation.obligation_id, {
       facet: obligation.facet,
-      passed: true,
+      passed,
       credit,
       detail: `${obligation.obligation_id} deterministic fixture check`
     }]
@@ -194,23 +205,31 @@ export function notificationRetryEvidence(
   })
 
   const facet = (name: TaskDocument['rubric'][number]['facet']) => {
-    const obligations = notificationRetryTask.rubric.filter(
+    const obligations = task.rubric.filter(
       ({ facet }) => facet === name
     )
 
     if (obligations.length === 0) {
       return {
         status: 'not_applicable' as const,
-        reason: `The notification-retry rubric declares no ${name} obligations`,
+        reason: `The task rubric declares no ${name} obligations`,
         evidence: []
       }
     }
 
-    const weight = obligations.reduce((total, obligation) => total + obligation.weight, 0)
+    const weightScale = Math.max(
+      ...obligations.map(({ weight }) => weight)
+    )
+
+    const weight = obligations.reduce(
+      (total, obligation) => total + obligation.weight / weightScale,
+      0
+    )
 
     const value = obligations.reduce(
       (total, obligation) =>
-        total + obligation.weight * checks[obligation.obligation_id]!.credit,
+        total + obligation.weight / weightScale *
+          checks[obligation.obligation_id]!.credit,
       0
     ) / weight
 
@@ -221,16 +240,27 @@ export function notificationRetryEvidence(
     }
   }
 
+  const requiredGate = (
+    name: 'direct_behavior' | 'regression'
+  ): boolean => task.rubric
+    .filter(
+      ({ applicability, facet }) =>
+        applicability === 'required' && facet === name
+    )
+    .every(({ obligation_id }) => checks[obligation_id]!.passed)
+
+  const scopeViolations = [...(options.scopeViolations ?? [])]
+
   return {
     verifierResult: {
       checks,
-      scopeViolations: []
+      scopeViolations
     },
 
     score: {
       gates: {
-        direct_behavior_pass: true,
-        regression_pass: true
+        direct_behavior_pass: requiredGate('direct_behavior'),
+        regression_pass: requiredGate('regression')
       },
 
       facets: {
@@ -241,7 +271,16 @@ export function notificationRetryEvidence(
         maintainability: facet('maintainability')
       },
 
-      scope_violations: []
+      scope_violations: scopeViolations.map((violation) => ({
+        ...violation,
+        evidence_digest: sha256(violation)
+      }))
     }
   }
+}
+
+export function notificationRetryEvidence(
+  credits: Readonly<Record<string, number>> = {}
+) {
+  return taskRubricEvidence(notificationRetryTask, { credits })
 }

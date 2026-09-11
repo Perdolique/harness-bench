@@ -129,4 +129,4 @@ M4 item dependencies are in the table rather than speculative parallel tracks. I
 
 ## Current boundary
 
-M0–M2 and the issue 14 task-import implementation are complete. The technical canary, real rubric, and real-task authoring remain. The 2026-09-11 planning revision changes development sequencing, compatibility obligations, and workflow rules; it does not change runtime schemas, authorize native execution, approve private-data access, or claim that the pending canary passed.
+M0–M2 and the issue 15 executable-rubric implementation are complete. The refreshed technical canary and real-task authoring remain. The 2026-09-11 planning revision changes development sequencing, compatibility obligations, and workflow rules; it does not authorize native execution, approve private-data access, or claim that the pending canary passed.

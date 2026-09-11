@@ -203,11 +203,19 @@ export const HarnessDocumentSchema = v.pipe(
 
 const PositiveUnitIntervalSchema = v.pipe(
   UnitIntervalSchema,
-  v.minValue(Number.MIN_VALUE, 'Rubric obligation weight must be greater than zero')
+  v.gtValue(0, 'Rubric obligation weight must be greater than zero')
+)
+
+export const RubricObligationIdSchema = v.pipe(
+  NonEmptyStringSchema,
+  v.regex(
+    /^[a-z][a-z0-9-]{0,63}$/,
+    'Rubric obligation ID must start with a lowercase letter and contain at most 64 lowercase letters, numbers, or dashes'
+  )
 )
 
 const RubricObligationStructureSchema = v.strictObject({
-  obligation_id: IdentifierSchema,
+  obligation_id: RubricObligationIdSchema,
 
   facet: v.picklist([
     'direct_behavior',
@@ -1154,7 +1162,7 @@ export const RunDocumentSchema = v.union([
 const ScoreEvidenceSchema = v.pipe(
   v.array(
     v.strictObject({
-      check_id: IdentifierSchema,
+      check_id: RubricObligationIdSchema,
       outcome: v.picklist(['passed', 'failed']),
       evidence_digest: Sha256Schema
     })

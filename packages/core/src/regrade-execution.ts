@@ -15,10 +15,11 @@ import {
   type HarborRegradeExecutionContext
 } from './run-execution.ts'
 
-import { assertTaskScoreEvidence } from './task-rubric.ts'
+import { assertTaskScoreEvidence, assertRubricEvidencePaths } from './task-rubric.ts'
 import { inspectRunTree, inspectRunTreeInventory, readStableRunFile, type RunTreeSnapshot } from './run.ts'
 import { scanCredentialTree } from './secret-scan.ts'
 import { assertHarborArtifactInventory } from './task-artifacts.ts'
+import { inspectTaskSource } from './task.ts'
 
 interface RawManifestEntry {
   readonly digest: string;
@@ -672,9 +673,18 @@ export async function preflightHarborRegrade(
 ): Promise<void> {
   await inspectRunTreeInventory(options.sourceRunDirectory)
 
-  const [targetDocument, currentPackage, sourceScan, targetScan] = await Promise.all([
+  const sourcePath = resolve(options.sourceRunDirectory, 'inputs/task-source')
+
+  const [
+    targetDocument,
+    currentPackage,
+    pristineSource,
+    sourceScan,
+    targetScan
+  ] = await Promise.all([
     readStableRunFile(options.target.documentPath),
     inspectRunTree(options.target.packagePath),
+    inspectTaskSource(sourcePath),
     scanCredentialTree({ root: options.sourceRunDirectory }),
     scanCredentialTree({ root: options.target.packagePath })
   ])
@@ -700,6 +710,30 @@ export async function preflightHarborRegrade(
     throw new RunError(
       'INPUT_CHANGED',
       'Scoring migration target changed after definition resolution'
+    )
+  }
+
+  if (pristineSource.digest !== options.target.targetTask.source_digest) {
+    throw new RunError(
+      'INPUT_CHANGED',
+      'Regrade pristine source differs from the target TaskDocument'
+    )
+  }
+
+  try {
+    const pristinePaths = new Set(
+      pristineSource.entries.map(({ path }) => path)
+    )
+
+    assertRubricEvidencePaths(options.target.targetTask, pristinePaths)
+  } catch (cause) {
+    throw new RunError(
+      'INVALID_EVIDENCE',
+      'Regrade rubric evidence is absent from the pristine source',
+      {
+        cause,
+        stage: 'setup'
+      }
     )
   }
 
@@ -838,12 +872,33 @@ async function executeHarborRegradeOnce(
     }
 
     const regradedTrial = await onlyTrial(harborRoot)
+    let validated: Awaited<ReturnType<typeof validateRegradeTrial>>
 
-    const validated = await validateRegradeTrial(
-      sourceTrial,
-      regradedTrial,
-      options
-    )
+    try {
+      validated = await validateRegradeTrial(
+        sourceTrial,
+        regradedTrial,
+        options
+      )
+    } catch (cause) {
+      if (!(cause instanceof RunError) || cause.code !== 'INVALID_EVIDENCE') {
+        throw cause
+      }
+
+      throw new HarborRegradeExecutionError(
+        'Harbor verifier-only regrade evidence is invalid',
+        {
+          classification: 'verifier_failure',
+          process: outcome,
+
+          termination: {
+            kind: 'error',
+            reason: cause.message
+          }
+        },
+        { cause }
+      )
+    }
 
     const manifest = await rawManifest(rawRoot)
     const manifestSource = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`)
