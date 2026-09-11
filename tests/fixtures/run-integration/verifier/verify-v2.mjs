@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { networkInterfaces } from 'node:os'
-import { lstat, readFile, readdir, writeFile } from 'node:fs/promises'
+import { access, lstat, readFile, readdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { verifyWorkspaceArtifacts } from '/opt/core/task-artifacts.ts'
 
@@ -56,8 +56,18 @@ const environmentCredentialsAbsent = [
   'OPENAI_API_KEY'
 ].every((name) => process.env[name] === undefined)
 
+let credentialFilesAbsent = true
+
+try {
+  await access('/tmp/codex-secrets/auth.json')
+
+  credentialFilesAbsent = false
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error
+}
+
 const artifactsCredentialFree = await artifactCredentialsAbsent('/evidence')
-const credentialsAbsent = environmentCredentialsAbsent && artifactsCredentialFree
+const credentialsAbsent = environmentCredentialsAbsent && credentialFilesAbsent && artifactsCredentialFree
 
 await verifyWorkspaceArtifacts({
   artifacts: '/evidence',

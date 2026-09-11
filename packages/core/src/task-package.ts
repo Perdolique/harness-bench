@@ -30,6 +30,7 @@ export interface PackageImageReferences {
 }
 
 export interface PackageRuntimeControls {
+  readonly agent_user: string;
   readonly agent_timeout_seconds: number;
   readonly collector_timeout_seconds: number;
   readonly verifier_timeout_seconds: number;
@@ -58,6 +59,20 @@ function requiredString(table: Record<string, unknown>, key: string): string {
   }
 
   return value
+}
+
+function requiredNonRootAgentUser(agent: Record<string, unknown>): string {
+  const user = requiredString(agent, 'user')
+  const account = user.split(':', 1)[0]!.trim()
+
+  if (account === '' || account === 'root' || /^0+$/.test(account)) {
+    throw new RunError(
+      'INVALID_TASK_PACKAGE',
+      'Task package agent user must identify a non-root account'
+    )
+  }
+
+  return user
 }
 
 function requiredPositiveInteger(
@@ -354,6 +369,7 @@ export function inspectHarborTaskPackage(
   }
 
   const agentTimeout = requiredPositiveInteger(agent, 'timeout_sec')
+  const agentUser = requiredNonRootAgentUser(agent)
   const verifierTimeout = requiredPositiveInteger(verifier, 'timeout_sec')
   const collect = verifier.collect
   const artifacts = parsed.artifacts
@@ -521,6 +537,7 @@ export function inspectHarborTaskPackage(
     },
 
     runtimeControls: {
+      agent_user: agentUser,
       agent_timeout_seconds: agentTimeout,
       collector_timeout_seconds: collectorTimeout,
       verifier_timeout_seconds: verifierTimeout

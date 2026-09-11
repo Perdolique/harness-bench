@@ -50,7 +50,7 @@ for (const kind of ['agent', 'collector', 'verifier'] as const) {
 
   let recipe = `FROM ${imageBase}\n`
 
-  if (kind === 'agent') recipe += 'RUN npm install --global pnpm@11.25.0\nCOPY source/ /app/\nWORKDIR /app\n'
+  if (kind === 'agent') recipe += 'RUN npm install --global pnpm@11.25.0\nCOPY source/ /app/\nRUN chown -R pwuser:pwuser /app\nUSER pwuser\nWORKDIR /app\n'
 
   if (kind === 'collector') {
     await cp(resolve(repository, 'benchmark/tasks/order-receipt/collector/container-collector.ts'), resolve(context, 'container-collector.ts'))
@@ -85,7 +85,7 @@ for (const kind of ['agent', 'collector', 'verifier'] as const) {
 const deletedLayerContext = resolve(contexts, 'deleted-layer')
 
 await mkdir(deletedLayerContext)
-await writeFile(resolve(deletedLayerContext, 'Dockerfile'), 'FROM harness-bench-doctor-agent:issue-12\nRUN touch /doctor-hidden-sentinel\nRUN rm /doctor-hidden-sentinel\n')
+await writeFile(resolve(deletedLayerContext, 'Dockerfile'), 'FROM harness-bench-doctor-agent:issue-12\nUSER root\nRUN touch /doctor-hidden-sentinel\nRUN rm /doctor-hidden-sentinel\nUSER pwuser\n')
 
 execFileSync('docker', ['build', '--platform=linux/arm64', '--provenance=false', '--tag', 'harness-bench-doctor-deleted-layer:issue-12', deletedLayerContext], {
   stdio: 'inherit',
@@ -168,7 +168,7 @@ try {
 
         const job = JSON.parse(await readFile(context.configPath, 'utf8'))
 
-        if (!['nop', 'oracle'].includes(job.agents[0].name) || context.authDescriptor !== undefined || job.n_concurrent_trials !== 1 || job.retry.max_retries !== 0) throw new Error('Provider-free runtime contract changed')
+        if (!['nop', 'oracle'].includes(job.agents[0].name) || context.authPath !== undefined || job.n_concurrent_trials !== 1 || job.retry.max_retries !== 0) throw new Error('Provider-free runtime contract changed')
 
         const packagePath = resolve(context.runDirectory, 'task')
         const tomlPath = resolve(packagePath, 'task.toml')

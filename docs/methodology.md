@@ -1,5 +1,13 @@
 # Methodology
 
+## Development and comparative evidence
+
+Development checks establish that the runner and grader work: an unfinished task fails, correct alternatives pass, and broken behavior is detected. A synthetic native canary checks the complete execution chain. These checks are useful before the benchmark is finished; they are not evidence that one skill is better.
+
+Issue 16 brings forward one real-task comparison with skill disabled, v1, and v2, one repeat each, under a separate three-invocation authorization. Use one fixed task and the same checked environment, verifier, budget, and stack across arms. Inspect it as exploratory feedback and report the small sample directly. Its runs are excluded from issue 17's final pilot. Disclose task and harness changes informed by those outcomes; a task tuned from observed arm outcomes must be replaced before final comparative claims. Unchanged tasks may remain with their exploratory use disclosed.
+
+Freeze each executed plan and its checked artifacts, including development runs. Between development plans, inputs can evolve with their actual identities recorded. New run IDs and artifact digests identify evidence; they do not require a product release. Full task-suite freeze is required before the final pilot, not before every edit to the tool. See [the roadmap](roadmap.md#current-development-plan) for the current sequence.
+
 ## Experimental identity and controls
 
 The unit under test is the complete stack described in [the product specification](product-spec.md). For a harness-effect claim, hold agent version, model/effort, auth mode, task/suite revisions, environment, runner, verifier, scoring, tool access, and budgets fixed. Only the named harness difference is the treatment. Model/effort or native-agent changes compare complete stacks and must be labelled accordingly.

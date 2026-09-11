@@ -12,7 +12,14 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { resolve } from 'node:path'
 import { captureHarnessBundle } from '../packages/core/src/harness.ts'
-import { executeRunPlanWithRuntime, runHarborProcess, type RunRuntime } from '../packages/core/src/run-execution.ts'
+
+import {
+  assertPinnedTaskImages,
+  executeRunPlanWithRuntime,
+  runHarborProcess,
+  type RunRuntime
+} from '../packages/core/src/run-execution.ts'
+
 import { inspectRunTreeInventory, resolveRunPlan } from '../packages/core/src/run.ts'
 import { inspectTaskSource, materializeTaskWorkspace } from '../packages/core/src/task.ts'
 import { normalizeRun } from '../packages/results/src/normalize.ts'
@@ -176,7 +183,7 @@ async function prepareImages(
   }
 
   await cp(
-    resolve(repositoryRoot, 'benchmark/tasks/order-receipt/collector/container-collector.ts'),
+    resolve(fixtureRoot, 'collector.ts'),
     resolve(contexts.collector, 'collector.ts')
   )
 
@@ -505,7 +512,7 @@ async function prepareTaskPackage(
 
   await writeFile(
     resolve(taskRoot, 'task.toml'),
-    `schema_version = "1.4"\n\n[metadata]\nprovider_calls = 0\nautomatic_retries = 0\nharbor_telemetry = "off"\n\n[agent]\ntimeout_sec = 30\nnetwork_mode = "public"\n\n[environment]\ndocker_image = "${imageTags.agent}"\nos = "linux"\ncpus = 2\nmemory_mb = 2048\nnetwork_mode = "public"\nworkdir = "/app"\n\n[verifier]\ntimeout_sec = 60\nenvironment_mode = "separate"\nnetwork_mode = "no-network"\n\n[verifier.env]\nTASK_BASE_COMMIT = "${baseCommit}"\nTASK_SOURCE_DIGEST = "${sourceDigest}"\n\n[[verifier.collect]]\nservice = "collector"\ncommand = "node --experimental-strip-types /opt/collector/collector.ts"\ntimeout_sec = 30\n\n[verifier.environment]\ndocker_image = "${imageTags.verifier}"\nos = "linux"\ncpus = 2\nmemory_mb = 2048\nnetwork_mode = "no-network"\n\n[[artifacts]]\nsource = "/evidence"\ndestination = "trusted-collector"\nservice = "collector"\n`
+    `schema_version = "1.4"\n\n[metadata]\nprovider_calls = 0\nautomatic_retries = 0\nharbor_telemetry = "off"\n\n[agent]\ntimeout_sec = 30\nnetwork_mode = "public"\nuser = "pwuser"\n\n[environment]\ndocker_image = "${imageTags.agent}"\nos = "linux"\ncpus = 2\nmemory_mb = 2048\nnetwork_mode = "public"\nworkdir = "/app"\n\n[verifier]\ntimeout_sec = 60\nenvironment_mode = "separate"\nnetwork_mode = "no-network"\n\n[verifier.env]\nTASK_BASE_COMMIT = "${baseCommit}"\nTASK_SOURCE_DIGEST = "${sourceDigest}"\n\n[[verifier.collect]]\nservice = "collector"\ncommand = "node --experimental-strip-types /opt/collector/collector.ts"\ntimeout_sec = 30\n\n[verifier.environment]\ndocker_image = "${imageTags.verifier}"\nos = "linux"\ncpus = 2\nmemory_mb = 2048\nnetwork_mode = "no-network"\n\n[[artifacts]]\nsource = "/evidence"\ndestination = "trusted-collector"\nservice = "collector"\n`
   )
 
   return taskRoot
@@ -1058,6 +1065,36 @@ async function main(): Promise<void> {
       taskSource: source
     })
 
+    if (mode === 'success') {
+      await assertPinnedTaskImages(
+        plan.task,
+        plan.inputs.task_package.image_references,
+        plan.inputs.task_package.runtime_controls.agent_user,
+        repositoryRoot
+      )
+
+      let wrongUserRejected = false
+
+      try {
+        await assertPinnedTaskImages(
+          plan.task,
+          plan.inputs.task_package.image_references,
+          'root',
+          repositoryRoot
+        )
+      } catch (error) {
+        if ((error as { code?: unknown }).code !== 'PIN_MISMATCH') {
+          throw error
+        }
+
+        wrongUserRejected = true
+      }
+
+      if (!wrongUserRejected) {
+        throw new Error('Pinned agent image accepted the wrong declared user')
+      }
+    }
+
     const result = await executeRunPlanWithRuntime(plan, runtime)
 
     if (result.classification !== expected[mode]) {
@@ -1119,13 +1156,15 @@ async function main(): Promise<void> {
       config.environment?.memory_enforcement_policy !== 'limit' ||
       config.environment?.override_cpus !== budget.cpu_count ||
       config.environment?.override_memory_mb !== budget.memory_megabytes ||
-      processControl.auth_transport !== 'inherited-fd-3' ||
+      processControl.auth_transport !== 'private-temporary-file' ||
       processControl.harbor_telemetry !== 'off' ||
       processControl.shell !== false ||
       harborJobResult.n_total_trials !== 1 ||
       harborJobResult.stats?.n_retries !== 0 ||
+      plan.inputs.task_package.runtime_controls.agent_user !== 'pwuser' ||
       !materializedTaskToml.includes(imageIds.agent) ||
       !materializedTaskToml.includes(imageIds.verifier) ||
+      !materializedTaskToml.includes('user = "pwuser"') ||
       !materializedCompose.includes(imageIds.collector)
     ) {
       throw new Error('Integration runner controls drifted')
@@ -1282,4 +1321,10 @@ async function main(): Promise<void> {
   }
 }
 
-await main()
+const originalUmask = process.umask(0o077)
+
+try {
+  await main()
+} finally {
+  process.umask(originalUmask)
+}

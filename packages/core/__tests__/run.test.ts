@@ -1,12 +1,27 @@
 import { fixture, writeJson } from './run-fixture.ts'
 import { createHash } from 'node:crypto'
-import { chmod, link, lstat, mkdir, mkdtemp, open, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+
+import {
+  chmod,
+  link,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  symlink,
+  writeFile
+} from 'node:fs/promises'
+
 import { dirname, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { parse as parseToml } from 'smol-toml'
 import { parse as parseYaml } from 'yaml'
 
 import {
+  assertNonRootAgentIdentity,
   executeRunPlanWithRuntime,
   runHarborProcess,
   type HarborExecutionContext,
@@ -94,6 +109,14 @@ async function writeCredential(path: string, value: string): Promise<void> {
   await chmod(path, 0o600)
 }
 
+async function credentialTransportRoots(): Promise<string[]> {
+  const entries = await readdir('/tmp')
+
+  return entries
+    .filter((entry) => entry.startsWith('harness-bench-auth-transport-'))
+    .sort()
+}
+
 describe(resolveRunPlan, () => {
   it('resolves one assigned arm without creating the run directory or reading auth', async () => {
     const test = await fixture()
@@ -133,6 +156,14 @@ describe(resolveRunPlan, () => {
           concurrency: 1,
           max_retries: 0,
           telemetry: 'off'
+        },
+
+        inputs: {
+          task_package: {
+            runtime_controls: {
+              agent_user: 'pwuser'
+            }
+          }
         }
       })
 
@@ -271,6 +302,10 @@ describe(resolveRunPlan, () => {
 
   it.each([
     ['provider calls', 'provider_calls = 0', 'provider_calls = 1'],
+    ['agent user', 'user = "pwuser"\n', ''],
+    ['root agent user', 'user = "pwuser"', 'user = "root"'],
+    ['numeric root agent user', 'user = "pwuser"', 'user = "0:0"'],
+    ['blank agent user', 'user = "pwuser"', 'user = "   "'],
     [
       'agent timeout',
       'timeout_sec = 600\nnetwork_mode = "public"',
@@ -518,6 +553,26 @@ describe(resolveRunPlan, () => {
     } finally {
       await removeFixture(test.root)
     }
+  })
+})
+
+describe(assertNonRootAgentIdentity, () => {
+  it('accepts a matching named user with a non-root effective UID', () => {
+    expect(() => assertNonRootAgentIdentity('pwuser', 'pwuser', '1000')).not.toThrow()
+  })
+
+  it.each([
+    ['missing image user', undefined, 'pwuser', '1000'],
+    ['empty image user', '', 'pwuser', '1000'],
+    ['different image user', 'other', 'pwuser', '1000'],
+    ['root effective UID', 'pwuser', 'pwuser', '0'],
+    ['invalid effective UID', 'pwuser', 'pwuser', 'not-a-uid']
+  ] as const)('rejects %s', (_name, imageUser, declaredUser, effectiveUserId) => {
+    expect(() => assertNonRootAgentIdentity(
+      imageUser,
+      declaredUser,
+      effectiveUserId
+    )).toThrow(expect.objectContaining({ code: 'PIN_MISMATCH' }))
   })
 })
 
@@ -934,6 +989,39 @@ describe(executeRunPlanWithRuntime, () => {
     }
   })
 
+  it('does not create a credential transport before host inspection completes', async () => {
+    const test = await fixture()
+    const authPath = resolve(test.root, 'selected-auth.json')
+    const rootsBefore = await credentialTransportRoots()
+    const runHarbor = vi.fn()
+
+    await writeCredential(authPath, '{"fixture":"selected credential"}\n')
+
+    process.env.CODEX_AUTH_JSON_PATH = authPath
+
+    try {
+      const plan = await resolveRunPlan(test.options)
+
+      await expect(executeRunPlanWithRuntime(plan, {
+        inspectHost: async () => {
+          expect(await credentialTransportRoots()).toEqual(rootsBefore)
+
+          throw new Error('controlled host inspection failure')
+        },
+
+        now: () => new Date(),
+        runHarbor
+      })).rejects.toThrow('controlled host inspection failure')
+
+      expect(runHarbor).not.toHaveBeenCalled()
+      expect(await credentialTransportRoots()).toEqual(rootsBefore)
+    } finally {
+      delete process.env.CODEX_AUTH_JSON_PATH
+
+      await removeFixture(test.root)
+    }
+  })
+
   it('writes separate immutable records and seals a valid provider-free grade', async () => {
     const test = await fixture()
     const authPath = resolve(test.root, 'selected-auth.json')
@@ -949,6 +1037,7 @@ describe(executeRunPlanWithRuntime, () => {
     try {
       const plan = await resolveRunPlan(test.options)
       const auditBeforeExecution = (await readFile(fakeCodexAuditPath, 'utf8')).trim().split('\n').length
+      let credentialTransportRoot: string | undefined
 
       const originalTaskToml = await readFile(
         resolve(test.options.taskPackage, 'task.toml'),
@@ -978,7 +1067,17 @@ describe(executeRunPlanWithRuntime, () => {
 
           expect(initial).toMatchObject({ record_type: 'initial' })
           expect((await lstat(initialPath)).mode & 0o777).toBe(0o400)
-          expect(await readFile(`/dev/fd/${context.authDescriptor}`, 'utf8')).toContain(sentinel)
+
+          if (context.authPath === undefined) {
+            throw new Error('Credential transport path was not provided')
+          }
+
+          credentialTransportRoot = await realpath(dirname(context.authPath))
+
+          expect(context.authPath).not.toBe(authPath)
+          expect((await lstat(context.authPath)).mode & 0o777).toBe(0o600)
+          expect((await lstat(credentialTransportRoot)).mode & 0o777).toBe(0o700)
+          expect(await readFile(context.authPath, 'utf8')).toContain(sentinel)
           expect(jobConfig.n_attempts).toBe(1)
           expect(jobConfig.n_concurrent_trials).toBe(1)
           expect(jobConfig.retry.max_retries).toBe(0)
@@ -1024,6 +1123,14 @@ describe(executeRunPlanWithRuntime, () => {
         classification: 'task_success',
         valid_grade: true
       })
+
+      expect(credentialTransportRoot).toBeDefined()
+
+      if (credentialTransportRoot === undefined) {
+        throw new Error('Credential transport root was not observed')
+      }
+
+      await expect(lstat(credentialTransportRoot)).rejects.toMatchObject({ code: 'ENOENT' })
 
       const runDirectory = resolve(test.options.runsDirectory, 'run-a')
       const initialSource = await readFile(resolve(runDirectory, 'initial.json'), 'utf8')
@@ -1096,6 +1203,8 @@ describe(executeRunPlanWithRuntime, () => {
       expect(materializedTaskToml.environment!.docker_image).toBe(
         plan.task.environment.digest
       )
+
+      expect(materializedTaskToml.agent!.user).toBe('pwuser')
 
       expect(materializedTaskToml.verifier!.environment).toMatchObject({
         docker_image: plan.task.verifier.image_digest
@@ -1189,6 +1298,215 @@ describe(executeRunPlanWithRuntime, () => {
       })
     } finally {
       delete process.env.CODEX_AUTH_JSON_PATH
+
+      await removeFixture(test.root)
+    }
+  })
+
+  it('removes the credential transport when the Harbor adapter throws', async () => {
+    const test = await fixture()
+    const authPath = resolve(test.root, 'selected-auth.json')
+    let transportRoot: string | undefined
+
+    await writeCredential(authPath, '{"fixture":"selected credential"}\n')
+
+    process.env.CODEX_AUTH_JSON_PATH = authPath
+
+    try {
+      const plan = await resolveRunPlan(test.options)
+
+      const result = await executeRunPlanWithRuntime(
+        plan,
+        runtime(async (context) => {
+          if (context.authPath === undefined) {
+            throw new Error('Credential transport path was not provided')
+          }
+
+          transportRoot = dirname(context.authPath)
+
+          expect(await readFile(context.authPath, 'utf8')).toBe(
+            '{"fixture":"selected credential"}\n'
+          )
+
+          throw new Error('controlled Harbor adapter failure')
+        })
+      )
+
+      expect(result).toMatchObject({
+        classification: 'infrastructure_failure',
+        valid_grade: false
+      })
+
+      expect(transportRoot).toBeDefined()
+
+      if (transportRoot !== undefined) {
+        await expect(lstat(transportRoot)).rejects.toMatchObject({ code: 'ENOENT' })
+      }
+    } finally {
+      delete process.env.CODEX_AUTH_JSON_PATH
+
+      if (transportRoot !== undefined) await removeFixture(transportRoot)
+
+      await removeFixture(test.root)
+    }
+  })
+
+  it('removes the credential transport after cooperative SIGTERM cancellation', async () => {
+    const test = await fixture()
+    const authPath = resolve(test.root, 'selected-auth.json')
+    const harbor = resolve(test.root, 'fake-harbor')
+    let transportRoot: string | undefined
+
+    await writeCredential(authPath, '{"fixture":"selected credential"}\n')
+    await writeFile(harbor, '#!/bin/sh\ntrap \'exit 0\' TERM\nwhile :; do sleep 1; done\n')
+    await chmod(harbor, 0o700)
+
+    process.env.CODEX_AUTH_JSON_PATH = authPath
+
+    try {
+      const plan = await resolveRunPlan(test.options)
+
+      const result = await executeRunPlanWithRuntime(
+        plan,
+        runtime(async (context) => {
+          if (context.authPath === undefined) {
+            throw new Error('Credential transport path was not provided')
+          }
+
+          transportRoot = dirname(context.authPath)
+
+          const interrupt = setTimeout(() => process.emit('SIGTERM'), 50)
+
+          try {
+            return await runHarborProcess(context, harbor)
+          } finally {
+            clearTimeout(interrupt)
+          }
+        })
+      )
+
+      expect(result).toMatchObject({
+        classification: 'cancellation',
+        valid_grade: false
+      })
+
+      expect(transportRoot).toBeDefined()
+
+      if (transportRoot !== undefined) {
+        await expect(lstat(transportRoot)).rejects.toMatchObject({ code: 'ENOENT' })
+      }
+    } finally {
+      delete process.env.CODEX_AUTH_JSON_PATH
+
+      if (transportRoot !== undefined) await removeFixture(transportRoot)
+
+      await removeFixture(test.root)
+    }
+  }, 10_000)
+
+  it('removes the credential transport when SIGTERM arrives before Harbor starts', async () => {
+    const test = await fixture()
+    const authPath = resolve(test.root, 'selected-auth.json')
+    let transportRoot: string | undefined
+
+    await writeCredential(authPath, '{"fixture":"selected credential"}\n')
+
+    process.env.CODEX_AUTH_JSON_PATH = authPath
+
+    try {
+      const plan = await resolveRunPlan(test.options)
+
+      const result = await executeRunPlanWithRuntime(
+        plan,
+        runtime(async (context) => {
+          if (context.authPath === undefined) {
+            throw new Error('Credential transport path was not provided')
+          }
+
+          transportRoot = dirname(context.authPath)
+
+          process.emit('SIGTERM')
+          expect(context.signal?.aborted).toBe(true)
+          await mkdir(dirname(context.stdoutPath), { recursive: true })
+          await writeFile(context.stdoutPath, '')
+          await writeFile(context.stderrPath, '')
+
+          return {
+            cancelled: false,
+            exitCode: 0,
+            signal: null,
+            timedOut: false
+          }
+        })
+      )
+
+      expect(result).toMatchObject({
+        classification: 'cancellation',
+        valid_grade: false
+      })
+
+      expect(transportRoot).toBeDefined()
+
+      if (transportRoot !== undefined) {
+        await expect(lstat(transportRoot)).rejects.toMatchObject({ code: 'ENOENT' })
+      }
+    } finally {
+      delete process.env.CODEX_AUTH_JSON_PATH
+
+      if (transportRoot !== undefined) await removeFixture(transportRoot)
+
+      await removeFixture(test.root)
+    }
+  })
+
+  it('records a credential transport cleanup failure instead of hiding it', async () => {
+    const test = await fixture()
+    const authPath = resolve(test.root, 'selected-auth.json')
+    let transportRoot: string | undefined
+
+    await writeCredential(authPath, '{"fixture":"selected credential"}\n')
+
+    process.env.CODEX_AUTH_JSON_PATH = authPath
+
+    try {
+      const plan = await resolveRunPlan(test.options)
+
+      const result = await executeRunPlanWithRuntime(
+        plan,
+        runtime(async (context) => {
+          if (context.authPath === undefined) {
+            throw new Error('Credential transport path was not provided')
+          }
+
+          transportRoot = dirname(context.authPath)
+
+          await chmod(transportRoot, 0o500)
+
+          return {
+            cancelled: false,
+            exitCode: 0,
+            signal: null,
+            timedOut: false
+          }
+        })
+      )
+
+      expect(result).toMatchObject({
+        classification: 'infrastructure_failure',
+        valid_grade: false
+      })
+
+      const diagnostic = await readFile(
+        resolve(test.options.runsDirectory, 'run-a/raw/runner/spawn-error.txt'),
+        'utf8'
+      )
+
+      expect(diagnostic).toContain('Credential transport cleanup failed')
+      expect(transportRoot).toBeDefined()
+    } finally {
+      delete process.env.CODEX_AUTH_JSON_PATH
+
+      if (transportRoot !== undefined) await removeFixture(transportRoot)
 
       await removeFixture(test.root)
     }
@@ -1290,12 +1608,20 @@ describe(executeRunPlanWithRuntime, () => {
 
     process.env.CODEX_AUTH_JSON_PATH = authPath
 
+    let transportRoot: string | undefined
+
     try {
       const plan = await resolveRunPlan(test.options)
 
       const result = await executeRunPlanWithRuntime(
         plan,
         runtime(async (context) => {
+          if (context.authPath === undefined) {
+            throw new Error('Credential transport path was not provided')
+          }
+
+          transportRoot = dirname(context.authPath)
+
           await mkdir(resolve(context.stdoutPath, '..'), { recursive: true })
           await writeFile(context.stdoutPath, '')
           await writeFile(context.stderrPath, '')
@@ -1329,6 +1655,11 @@ describe(executeRunPlanWithRuntime, () => {
       })
 
       expect(completion.score_id).toMatchObject({ status: 'not_applicable' })
+      expect(transportRoot).toBeDefined()
+
+      if (transportRoot !== undefined) {
+        await expect(lstat(transportRoot)).rejects.toMatchObject({ code: 'ENOENT' })
+      }
     } finally {
       delete process.env.CODEX_AUTH_JSON_PATH
 
@@ -1786,7 +2117,7 @@ describe(executeRunPlanWithRuntime, () => {
 })
 
 describe(runHarborProcess, () => {
-  it('spawns without a shell using fd-only auth and telemetry off', async () => {
+  it('spawns without a shell using temporary-file auth and telemetry off', async () => {
     const root = await mkdtemp('/tmp/harness-bench-run-process-')
     const harbor = resolve(root, 'fake-harbor')
     const authPath = resolve(root, 'auth.json')
@@ -1803,7 +2134,7 @@ describe(runHarborProcess, () => {
         harbor,
         '#!/bin/sh\n' +
         'test "$1 $2 $4" = "run --config --yes" || exit 21\n' +
-        'test "$CODEX_AUTH_JSON_PATH" = "/dev/fd/3" || exit 22\n' +
+        `test "$CODEX_AUTH_JSON_PATH" = "${authPath}" || exit 22\n` +
         'test "$HARBOR_TELEMETRY" = "off" || exit 23\n' +
         `test "$HOME" = "${root}" || exit 24\n` +
         'test -z "$CODEX_HOME" || exit 25\n' +
@@ -1815,27 +2146,21 @@ describe(runHarborProcess, () => {
       await chmod(harbor, 0o700)
       await writeCredential(authPath, '{"token":"process-adapter-sentinel"}\n')
 
-      const auth = await open(authPath, 'r')
+      const outcome = await runHarborProcess({
+        authPath,
+        configPath: 'raw/runner/job-config.json',
+        runDirectory: root,
+        stderrPath,
+        stdoutPath,
+        wallClockSeconds: 5
+      }, harbor)
 
-      try {
-        const outcome = await runHarborProcess({
-          authDescriptor: auth.fd,
-          configPath: 'raw/runner/job-config.json',
-          runDirectory: root,
-          stderrPath,
-          stdoutPath,
-          wallClockSeconds: 5
-        }, harbor)
-
-        expect(outcome).toEqual({
-          cancelled: false,
-          exitCode: 0,
-          signal: null,
-          timedOut: false
-        })
-      } finally {
-        await auth.close()
-      }
+      expect(outcome).toEqual({
+        cancelled: false,
+        exitCode: 0,
+        signal: null,
+        timedOut: false
+      })
 
       expect(await readFile(stdoutPath, 'utf8')).toBe('provider-free harbor fixture\n')
       expect(await readFile(stderrPath, 'utf8')).toBe('')
@@ -1843,7 +2168,7 @@ describe(runHarborProcess, () => {
       expect(JSON.parse(
         await readFile(resolve(root, 'raw/runner/process-control.json'), 'utf8')
       )).toEqual({
-        auth_transport: 'inherited-fd-3',
+        auth_transport: 'private-temporary-file',
         harbor_telemetry: 'off',
         operation: 'run',
         shell: false

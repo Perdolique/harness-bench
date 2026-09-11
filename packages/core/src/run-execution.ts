@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import { chmod, lstat, mkdir, mkdtemp, open, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, relative, resolve } from 'node:path'
-import { promisify } from 'node:util'
+import { inspect, promisify } from 'node:util'
 import type { FileHandle } from 'node:fs/promises'
 
 import {
@@ -46,7 +46,7 @@ const HARBOR_VERSION_PATTERN = /(?:^|\s)0\.22\.0(?:$|\s)/
 const CODEX_VERSION_PATTERN = /(?:^|\s)0\.153\.2(?:$|\s)/
 
 export interface HarborExecutionContext {
-  readonly authDescriptor?: number;
+  readonly authPath?: string;
   readonly signal?: AbortSignal;
   readonly configPath: string;
   readonly runDirectory: string;
@@ -107,6 +107,11 @@ interface SelectedCredential {
   readonly leafValues: readonly Buffer[];
   readonly material: Buffer;
   readonly path: string;
+}
+
+interface CredentialTransport {
+  readonly path: string;
+  readonly root: string;
 }
 
 function sha256(contents: Uint8Array | string): string {
@@ -248,6 +253,7 @@ function parseImageIdentity(source: string): {
   readonly architecture: string;
   readonly id: string;
   readonly os: string;
+  readonly user: string | undefined;
 } {
   let candidate: unknown
 
@@ -262,9 +268,11 @@ function parseImageIdentity(source: string): {
 
   if (
     !isRecord(candidate) ||
+    !isRecord(candidate.Config) ||
     typeof candidate.Id !== 'string' ||
     typeof candidate.Os !== 'string' ||
-    typeof candidate.Architecture !== 'string'
+    typeof candidate.Architecture !== 'string' ||
+    (candidate.Config.User !== undefined && typeof candidate.Config.User !== 'string')
   ) {
     throw new RunError('HOST_UNSUPPORTED', 'Docker image identity is incomplete', {
       stage: 'setup'
@@ -274,7 +282,28 @@ function parseImageIdentity(source: string): {
   return {
     architecture: candidate.Architecture,
     id: candidate.Id,
-    os: candidate.Os
+    os: candidate.Os,
+    user: candidate.Config.User
+  }
+}
+
+export function assertNonRootAgentIdentity(
+  imageUser: string | undefined,
+  declaredUser: string,
+  effectiveUserId: string
+): void {
+  if (imageUser !== declaredUser) {
+    throw new RunError(
+      'PIN_MISMATCH',
+      'Pinned agent image user does not match the declared agent user'
+    )
+  }
+
+  if (!/^\d+$/.test(effectiveUserId) || Number(effectiveUserId) === 0) {
+    throw new RunError(
+      'PIN_MISMATCH',
+      'Pinned agent image must run the declared agent user with a non-root UID'
+    )
   }
 }
 
@@ -345,6 +374,7 @@ async function inspectDefaultHost(plan: ResolvedRunPlan): Promise<RunHostIdentit
   await assertPinnedTaskImages(
     plan.task,
     plan.inputs.task_package.image_references,
+    plan.inputs.task_package.runtime_controls.agent_user,
     repositoryRoot
   )
 
@@ -364,15 +394,18 @@ async function inspectDefaultHost(plan: ResolvedRunPlan): Promise<RunHostIdentit
 export async function assertPinnedTaskImages(
   task: TaskDocument,
   imageReferences: TaskPackageInspection['imageReferences'],
+  agentUser: string,
   cwd = resolve(import.meta.dirname, '../../..')
 ): Promise<void> {
   const expectedImages = [
-    [imageReferences.agent, task.environment.digest],
-    [imageReferences.collector, task.collector.image_digest],
-    [imageReferences.verifier, task.verifier.image_digest]
+    [imageReferences.agent, task.environment.digest, agentUser],
+    [imageReferences.collector, task.collector.image_digest, undefined],
+    [imageReferences.verifier, task.verifier.image_digest, undefined]
   ] as const
 
-  for (const [reference, expectedDigest] of expectedImages) {
+  let agentImageUser: string | undefined
+
+  for (const [reference, expectedDigest, expectedUser] of expectedImages) {
     const imageSource = await runCommand(
       'docker',
       ['image', 'inspect', '--format={{json .}}', reference],
@@ -381,21 +414,56 @@ export async function assertPinnedTaskImages(
 
     const image = parseImageIdentity(imageSource)
 
+    if (expectedUser !== undefined) agentImageUser = image.user
+
     if (
       image.id !== expectedDigest ||
       image.os !== 'linux' ||
-      image.architecture !== 'arm64'
+      image.architecture !== 'arm64' ||
+      (expectedUser !== undefined && image.user !== expectedUser)
     ) {
       throw new RunError(
         'PIN_MISMATCH',
-        'Task package image ID does not match TaskDocument'
+        'Task package image identity does not match the declared task controls'
       )
     }
   }
+
+  let effectiveUserId: string
+
+  try {
+    effectiveUserId = await runCommand(
+      'docker',
+      [
+        'run',
+        '--rm',
+        '--network',
+        'none',
+        '--entrypoint',
+        'id',
+        '--user',
+        agentUser,
+        imageReferences.agent,
+        '-u'
+      ],
+      cwd
+    )
+  } catch (error) {
+    throw new RunError(
+      'PIN_MISMATCH',
+      'Pinned agent image cannot resolve the declared agent user',
+      {
+        cause: error,
+        stage: 'setup'
+      }
+    )
+  }
+
+  assertNonRootAgentIdentity(agentImageUser, agentUser, effectiveUserId)
 }
 
 interface HarborCommandContext {
-  readonly authDescriptor?: number;
+  readonly authPath?: string;
   readonly operation: 'run' | 'regrade';
   readonly runDirectory: string;
   readonly signal?: AbortSignal;
@@ -421,7 +489,10 @@ async function runHarborCommand(
     const processControlPath = resolve(dirname(context.stdoutPath), 'process-control.json')
 
     const processControl = {
-      auth_transport: context.authDescriptor === undefined ? 'none' : 'inherited-fd-3',
+      auth_transport: context.authPath === undefined
+        ? 'none'
+        : 'private-temporary-file',
+
       harbor_telemetry: 'off',
       operation: context.operation,
       shell: false,
@@ -448,15 +519,12 @@ async function runHarborCommand(
       const child = spawn(harbor, [...arguments_], {
         cwd: context.runDirectory,
 
-        env: context.authDescriptor === undefined
+        env: context.authPath === undefined
           ? providerFreeEnvironment(context.runDirectory)
-          : safeEnvironment('/dev/fd/3', context.runDirectory),
+          : safeEnvironment(context.authPath, context.runDirectory),
 
         shell: false,
-
-        stdio: context.authDescriptor === undefined
-          ? ['ignore', stdoutDescriptor, stderrDescriptor]
-          : ['ignore', stdoutDescriptor, stderrDescriptor, context.authDescriptor]
+        stdio: ['ignore', stdoutDescriptor, stderrDescriptor]
       })
 
       let cancelled = false
@@ -536,11 +604,7 @@ export async function runHarborProcess(
     stderrPath: context.stderrPath,
     stdoutPath: context.stdoutPath,
     wallClockSeconds: context.wallClockSeconds,
-
-    ...(context.authDescriptor === undefined
-      ? {}
-      : { authDescriptor: context.authDescriptor }),
-
+    ...(context.authPath === undefined ? {} : { authPath: context.authPath }),
     ...(context.signal === undefined ? {} : { signal: context.signal })
   }
 
@@ -746,6 +810,113 @@ async function readCredential(
 
     throw error
   }
+}
+
+async function createCredentialTransport(
+  material: Uint8Array
+): Promise<CredentialTransport> {
+  const root = await mkdtemp('/tmp/harness-bench-auth-transport-')
+  const path = resolve(root, 'auth.json')
+  let authHandle: FileHandle | undefined
+
+  try {
+    await chmod(root, 0o700)
+
+    authHandle = await open(path, 'wx', 0o600)
+
+    await authHandle.writeFile(material)
+    await authHandle.sync()
+    await authHandle.close()
+
+    authHandle = undefined
+
+    await chmod(path, 0o600)
+
+    return {
+      path,
+      root
+    }
+  } catch (error) {
+    const cleanup = await Promise.allSettled([
+      authHandle?.close(),
+      rm(root, {
+        force: true,
+        recursive: true
+      })
+    ])
+
+    const cleanupErrors = cleanup.flatMap((result) =>
+      result.status === 'rejected' ? [result.reason] : []
+    )
+
+    if (cleanupErrors.length > 0) {
+      throw new RunError(
+        'EXECUTION_FAILED',
+        'Credential transport preparation and cleanup failed',
+        {
+          cause: new AggregateError([error, ...cleanupErrors]),
+          stage: 'setup'
+        }
+      )
+    }
+
+    throw error
+  }
+}
+
+async function removeCredentialTransport(
+  transport: CredentialTransport
+): Promise<void> {
+  await rm(transport.root, {
+    force: true,
+    recursive: true
+  })
+}
+
+async function runWithCredentialTransport<T>(
+  material: Uint8Array,
+  operation: (authPath: string) => Promise<T>
+): Promise<T> {
+  const transport = await createCredentialTransport(material)
+
+  let outcome:
+    | { readonly status: 'completed'; readonly value: T }
+    | { readonly status: 'failed'; readonly error: unknown }
+
+  try {
+    outcome = {
+      status: 'completed',
+      value: await operation(transport.path)
+    }
+  } catch (error) {
+    outcome = {
+      status: 'failed',
+      error
+    }
+  }
+
+  try {
+    await removeCredentialTransport(transport)
+  } catch (cleanupError) {
+    const cause = outcome.status === 'completed'
+      ? cleanupError
+      : new AggregateError([outcome.error, cleanupError])
+
+    throw new RunError(
+      'EXECUTION_FAILED',
+      outcome.status === 'completed'
+        ? 'Credential transport cleanup failed'
+        : 'Harbor execution and credential transport cleanup failed',
+      {
+        cause,
+        stage: 'setup'
+      }
+    )
+  }
+
+  if (outcome.status === 'failed') throw outcome.error
+
+  return outcome.value
 }
 
 function pathIsInside(root: string, path: string): boolean {
@@ -2122,23 +2293,41 @@ async function executeSealedRunPlan(
   const initialDigest = await atomicJson(resolve(runDirectory, 'initial.json'), initial)
   let harborOutcome: HarborExecutionOutcome
   let spawnFailure = false
+  const cancellation = new AbortController()
+  const cancel = (): void => cancellation.abort()
+
+  process.on('SIGINT', cancel)
+  process.on('SIGTERM', cancel)
 
   try {
-    harborOutcome = await runtime.runHarbor({
-      authDescriptor: credential.handle.fd,
-      configPath,
-      runDirectory,
-      stderrPath: resolve(rawRoot, 'runner/stderr.log'),
-      stdoutPath: resolve(rawRoot, 'runner/stdout.log'),
-      wallClockSeconds: plan.budget.wall_clock_seconds
-    })
+    const outcome = await runWithCredentialTransport(
+      credential.material,
+      async (transportPath) => runtime.runHarbor({
+        authPath: transportPath,
+        configPath,
+        runDirectory,
+        signal: cancellation.signal,
+        stderrPath: resolve(rawRoot, 'runner/stderr.log'),
+        stdoutPath: resolve(rawRoot, 'runner/stdout.log'),
+        wallClockSeconds: plan.budget.wall_clock_seconds
+      })
+    )
+
+    harborOutcome = cancellation.signal.aborted
+      ? {
+          cancelled: true,
+          exitCode: outcome.exitCode,
+          signal: outcome.signal,
+          timedOut: outcome.timedOut
+        }
+      : outcome
   } catch (error) {
     spawnFailure = true
 
     await writeRestrictedDiagnostic(
       rawRoot,
       'spawn-error.txt',
-      error instanceof Error ? `${error.stack ?? error.message}\n` : 'Unknown spawn failure\n'
+      `${inspect(error, { depth: 10 })}\n`
     )
 
     harborOutcome = {
@@ -2147,6 +2336,9 @@ async function executeSealedRunPlan(
       signal: null,
       timedOut: false
     }
+  } finally {
+    process.off('SIGINT', cancel)
+    process.off('SIGTERM', cancel)
   }
 
   let evidence: EvidenceOutcome | undefined

@@ -31,6 +31,14 @@ if [ "${1:-}" != "exec" ]; then
   exit 9
 fi
 
+auth_path="$CODEX_HOME/auth.json"
+
+test -f "$auth_path"
+test "$(cat "$auth_path")" = '{"fixture":"provider-free-fake-codex-auth"}'
+test "$(stat -Lc '%U' "$auth_path")" = 'pwuser'
+test "$(stat -Lc '%a' "$auth_path")" = '600'
+test "$(id -u)" -ne 0
+
 case "${FAKE_CODEX_MODE:-success}" in
   fail)
     printf '{"type":"error","message":"controlled agent failure"}\n'

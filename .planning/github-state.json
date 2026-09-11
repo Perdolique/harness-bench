@@ -69,72 +69,72 @@
     "14": {
       "number": 14,
       "url": "https://github.com/Perdolique/harness-bench/issues/14",
-      "body_sha256": "7869a986d61197b396299071c8c5d944559713759437c6b0c9c087ce4911824d"
+      "body_sha256": "960205d3d5d03d7c4e66d41e4949cfaa5323342bbbbf3ac413e1bfdf280ba2d9"
     },
     "15": {
       "number": 15,
       "url": "https://github.com/Perdolique/harness-bench/issues/15",
-      "body_sha256": "2993e8e0edddc1cb8d2dfd79982d829f3ed66fbf72471e48d06bda3ca94fcf72"
+      "body_sha256": "462821667c44346629cfd74f936fb082aeec4e06ecce1b338de2c26d0682a899"
     },
     "16": {
       "number": 16,
       "url": "https://github.com/Perdolique/harness-bench/issues/16",
-      "body_sha256": "0c1f52bf470b901394e1a47da0caf0be90f16e0a068380a798740f39864b3f4b"
+      "body_sha256": "30bff9abe472490c365745d4a753c53ac9160822e5aa6144a91ad6b9877b7b79"
     },
     "17": {
       "number": 17,
       "url": "https://github.com/Perdolique/harness-bench/issues/17",
-      "body_sha256": "be82f31dd214bfa258c2375722c8dab7acf8820fdfd56a13e47ecd184e342429"
+      "body_sha256": "052869d8fe134e0017434d6b4cb032d39e30830984656d3bb5ffaf6a50d1c595"
     },
     "18": {
       "number": 18,
       "url": "https://github.com/Perdolique/harness-bench/issues/18",
-      "body_sha256": "0cf0c306c29e7869a10daaedbe3edeb9dd832e400ee640b6585773b192d64070"
+      "body_sha256": "2a1f67da6ef4f548a4fee2ea6f6f2db614df7161284a2ea71073fe3e7198b93d"
     },
     "19": {
       "number": 19,
       "url": "https://github.com/Perdolique/harness-bench/issues/19",
-      "body_sha256": "91a65670d29192e22ac59fcb5de83d1f4920abc6553151638f45a96c7ae2add9"
+      "body_sha256": "d37112f97df9b1aa9c91e320a3a3a22200fe3326fd4694fdec42c9d86a49453d"
     },
     "20": {
       "number": 20,
       "url": "https://github.com/Perdolique/harness-bench/issues/20",
-      "body_sha256": "01fb1207ad282b94f2ea1c6a2c365df841556d87f439dac3072555af4fcd5e19"
+      "body_sha256": "449287966ac6d5f1f1c9bd9be815b8700663f2c0771bd5414842dadbddae4e36"
     },
     "21": {
       "number": 21,
       "url": "https://github.com/Perdolique/harness-bench/issues/21",
-      "body_sha256": "6b8c21c7e169caa2989529848b9324af9eac30cd3a901f58b7c6cf10f7789063"
+      "body_sha256": "300f3daa49bff20959293bf97fa3119f38b427d714f72d104d2efb6f36238e7f"
     },
     "22": {
       "number": 22,
       "url": "https://github.com/Perdolique/harness-bench/issues/22",
-      "body_sha256": "8e73ad74c5bc1498d321a68c204484b959b3cb73fb81c9edc89eb4701d05ac10"
+      "body_sha256": "1c78ca023b22b8429162762783c4ab020c4209d2a1dbe25745348aba74907889"
     },
     "23": {
       "number": 23,
       "url": "https://github.com/Perdolique/harness-bench/issues/23",
-      "body_sha256": "59f1027bfe56627536d159b5ba352b70e298fcd867218e80f439c328cb676f6c"
+      "body_sha256": "1d4213cac72deda1af6f51f31fb3a06806011d74cc63058bcec882fe7495c90b"
     },
     "24": {
       "number": 24,
       "url": "https://github.com/Perdolique/harness-bench/issues/24",
-      "body_sha256": "2c8983d75ff81273c815c96dc2c830fe2fe4e31c9e29919b7009dd48bb5377a0"
+      "body_sha256": "d008f8686c8303dcf29e72bb9a4f40e83cc8c361d64e0f2ce37390d091eee1ae"
     },
     "25": {
       "number": 25,
       "url": "https://github.com/Perdolique/harness-bench/issues/25",
-      "body_sha256": "a27b23da46488cd795debf11732286a2255841b450aa2bc81c4a4bb6aaa2d90d"
+      "body_sha256": "cd9b1432b19c979aebfb1b4007d20d7eb313038eee781d5dc8393e5dd6f86bc6"
     },
     "26": {
       "number": 26,
       "url": "https://github.com/Perdolique/harness-bench/issues/26",
-      "body_sha256": "6ca52511ffe31db993b7bae2ea1545e8b447d33edef12533b185f8d1c09931cc"
+      "body_sha256": "377cbb66b67397696447e1d3daf3ea3a338de87654897944c9b062338edde2fa"
     },
     "27": {
       "number": 27,
       "url": "https://github.com/Perdolique/harness-bench/issues/27",
-      "body_sha256": "e3097f6d157147ae43347a8c1ce4f0b80e963a00c64917f9a0637a3657a847a1"
+      "body_sha256": "33113dadc4ca47a72942be6290f84e8a8e8ff9c63ab52b7e9530f18d778ec646"
     }
   },
   "milestones": {

@@ -2,9 +2,9 @@
 
 Evaluate complete coding-agent stacks on repository-native engineering tasks. A stack includes the native agent and version, model and effort, authentication mode, harness, tools, permissions, repository snapshot, prompt, budget, and runner. A result is evidence about that stack on those tasks, never a bare-model score.
 
-**Status: the benchmark control plane is implemented through issue 12's task integrity doctor.** The repository has pinned development toolchains, provider-free CI, seven frozen v1 schemas, immutable harness tooling, the calibrated canonical frontend task, one-run Harbor orchestration, immutable result normalization and disposition, interleaved experiment scheduling and recovery, operational reports, read-only paired analysis with deterministic task-cluster uncertainty, and provider-free task calibration through Harbor. The retired restricted-network protocol remains a preserved no-go. Three public-network native feasibility runs passed: one medium and two matching-input low runs.
+**Status: pre-release development; the engine is implemented through issue 13.** It supports pinned toolchains, provider-free CI, seven v1 schemas, immutable harnesses, a calibrated synthetic task, Harbor execution, result retention and reports, repeated comparisons, integrity checks, and verifier-only regrade. Real task import and pilot authoring remain ahead. The next useful outcome is one real task with an inspected exploratory comparison, before expanding to five tasks. See the [current development plan](docs/roadmap.md#current-development-plan).
 
-Those runs prove only the recorded synthetic path. Token refresh was not exercised and an auth failure requires owner login. Harbor irreversibly merged native stdout and stderr. The agent had unrestricted network access, including possible access to remote content, host services, and its temporary credentials. The result applies only to the recorded macOS Apple Silicon and Docker Desktop Linux/arm64 environment.
+Three accepted native feasibility runs prove only the recorded synthetic path. Token refresh was not exercised and an auth failure requires owner login. Harbor irreversibly merged native stdout and stderr. The agent had unrestricted network access, including possible access to remote content, host services, and its temporary credentials. The result applies only to the recorded macOS Apple Silicon and Docker Desktop Linux/arm64 environment.
 
 The first useful question is whether a changed harness improves the owner's subscription-backed native Codex workflow without increasing regressions or unrelated edits. Quality facets, reliability, duration, and available usage remain visible separately; subscription runs have no invented monetary per-task cost.
 
@@ -15,7 +15,7 @@ The first useful question is whether a changed harness improves the owner's subs
 - Pinned native Codex using a dedicated, external ChatGPT login.
 - Immutable harnesses and one-base-commit task snapshots, unrestricted agent internet, and fresh, credential-free, network-disabled deterministic verifiers.
 - A trusted collector independent of agent-controlled Git, with fail-closed proof of quiescence, complete collection, an exact manifest, and verified hashes before any grade is valid.
-- One synthetic frontend task, then five real tasks, repeated interleaved comparisons, raw evidence retention, and terminal reports.
+- One synthetic frontend task, one real development task with early feedback, then five frozen real tasks, repeated interleaved comparisons, raw evidence retention, and terminal reports.
 
 Harbor 0.22.0, Codex 0.153.2, and `gpt-5.6-luna` passed the synthetic spike at `medium` and owner-requested `low` effort. [Issue 2](.planning/issues/02-feasibility-spike.md) records the qualified owner go; [issue 3](.planning/issues/03-evidence-based-decisions.md) and the [accepted ADRs](docs/adr/README.md) record what that evidence does and does not support.
 

@@ -6,9 +6,9 @@ Planning item: 17 | Milestone: M3 Pilot benchmark
 
 ## Context
 
-The first owner decision compares one skill disabled, v1 and v2 on the frozen pilot distribution.
+The final pilot compares one skill disabled, v1 and v2 on the frozen five-task distribution. Issue 16's earlier one-task comparison provides development feedback and does not count as pilot evidence.
 
-Source: BOOTSTRAP_PLAN.md, section 9, planning item 17; docs/research-snapshot.md and the accepted ADRs constrain implementation.
+Source: BOOTSTRAP_PLAN.md, section 9, planning item 17. The 2026-09-11 development revision in docs/roadmap.md separates exploratory feedback from this final comparison; the accepted ADRs retain the trust boundary.
 
 ## Goal
 
@@ -26,7 +26,9 @@ Run and inspect the first controlled three-arm skill experiment.
 
 ## Technical constraints
 
-- Five tasks times three arms times three repeats is 45 planned initial invocations; retries are separate explicit attempts.
+- Five tasks times three arms times three repeats is 45 planned initial invocations, separately authorized from development runs. There are zero automatic retries; any replacement block needs explicit authorization under the existing experiment policy.
+- Review the frozen suite and the concrete 45-call plan together. Existing authorization applies within its approved inputs and budget.
+- Exclude exploratory runs from pilot statistics. Disclose earlier task/harness tuning, and do not include a task tuned from observed arm outcomes in final comparative claims.
 - Show invocation count and budgets before owner-authorized local execution; never run this experiment in ordinary CI.
 - Provider failure/quota and unknown usage are reported honestly.
 - Follow AGENTS.md and the accepted architecture; no custom sandbox/runner.
@@ -44,6 +46,7 @@ Run and inspect the first controlled three-arm skill experiment.
 - [ ] Findings document where each skill helps, does nothing, or harms.
 - [ ] No universal conclusion beyond the tested stack/task distribution.
 - [ ] Raw run set is archived.
+- [ ] Development attempts are excluded and all retained pilot tasks meet the declared tuning and online-reachability rules.
 - [ ] Stop for owner inspection of per-task trajectories and patches before accepting the pilot conclusion or activating justified M4 work.
 
 ## Test/evidence plan
@@ -60,7 +63,7 @@ Run and inspect the first controlled three-arm skill experiment.
 
 <!-- dependencies:start -->
 - Prerequisites are enforced by GitHub's native issue dependencies; `.planning/backlog.json` is the local declaration.
-- Required gate: owner-approved frozen suite after [planning issue 16](https://github.com/Perdolique/harness-bench/issues/16).
+- Required gate: owner-approved frozen suite after [planning issue 16](https://github.com/Perdolique/harness-bench/issues/16) and concrete pilot invocation budget; these decisions can be made together.
 <!-- dependencies:end -->
 
 ## Risks/open questions
@@ -71,6 +74,6 @@ Run and inspect the first controlled three-arm skill experiment.
 
 - [ ] Every acceptance criterion has concrete evidence; exact commands and actual results are recorded in the PR.
 - [ ] The global Definition of Done in CONTRIBUTING.md is satisfied, including meaningful negative controls, exact pins and updated operational docs.
-- [ ] No unrelated refactoring, next-issue work, credentials/private code, verifier network access, or raw-artifact rewriting.
-- [ ] New assumptions are documented or linked as follow-up issues; required owner gates are recorded.
-- [ ] Commit the focused change with an English conventional commit and stop after this issue.
+- [ ] Work stays within the authorized outcome, including small required fixes; unrelated work is deferred.
+- [ ] Material assumptions and relevant owner decisions are recorded under the current development policy in CONTRIBUTING.md and docs/roadmap.md.
+- [ ] Credentials, private source, offline verification, and immutable raw evidence retain their existing protections.

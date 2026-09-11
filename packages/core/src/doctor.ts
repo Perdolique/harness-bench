@@ -10,7 +10,7 @@ import { inspectRunTree, readStableRunFile, type RunTreeSnapshot } from './run.t
 import { RunError } from './run-errors.ts'
 import { inspectTaskSource, materializeTaskWorkspace } from './task.ts'
 import { inspectHarborTaskPackage, type TaskPackageInspection } from './task-package.ts'
-import { validateTaskEvidence } from './run-execution.ts'
+import { assertNonRootAgentIdentity, validateTaskEvidence } from './run-execution.ts'
 import { scanCredentialBytes, scanCredentialTree } from './secret-scan.ts'
 
 import {
@@ -494,14 +494,59 @@ export async function runDoctor(options: DoctorOptions, suppliedRuntime: DoctorR
       }
 
       const images = packageInspection!.imageReferences
+      const agentUser = packageInspection!.runtimeControls.agent_user
 
-      for (const image of Object.values(images)) {
+      const expectedImages = [
+        [images.agent, agentUser],
+        [images.collector, undefined],
+        [images.verifier, undefined]
+      ] as const
+
+      let agentImageUser: string | undefined
+
+      for (const [image, expectedUser] of expectedImages) {
         const value = requireRecord(JSON.parse(await runtime.command('docker', ['image', 'inspect', '--format={{json .}}', image], hostHome)))
+        const config = requireRecord(value.Config)
 
-        if (value.Id !== image || value.Os !== 'linux' || value.Architecture !== 'arm64') throw new DoctorError('IMAGE_PIN_MISMATCH', 'Local image identity does not match the frozen task')
+        if (expectedUser !== undefined && typeof config.User === 'string') {
+          agentImageUser = config.User
+        }
+
+        if (
+          value.Id !== image ||
+          value.Os !== 'linux' ||
+          value.Architecture !== 'arm64' ||
+          (expectedUser !== undefined && config.User !== expectedUser)
+        ) {
+          throw new DoctorError('IMAGE_PIN_MISMATCH', 'Local image identity does not match the frozen task')
+        }
       }
 
+      const agentUserId = await runtime.command(
+        'docker',
+        [
+          'run',
+          '--rm',
+          '--network',
+          'none',
+          '--entrypoint',
+          'id',
+          '--user',
+          agentUser,
+          images.agent,
+          '-u'
+        ],
+        hostHome
+      )
+
+      assertNonRootAgentIdentity(
+        agentImageUser,
+        agentUser,
+        agentUserId
+      )
+
       await writeDoctorJson(resolve(raw, 'host.json'), {
+        agent_user_id: agentUserId,
         os,
         arch,
         harbor,

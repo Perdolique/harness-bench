@@ -12,6 +12,8 @@ Report requested behavior, justified repository contracts, regressions, harmful 
 
 The pilot succeeds when the owner can inspect a paired comparison of a skill disabled, v1, and v2 on five frozen real tasks, with at least three repeats per arm, and trace every finding back to retained patches, trajectories, and verifier evidence. Success is a defensible decision, not a guaranteed winning harness.
 
+Get feedback earlier: after the technical canary and minimal import/rubric work, calibrate one real task and inspect a separately authorized exploratory comparison before authoring the full suite. One task with one repeat per arm checks usefulness and exposes authoring problems; it cannot establish a reliable skill ranking. The existing engine stays in place while this path guides remaining development.
+
 ## V1 product boundary
 
 macOS on Apple Silicon with Docker Desktop Linux/arm64 containers is the v1 execution target. Intel Mac, WSL2, and arbitrary Docker hosts are not compatibility claims. The control plane is TypeScript; Harbor runs pinned native Codex with subscription auth and owns environment lifecycle. Python exists only for locked Harbor/tooling.
@@ -32,4 +34,4 @@ The green spike, owner acceptance, and evidence-based ADR review now permit the 
 
 ## Product acceptance gates
 
-Issue 6 requires manual task calibration. Issue 13 requires a complete local dry run and one explicitly authorized subscription canary before private task import. Issue 16 freezes the pilot tasks before comparison. Issue 17 requires inspecting per-task evidence before expansion. [The roadmap](roadmap.md) owns dependencies and gate records; [methodology](methodology.md) owns comparison rules.
+The issue 2 feasibility and issue 6 task-fairness decisions are accepted history. The pending technical check after issue 13 is a local dry run and one explicitly authorized subscription canary before owner private-data use. Provider-free import development on sanitized fixtures can proceed while that check is pending. Issue 16 starts with one real task and exploratory feedback, then freezes five calibrated tasks. The suite review and issue 17 invocation budget can be approved together. Inspect per-task evidence before accepting final findings or expanding the product. [The roadmap](roadmap.md) owns current dependencies and decisions; [methodology](methodology.md) separates development evidence from comparative results.
