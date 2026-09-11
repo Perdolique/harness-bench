@@ -45,6 +45,7 @@ export {
   inspectTaskSource,
   materializeTaskWorkspace
 } from './task.ts'
+export * from './task-import.ts'
 export {
   inspectHarborTaskPackage,
   type TaskPackageInspection

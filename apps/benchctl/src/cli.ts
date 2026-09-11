@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { doctorCommand } from './doctor.ts'
-import { DoctorError } from '@harness-bench/core'
+import { DoctorError, isTaskImportError } from '@harness-bench/core'
 import { experimentCommand } from './experiment.ts'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -34,6 +34,7 @@ import {
 } from '@harness-bench/results'
 
 import { CLI_SYNOPSIS, CliUsageError } from './cli-contract.ts'
+import { taskCommand } from './task.ts'
 
 export interface CliIo {
   readonly stderr: (value: string) => void;
@@ -635,6 +636,8 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
 
   if (group === 'experiment') return experimentCommand(command, rest, io)
 
+  if (group === 'task') return taskCommand(command, rest, io)
+
   if (group === 'run') {
     return run(normalizedArguments.slice(1), io)
   }
@@ -661,7 +664,7 @@ async function dispatch(arguments_: readonly string[], io: CliIo): Promise<numbe
 
   if (group !== 'harness') {
     throw new CliUsageError(
-      'Expected doctor, experiment, run, harness, or results command group'
+      'Expected doctor, experiment, run, task, harness, or results command group'
     )
   }
 
@@ -712,6 +715,8 @@ export async function runCli(
     } else if (isStatisticsError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)
     } else if (isHarnessError(error)) {
+      io.stderr(`${error.code}: ${error.message}\n`)
+    } else if (isTaskImportError(error)) {
       io.stderr(`${error.code}: ${error.message}\n`)
     } else if (isParseArgsError(error)) {
       io.stderr(`USAGE_ERROR: Invalid command arguments\n${CLI_SYNOPSIS}`)

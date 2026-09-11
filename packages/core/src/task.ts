@@ -332,6 +332,7 @@ export async function inspectMaterializedTaskWorkspace(
   readonly baseCommit: string;
   readonly commitCount: number;
   readonly hooks: readonly string[];
+  readonly refs: readonly string[];
   readonly remotes: readonly string[];
   readonly status: string;
   readonly unreachable: string;
@@ -347,6 +348,11 @@ export async function inspectMaterializedTaskWorkspace(
 
   const baseCommit = await runGit(workspace, ['rev-parse', 'HEAD'])
   const commitCount = Number(await runGit(workspace, ['rev-list', '--count', '--all']))
+
+  const refs = (await runGit(workspace, ['for-each-ref', '--format=%(refname)']))
+    .split('\n')
+    .filter(Boolean)
+
   const remotes = (await runGit(workspace, ['remote'])).split('\n').filter(Boolean)
   const status = await runGit(workspace, ['status', '--short'])
   const unreachable = await runGit(workspace, ['fsck', '--unreachable', '--no-reflogs'])
@@ -356,6 +362,7 @@ export async function inspectMaterializedTaskWorkspace(
     baseCommit,
     commitCount,
     hooks,
+    refs,
     remotes,
     status,
     unreachable

@@ -72,6 +72,32 @@ Prepare and pin agent, collector, and verifier image IDs before doctor. Keep hid
 
 Build reproducibility and execution identity are separate. Retain and reuse the actual checked image by digest; a fresh build does not have to reproduce an earlier Docker image ID. New artifacts need their own validated bindings and affected calibration evidence before use. Never relabel a changed image with an old digest or replace a frozen plan's input. Source snapshot digest reproducibility and deterministic grading still apply to the same declared bytes.
 
-Real import (issue 14) keeps private data in external owner-controlled storage, records sanitized provenance, declares a retention deadline (90 days by default), and leaves hidden-test authoring manual. Implement it with sanitized fixtures while the technical canary is pending; owner private-data use requires the canary review and source permission. Issue 15 derives its rubric format from the canonical task and the first real task's needs.
+Issue 14 implements real source import from one exact local SHA-1 commit. Start from a small JSON definition; do not put a clone URL, local path, credential, prompt, hidden check, or source byte in it. Retained identifiers are bounded, `task_revision` is an identifier token rather than prose, and the reachability reason rejects URLs, absolute paths, credential patterns, and control characters:
+
+```json
+{
+  "document_type": "task_import_definition",
+  "schema_version": 1,
+  "task_id": "example-task",
+  "task_revision": "v1",
+  "repository_path": "/absolute/local/repository",
+  "base_commit": "0123456789abcdef0123456789abcdef01234567",
+  "provenance": {
+    "repository_id": "owner-source-1",
+    "merged_pull_request": { "status": "not_applicable" }
+  },
+  "online_reachability": {
+    "status": "eligible",
+    "reason": "The owner checked that grading material and future solutions are not reachable online."
+  },
+  "retention": { "classification": "public" }
+}
+```
+
+For private source, use `{"classification":"private","expires_at":{"status":"default"}}` for exactly 90 days from import, or set a future known timestamp. The importer stores only a safe repository ID and commit identity as provenance. It rejects `unknown` reachability, unsafe Git entries, paths that the source reader would omit, credential patterns, oversized metadata, more than 10,000 files, a file over 64 MiB, or a source over 256 MiB before finalization.
+
+Use the validated manifest to fill the existing `TaskDocument`: `task_id`, `task_revision`, `materialized_base_commit` as `base_commit`, `source_digest`, `online_reachability`, and `retention`. The verified import `source/` is the `task_source` passed to authoring, doctor, and run commands. Build and pin task-specific images through the existing authoring flow. Write the prompt, hidden checks, verifier, reference solution, rubric, and scope rules manually outside the imported agent-visible source; import does not infer them.
+
+Private data remains in external owner-controlled storage. The implemented sanitized fixture path does not authorize owner private-data use: that still requires the pending technical canary review and source permission. Issue 15 derives its rubric format from the canonical task and the first real task's needs.
 
 Issue 16 first finishes one real task and prepares a separately authorized three-arm, one-repeat exploratory comparison. Inspect that result before expanding to five tasks across at least three categories. Use this feedback to simplify authoring, then freeze the final suite. Keep exploratory runs out of final pilot statistics, disclose tuning, and replace any task tuned from observed arm outcomes before final comparative claims. Never tune a task using the winning arm of the sealed final experiment.

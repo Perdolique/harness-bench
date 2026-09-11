@@ -1,7 +1,15 @@
 import { lstat, readFile, readdir } from 'node:fs/promises'
 import { relative, resolve } from 'node:path'
 
-export const CREDENTIAL_PATTERN_SCANNER_REVISION = 'credential-patterns-v1'
+export const CREDENTIAL_PATTERN_SCANNER_REVISION = 'credential-patterns-v2'
+
+const PROVIDER_TOKEN_PATTERNS = [
+  /\bsk-[A-Za-z0-9_-]{20,}\b/,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/,
+  /\bgh[pousr]_[A-Za-z0-9_]{20,}\b/,
+  /\bAIza[A-Za-z0-9_-]{30,}\b/,
+  /\bxox[baprs]-[A-Za-z0-9-]{20,}\b/
+] as const
 
 export const CREDENTIAL_PATTERN_CATEGORIES = [
   'exact_credential_bytes',
@@ -70,11 +78,7 @@ export function scanCredentialBytes(
     categories.add('private_key')
   }
 
-  if (
-    /\b(?:sk-[A-Za-z0-9_-]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\b/.test(
-      source
-    )
-  ) {
+  if (PROVIDER_TOKEN_PATTERNS.some((pattern) => pattern.test(source))) {
     categories.add('provider_token')
   }
 

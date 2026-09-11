@@ -7,6 +7,11 @@ export const CLI_SYNOPSIS = `Usage:
   benchctl experiment rerun-block PLAN --block ID --revision REV
   benchctl experiment invalidate PLAN --block ID --cause CAUSE --reason TEXT
   benchctl run --experiment FILE --run-id ID --stack FILE --harness-document FILE --suite FILE --task FILE --task-source DIR --task-package DIR --harness-bundle DIR --runs-dir ABSOLUTE_DIR [--dry-run]
+  benchctl task import DEFINITION --store ABSOLUTE_DIR
+  benchctl task validate IMPORT
+  benchctl task materialize IMPORT --destination ABSOLUTE_NEW_DIR
+  benchctl task dispose IMPORT --confirm-import-digest SHA256 --reason owner-request|retention-expired|credential-detected [--credential-action rotated|revoked]
+  benchctl task recover IMPORT --confirm-import-digest SHA256
   benchctl harness capture --source DIR --store DIR --id ID --revision REV
   benchctl harness validate BUNDLE
   benchctl harness materialize BUNDLE --destination DIR

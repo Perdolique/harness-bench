@@ -2,7 +2,15 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { chmod, cp, mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { buildOrderReceiptTaskDocument } from '../benchmark/tasks/order-receipt/task-document.ts'
-import { inspectTaskSource, materializeTaskWorkspace, type TaskTreeEntry } from '../packages/core/src/index.ts'
+
+import {
+  importTaskSource,
+  inspectTaskSource,
+  materializeTaskImport,
+  type TaskImportDefinitionV1,
+  type TaskTreeEntry
+} from '../packages/core/src/index.ts'
+
 import { makeDoctorHarness } from '../tests/fixtures/doctor.ts'
 import type { DoctorControl, DoctorDefinition } from '../packages/core/src/doctor-contracts.ts'
 import { doctorDigest, writeDoctorJson } from '../packages/core/src/doctor-storage.ts'
@@ -14,6 +22,8 @@ const taskRoot = resolve(repositoryRoot, 'benchmark/tasks/order-receipt')
 const fixtureRoot = resolve(repositoryRoot, 'fixtures/order-receipt')
 const coreRoot = resolve(repositoryRoot, 'packages/core/src')
 const negativeControlsPath = resolve(taskRoot, 'calibration/negative-controls.json')
+const importedSourceMarker = 'imported-source-marker.txt'
+const importedSourceMarkerContents = 'IMPORTED_SOURCE_BASE_SENTINEL\n'
 
 const imageTags = {
   agent: 'harness-bench-order-receipt-agent:issue-6',
@@ -79,18 +89,42 @@ async function copySnapshot(
   await mkdir(destination, { recursive: true })
 
   for (const entry of entries) {
+    const sourcePath = resolve(source, entry.path)
     const destinationPath = resolve(destination, entry.path)
 
     await mkdir(dirname(destinationPath), { recursive: true })
 
-    await writeFile(destinationPath, await readFile(resolve(source, entry.path)), {
+    const contents = await readFile(sourcePath)
+
+    await writeFile(destinationPath, contents, {
       mode: entry.executable ? 0o755 : 0o644
     })
   }
 }
 
+async function assertFileAbsent(path: string, message: string): Promise<void> {
+  try {
+    await readFile(path)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+
+    throw error
+  }
+
+  throw new Error(message)
+}
+
+async function assertImportedSourceMarker(root: string): Promise<void> {
+  const contents = await readFile(resolve(root, importedSourceMarker), 'utf8')
+
+  if (contents !== importedSourceMarkerContents) {
+    throw new Error('Imported source marker is missing or changed')
+  }
+}
+
 async function prepareImageContexts(
   temporaryRoot: string,
+  source: string,
   sourceEntries: readonly TaskTreeEntry[],
   materializedWorkspace: string
 ): Promise<Record<keyof typeof imageTags, string>> {
@@ -112,7 +146,7 @@ async function prepareImageContexts(
   await cp(resolve(taskRoot, 'images/agent.Dockerfile'), resolve(contexts.agent, 'Dockerfile'))
 
   for (const kind of ['collector', 'verifier'] as const) {
-    await copySnapshot(fixtureRoot, resolve(contexts[kind], 'trusted-source'), sourceEntries)
+    await copySnapshot(source, resolve(contexts[kind], 'trusted-source'), sourceEntries)
     await mkdir(resolve(contexts[kind], 'core'), { recursive: true })
     await cp(resolve(coreRoot, 'task.ts'), resolve(contexts[kind], 'core/task.ts'))
     await cp(resolve(coreRoot, 'secret-scan.ts'), resolve(contexts[kind], 'core/secret-scan.ts'))
@@ -125,6 +159,10 @@ async function prepareImageContexts(
     await cp(resolve(taskRoot, `images/${kind}.Dockerfile`), resolve(contexts[kind], 'Dockerfile'))
   }
 
+  await assertImportedSourceMarker(resolve(contexts.agent, 'source'))
+  await assertImportedSourceMarker(resolve(contexts.collector, 'trusted-source'))
+  await assertImportedSourceMarker(resolve(contexts.verifier, 'trusted-source'))
+
   await cp(resolve(taskRoot, 'collector'), resolve(contexts.collector, 'collector'), {
     recursive: true
   })
@@ -134,6 +172,106 @@ async function prepareImageContexts(
   })
 
   return contexts
+}
+
+async function prepareImportedSource(temporaryRoot: string) {
+  const repository = resolve(temporaryRoot, 'source-repository')
+  const fixture = await inspectTaskSource(fixtureRoot)
+
+  await copySnapshot(fixtureRoot, repository, fixture.entries)
+
+  await assertFileAbsent(
+    resolve(fixtureRoot, importedSourceMarker),
+    'Canonical fixture unexpectedly contains the import-only marker'
+  )
+
+  await writeFile(
+    resolve(repository, importedSourceMarker),
+    importedSourceMarkerContents
+  )
+
+  run('git', ['init', '--quiet', '--initial-branch=main'], repository)
+  run('git', ['add', '--all'], repository)
+
+  run('git', [
+    '-c', 'user.name=Harness Bench',
+    '-c', 'user.email=benchmark@example.invalid',
+    'commit', '--quiet', '--no-gpg-sign', '-m', 'chore: task base'
+  ], repository)
+
+  const baseCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: repository,
+    encoding: 'utf8'
+  }).trim()
+
+  await writeFile(resolve(repository, 'future-solution.txt'), 'FUTURE_SOLUTION_SENTINEL\n')
+  run('git', ['add', '--all'], repository)
+
+  run('git', [
+    '-c', 'user.name=Harness Bench',
+    '-c', 'user.email=benchmark@example.invalid',
+    'commit', '--quiet', '--no-gpg-sign', '-m', 'test: future solution'
+  ], repository)
+
+  run('git', ['remote', 'add', 'origin', 'https://example.invalid/private.git'], repository)
+  await writeFile(resolve(repository, '.git/hooks/pre-commit'), '#!/bin/sh\nexit 99\n')
+  await chmod(resolve(repository, '.git/hooks/pre-commit'), 0o755)
+
+  const alternateObjects = resolve(temporaryRoot, 'unused-alternate-objects')
+
+  await mkdir(alternateObjects)
+  await writeFile(resolve(repository, '.git/objects/info/alternates'), `${alternateObjects}\n`)
+
+  const definition: TaskImportDefinitionV1 = {
+    document_type: 'task_import_definition',
+    schema_version: 1,
+    task_id: 'order-receipt',
+    task_revision: 'issue-14-import-v1',
+    repository_path: repository,
+    base_commit: baseCommit,
+
+    provenance: {
+      repository_id: 'canonical-order-receipt-fixture',
+      merged_pull_request: { status: 'not_applicable' }
+    },
+
+    online_reachability: {
+      status: 'ineligible',
+      reason: 'Synthetic calibration source is smoke-only.'
+    },
+
+    retention: { classification: 'public' }
+  }
+
+  const definitionPath = resolve(temporaryRoot, 'task-import-definition.json')
+
+  await writeFile(definitionPath, `${JSON.stringify(definition, null, 2)}\n`)
+
+  const imported = await importTaskSource({
+    definition: definitionPath,
+    store: resolve(temporaryRoot, 'task-import-store')
+  })
+
+  const source = resolve(imported.importPath, 'source')
+
+  const materialized = await materializeTaskImport({
+    destination: resolve(temporaryRoot, 'materialized-workspace'),
+    importPath: imported.importPath
+  })
+
+  await assertImportedSourceMarker(source)
+  await assertImportedSourceMarker(materialized.workspace)
+
+  await assertFileAbsent(
+    resolve(source, 'future-solution.txt'),
+    'Future solution entered the imported task source'
+  )
+
+  return {
+    imported,
+    materialized,
+    source
+  }
 }
 
 function buildImages(
@@ -219,23 +357,27 @@ async function prepareTask(
     resolve(path, 'tests/docker-compose.yaml')
   )
 
-  await writeFile(
-    resolve(path, 'task.toml'),
-    await renderTemplate(resolve(taskRoot, 'task.toml.template'), {
-      __AGENT_IMAGE__: images.agent,
+  const taskConfiguration = await renderTemplate(resolve(taskRoot, 'task.toml.template'), {
+    __AGENT_IMAGE__: images.agent,
+    __TASK_BASE_COMMIT__: baseCommit,
+    __TASK_SOURCE_DIGEST__: sourceDigest,
+    __VERIFIER_IMAGE__: images.verifier
+  })
+
+  await writeFile(resolve(path, 'task.toml'), taskConfiguration)
+
+  const environmentConfiguration = await renderTemplate(
+    resolve(taskRoot, 'environment/docker-compose.yaml.template'),
+    {
+      __COLLECTOR_IMAGE__: images.collector,
       __TASK_BASE_COMMIT__: baseCommit,
-      __TASK_SOURCE_DIGEST__: sourceDigest,
-      __VERIFIER_IMAGE__: images.verifier
-    })
+      __TASK_SOURCE_DIGEST__: sourceDigest
+    }
   )
 
   await writeFile(
     resolve(path, 'environment/docker-compose.yaml'),
-    await renderTemplate(resolve(taskRoot, 'environment/docker-compose.yaml.template'), {
-      __COLLECTOR_IMAGE__: images.collector,
-      __TASK_BASE_COMMIT__: baseCommit,
-      __TASK_SOURCE_DIGEST__: sourceDigest
-    })
+    environmentConfiguration
   )
 
   return path
@@ -297,21 +439,21 @@ export function assertCanonicalScore(control: string, candidate: unknown) {
 }
 
 async function main(): Promise<void> {
-  const temporaryRoot = await mkdtemp('/tmp/harness-bench-issue-6-')
-  const source = await inspectTaskSource(fixtureRoot)
+  const temporaryRoot = await mkdtemp('/tmp/harness-bench-issue-14-')
+  const prepared = await prepareImportedSource(temporaryRoot)
 
-  const negativeControls = parseNegativeControls(
-    await readFile(negativeControlsPath, 'utf8')
-  )
+  const source = {
+    digest: prepared.imported.manifest.source_digest,
+    entries: prepared.imported.manifest.inventory
+  }
 
-  const materialized = await materializeTaskWorkspace({
-    destination: resolve(temporaryRoot, 'materialized-workspace'),
-    expectedSourceDigest: source.digest,
-    source: fixtureRoot
-  })
+  const negativeControlSource = await readFile(negativeControlsPath, 'utf8')
+  const negativeControls = parseNegativeControls(negativeControlSource)
+  const materialized = prepared.materialized
 
   const contexts = await prepareImageContexts(
     temporaryRoot,
+    prepared.source,
     source.entries,
     materialized.workspace
   )
@@ -406,12 +548,14 @@ async function main(): Promise<void> {
     schema_version: 1,
     revision: 'order-receipt-doctor-v1',
     task_document: resolve(temporaryRoot, 'task-document.json'),
-    task_source: fixtureRoot,
+    task_source: prepared.source,
     task_package: taskPackage,
     harness_bundle: harness,
     forbidden_agent_paths: ['/solution', '/tests-hidden', '/opt/verifier', '/trusted'],
     controls
   }
+
+  await assertImportedSourceMarker(definition.task_source)
 
   const definitionPath = resolve(temporaryRoot, 'doctor-definition.json')
 

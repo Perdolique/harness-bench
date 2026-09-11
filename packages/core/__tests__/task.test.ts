@@ -89,6 +89,7 @@ describe('task workspace materialization', () => {
       baseCommit: first.baseCommit,
       commitCount: 1,
       hooks: [],
+      refs: ['refs/heads/main'],
       remotes: [],
       status: '',
       unreachable: ''
