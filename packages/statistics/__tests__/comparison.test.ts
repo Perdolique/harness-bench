@@ -104,7 +104,7 @@ function stack(armId: string) {
 
     agent: {
       product: 'codex',
-      cli_version: '0.153.2',
+      cli_version: '0.154.0',
       requested_model: 'gpt-5.6-luna',
 
       observed_provider_identity: {
@@ -122,7 +122,7 @@ function stack(armId: string) {
 
     runner: {
       name: 'harbor',
-      version: '0.22.0',
+      version: '0.23.0',
       config_digest: sha('r'),
 
       telemetry: {
@@ -228,7 +228,7 @@ function normalizedRecord(
   return {
     document_type: 'normalized_run',
     schema_version: 1,
-    normalization_revision: '1',
+    normalization_revision: '2',
     record_type: 'normalized',
     created_at: '2026-09-07T12:00:00.000Z',
 
@@ -278,7 +278,7 @@ function normalizedRecord(
 
       agent: {
         product: 'codex',
-        cli_version: '0.153.2',
+        cli_version: '0.154.0',
         requested_model: 'gpt-5.6-luna',
 
         observed_provider_identity: {
@@ -308,7 +308,7 @@ function normalizedRecord(
 
     revisions: {
       runner_name: 'harbor',
-      runner_version: '0.22.0',
+      runner_version: '0.23.0',
       runner_config_digest: sha('r'),
       collector_revision: 'collector-1',
       collector_image_digest: sha('c'),
@@ -1328,7 +1328,7 @@ describe(analyzeExperimentComparison, () => {
   it.each([
     ['normalization revision', (source: ExperimentComparisonSource) => {
       Object.assign(record(source, 'task-1', 1, 'b').record, {
-        normalization_revision: '2'
+        normalization_revision: '3'
       })
     }],
     ['benchmark commit', (source: ExperimentComparisonSource) => {
@@ -1388,7 +1388,7 @@ describe(analyzeExperimentComparison, () => {
     }],
     ['runner revision', (source: ExperimentComparisonSource) => {
       Object.assign(record(source, 'task-1', 1, 'b').record.revisions, {
-        runner_version: '0.23.0'
+        runner_version: '0.24.0'
       })
     }],
     ['runner config', (source: ExperimentComparisonSource) => {

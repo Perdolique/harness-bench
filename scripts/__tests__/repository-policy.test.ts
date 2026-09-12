@@ -10,7 +10,7 @@ const expectedActions = [
   'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
   'voidzero-dev/setup-vp@49c3e4e92c52e7f8392712a9267bbe71c5ab30e5',
   'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97',
-  'astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d'
+  'astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4'
 ] as const
 
 const expectedScripts = {
@@ -169,7 +169,7 @@ describe('repository skeleton', () => {
       '@openai/codex': EXPECTED_TOOLCHAIN.codex,
       '@types/node': '26.4.1',
       'markdownlint-cli2': '0.23.2',
-      oxlint: '1.81.0',
+      oxlint: '1.82.0',
       typescript: '7.0.2',
       vitest: '5.0.0',
       worsier: '3.5.0'
@@ -182,7 +182,7 @@ describe('repository skeleton', () => {
       },
 
       'dependency-groups': {
-        dev: ['ruff==0.16.6']
+        dev: ['ruff==0.16.7']
       },
 
       tool: {
@@ -211,8 +211,8 @@ describe('repository skeleton', () => {
       dependencies: {
         '@harness-bench/schemas': 'workspace:*',
         'smol-toml': '1.8.0',
-        valibot: '1.4.2',
-        yaml: '2.9.0'
+        valibot: '1.5.0',
+        yaml: '2.9.1'
       }
     })
 
@@ -241,7 +241,7 @@ describe('repository skeleton', () => {
       dependencies: {
         '@harness-bench/core': 'workspace:*',
         '@harness-bench/schemas': 'workspace:*',
-        valibot: '1.4.2'
+        valibot: '1.5.0'
       }
     })
 
@@ -281,8 +281,8 @@ describe('repository skeleton', () => {
       private: true,
       type: 'module',
       exports: './src/index.ts',
-      dependencies: { valibot: '1.4.2' },
-      devDependencies: { '@valibot/to-json-schema': '1.7.1' }
+      dependencies: { valibot: '1.5.0' },
+      devDependencies: { '@valibot/to-json-schema': '1.8.0' }
     })
   })
 

@@ -56,7 +56,7 @@ beforeAll(async () => {
 
   await writeFile(binary, `#!/bin/sh
 case "$1" in
-  --version) echo 'codex-cli 0.153.2';;
+  --version) echo 'codex-cli 0.154.0';;
   --strict-config) echo '{"checks":{"config.load":{"status":"ok"}}}';;
   exec) echo 'unknown configuration field zzzzzzzzzzzzzzzzzzzzzzzzzzzz_harness_bench_strict_config_control' >&2; exit 2;;
   mcp) echo '[]';;

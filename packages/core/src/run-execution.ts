@@ -43,8 +43,8 @@ const execFileAsync = promisify(execFile)
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024
 const SHUTDOWN_GRACE_MS = 30_000
 const SHA256_PREFIX = 'sha256:'
-const HARBOR_VERSION_PATTERN = /(?:^|\s)0\.22\.0(?:$|\s)/
-const CODEX_VERSION_PATTERN = /(?:^|\s)0\.153\.2(?:$|\s)/
+const HARBOR_VERSION_PATTERN = /(?:^|\s)0\.23\.0(?:$|\s)/
+const CODEX_VERSION_PATTERN = /(?:^|\s)0\.154\.0(?:$|\s)/
 
 export interface HarborExecutionContext {
   readonly authPath?: string;
@@ -348,11 +348,11 @@ async function inspectDefaultHost(plan: ResolvedRunPlan): Promise<RunHostIdentit
   ])
 
   if (!HARBOR_VERSION_PATTERN.test(harborVersion)) {
-    throw new RunError('PIN_MISMATCH', 'Installed Harbor is not version 0.22.0')
+    throw new RunError('PIN_MISMATCH', 'Installed Harbor is not version 0.23.0')
   }
 
   if (!CODEX_VERSION_PATTERN.test(codexVersion)) {
-    throw new RunError('PIN_MISMATCH', 'Installed Codex is not version 0.153.2')
+    throw new RunError('PIN_MISMATCH', 'Installed Codex is not version 0.154.0')
   }
 
   if (benchmarkStatus !== '') {
@@ -1346,7 +1346,7 @@ async function onlyTrial(rawRoot: string): Promise<string> {
   if (trialDirectories.length !== 1) {
     throw new RunError(
       'INVALID_EVIDENCE',
-      'Harbor 0.22.0 output must contain exactly one trial',
+      'Harbor 0.23.0 output must contain exactly one trial',
       { stage: 'finalization' }
     )
   }

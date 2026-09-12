@@ -32,7 +32,8 @@ import {
   writeContentAddressedRecord
 } from './storage.ts'
 
-const HARBOR_VERSION = '0.22.0'
+const NORMALIZATION_REVISION = '2'
+const HARBOR_VERSION = '0.23.0'
 const ATIF_VERSION = 'ATIF-v1.7'
 const UNKNOWN_USAGE_REASON = 'Harbor did not report this usage value'
 const UNKNOWN_TIMING_REASON = 'Harbor did not report a complete timing pair'
@@ -446,7 +447,7 @@ async function loadSourceRecords(runDirectory: string): Promise<SourceRecords> {
   if (initial.runner.name !== 'harbor' || initial.runner.version !== HARBOR_VERSION) {
     throw new ResultError(
       'INCOMPATIBLE_VERSION',
-      'Only Harbor 0.22.0 run records are supported',
+      'Only Harbor 0.23.0 run records are supported',
       { stage: 'normalization' }
     )
   }
@@ -1137,7 +1138,7 @@ async function parseEvidence(records: SourceRecords): Promise<Pick<
     ? []
     : [
         [`${trialPrefix}/artifacts/manifest.json`, 'artifact_manifest', 'harbor-artifact-manifest'],
-        [`${trialPrefix}/result.json`, 'harbor_trial_result', 'harbor-trial-result-0.22.0'],
+        [`${trialPrefix}/result.json`, 'harbor_trial_result', 'harbor-trial-result-0.23.0'],
         [`${trialPrefix}/trial.log`, 'harbor_trial_log', 'harbor-trial-log'],
         [`${trialPrefix}/verifier/score.json`, 'structured_score', 'score-v1'],
         [`${trialPrefix}/verifier/reward.json`, 'upstream_reward', 'harbor-reward-json'],
@@ -1147,7 +1148,7 @@ async function parseEvidence(records: SourceRecords): Promise<Pick<
       ] as const
 
   const runReferences = [
-    ['harbor/job/result.json', 'harbor_job_result', 'harbor-job-result-0.22.0'],
+    ['harbor/job/result.json', 'harbor_job_result', 'harbor-job-result-0.23.0'],
     ['runner/harbor.stdout.log', 'runner_stdout', 'merged-text'],
     ['runner/harbor.stderr.log', 'runner_stderr', 'merged-text'],
     ['runner/process-control.json', 'runner_process_control', 'runner-process-control-v1']
@@ -1197,7 +1198,7 @@ async function parseEvidence(records: SourceRecords): Promise<Pick<
             status: 'known',
             value: cost,
             currency: 'USD',
-            provenance: 'Harbor 0.22.0 Codex ATIF metrics backed by upstream LiteLLM API-price estimation'
+            provenance: 'Harbor 0.23.0 Codex ATIF metrics backed by upstream LiteLLM API-price estimation'
           }
     }
   }
@@ -1291,7 +1292,7 @@ async function storeRestriction(
   const restriction = v.parse(RestrictedRunRecordV1Schema, {
     document_type: 'restricted_run',
     schema_version: 1,
-    normalization_revision: '1',
+    normalization_revision: NORMALIZATION_REVISION,
     record_type: 'restriction',
     created_at: createdAt,
     identity: records.initial.identity,
@@ -1391,7 +1392,7 @@ async function normalizeResolvedRunWithRuntime(
   const normalized = v.parse(NormalizedRunRecordV1Schema, {
     document_type: 'normalized_run',
     schema_version: 1,
-    normalization_revision: '1',
+    normalization_revision: NORMALIZATION_REVISION,
     record_type: 'normalized',
     created_at: timestamp(runtime.now()),
     ...base,

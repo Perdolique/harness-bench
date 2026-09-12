@@ -45,19 +45,19 @@ export async function buildOrderReceiptTaskDocument(
     document_type: 'task',
     schema_version: 1,
     task_id: 'order-receipt',
-    revision: 'order-receipt-task-v3',
+    revision: 'order-receipt-task-v4',
     base_commit: inputs.baseCommit,
     source_digest: inputs.sourceDigest,
 
     environment: {
       digest: inputs.environmentImageDigest,
       id: 'order-receipt-playwright-arm64',
-      revision: 'order-receipt-environment-v2'
+      revision: 'order-receipt-environment-v3'
     },
 
     collector: {
       image_digest: inputs.collectorImageDigest,
-      revision: 'order-receipt-collector-v3'
+      revision: 'order-receipt-collector-v4'
     },
 
     verifier: {
@@ -68,7 +68,7 @@ export async function buildOrderReceiptTaskDocument(
         status: 'not_applicable'
       },
 
-      revision: 'order-receipt-verifier-v4'
+      revision: 'order-receipt-verifier-v5'
     },
 
     scoring: {

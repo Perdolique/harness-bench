@@ -10,13 +10,13 @@ const digest = (value: string | Uint8Array): string => `sha256:${createHash('sha
 export function runnerDigest(): string {
   return digest(JSON.stringify({
     agent: 'codex',
-    agent_cli_version: '0.153.2',
+    agent_cli_version: '0.154.0',
     agent_timeout_seconds: 600,
     concurrency: 1,
     cpu_count: 2,
     cpu_enforcement_policy: 'limit',
     environment: 'docker',
-    harbor_version: '0.22.0',
+    harbor_version: '0.23.0',
     max_retries: 0,
     memory_megabytes: 2048,
     memory_enforcement_policy: 'limit',
@@ -151,7 +151,7 @@ export async function fixture(options: { readonly selectedRules?: boolean } = {}
 
     agent: {
       product: 'codex',
-      cli_version: '0.153.2',
+      cli_version: '0.154.0',
       requested_model: 'gpt-5.6-luna',
 
       observed_provider_identity: {
@@ -169,7 +169,7 @@ export async function fixture(options: { readonly selectedRules?: boolean } = {}
 
     runner: {
       name: 'harbor',
-      version: '0.22.0',
+      version: '0.23.0',
       config_digest: runnerDigest(),
 
       telemetry: {

@@ -11,6 +11,12 @@ const IdentifierSchema = v.pipe(
 
 const NonNegativeIntegerSchema = v.pipe(v.number(), v.integer(), v.minValue(0))
 const NonNegativeNumberSchema = v.pipe(v.number(), v.minValue(0))
+const HarborVersionSchema = v.literal('0.23.0')
+const NormalizationRevisionSchema = v.literal('2')
+
+const UpstreamEstimateProvenanceSchema = v.literal(
+  'Harbor 0.23.0 Codex ATIF metrics backed by upstream LiteLLM API-price estimation'
+)
 
 const Sha256Schema = v.pipe(
   v.string(),
@@ -147,10 +153,7 @@ const UsageSchema = v.strictObject({
       status: v.literal('known'),
       value: NonNegativeNumberSchema,
       currency: v.literal('USD'),
-
-      provenance: v.literal(
-        'Harbor 0.22.0 Codex ATIF metrics backed by upstream LiteLLM API-price estimation'
-      )
+      provenance: UpstreamEstimateProvenanceSchema
     }),
     UnknownSchema
   ])
@@ -211,10 +214,10 @@ const EvidenceReferenceSchema = v.strictObject({
     'collector-metadata-v1',
     'git-binary-patch',
     'harbor-artifact-manifest',
-    'harbor-job-result-0.22.0',
+    'harbor-job-result-0.23.0',
     'harbor-reward-json',
     'harbor-trial-log',
-    'harbor-trial-result-0.22.0',
+    'harbor-trial-result-0.23.0',
     'merged-text',
     'runner-process-control-v1',
     'score-v1',
@@ -306,7 +309,7 @@ const NormalizedIdentitiesSchema = v.strictObject({
 
 const RevisionSchema = v.strictObject({
   runner_name: v.literal('harbor'),
-  runner_version: v.literal('0.22.0'),
+  runner_version: HarborVersionSchema,
   runner_config_digest: Sha256Schema,
   collector_revision: NonEmptyStringSchema,
   collector_image_digest: Sha256Schema,
@@ -347,7 +350,7 @@ const ScoreStateSchema = v.union([
 const NormalizedRunRecordV1StructureSchema = v.strictObject({
   document_type: v.literal('normalized_run'),
   schema_version: v.literal(1),
-  normalization_revision: v.literal('1'),
+  normalization_revision: NormalizationRevisionSchema,
   record_type: v.literal('normalized'),
   created_at: ResultTimestampSchema,
   identities: NormalizedIdentitiesSchema,
@@ -441,7 +444,7 @@ const RestrictionFindingSchema = v.strictObject({
 export const RestrictedRunRecordV1Schema = v.strictObject({
   document_type: v.literal('restricted_run'),
   schema_version: v.literal(1),
-  normalization_revision: v.literal('1'),
+  normalization_revision: NormalizationRevisionSchema,
   record_type: v.literal('restriction'),
   created_at: ResultTimestampSchema,
   identity: RunIdentitySchema,
@@ -490,10 +493,7 @@ const SanitizedUsageSchema = v.strictObject({
       status: v.literal('known'),
       value: NonNegativeNumberSchema,
       currency: v.literal('USD'),
-
-      provenance: v.literal(
-        'Harbor 0.22.0 Codex ATIF metrics backed by upstream LiteLLM API-price estimation'
-      )
+      provenance: UpstreamEstimateProvenanceSchema
     }),
     SanitizedUnknownSchema
   ])
@@ -577,7 +577,7 @@ const SanitizedIdentitiesSchema = v.strictObject({
 
 const SanitizedRevisionSchema = v.strictObject({
   runner_name: v.literal('harbor'),
-  runner_version: v.literal('0.22.0'),
+  runner_version: HarborVersionSchema,
   runner_config_digest: Sha256Schema,
   collector_revision: SanitizedMetadataStringSchema,
   collector_image_digest: Sha256Schema,
@@ -652,7 +652,7 @@ const SanitizedScoreSchema = v.union([
 const SanitizedRunExportV1StructureSchema = v.strictObject({
   document_type: v.literal('sanitized_run_export'),
   schema_version: v.literal(1),
-  normalization_revision: v.literal('1'),
+  normalization_revision: NormalizationRevisionSchema,
   record_type: v.literal('sanitized_export'),
   created_at: ResultTimestampSchema,
   source_normalized_digest: Sha256Schema,
@@ -704,7 +704,7 @@ export const SanitizedRunExportV1Schema = v.pipe(
 const RunTombstoneV1StructureSchema = v.strictObject({
   document_type: v.literal('run_tombstone'),
   schema_version: v.literal(1),
-  normalization_revision: v.literal('1'),
+  normalization_revision: NormalizationRevisionSchema,
   record_type: v.literal('tombstone'),
   created_at: ResultTimestampSchema,
   identity: RunIdentitySchema,

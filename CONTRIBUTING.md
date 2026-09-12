@@ -32,13 +32,13 @@ Use the [PR template](.github/pull_request_template.md) and [ADR format](docs/ad
 
 Install these exact versions before working in the repository:
 
-- Node.js `26.8.1`
-- pnpm `11.25.0`
+- Node.js `26.8.2`
+- pnpm `12.4.1`
 - Vite+ `0.3.0`
 - Python `3.14.7`
-- uv `0.12.9`
+- uv `0.12.13`
 
-Node `26.8.1` is a current, non-LTS release selected deliberately for the newest stable toolchain. The project installs Harbor `0.22.0`, Codex CLI `0.153.2`, and all formatting, linting, type-checking, and test tools from committed lockfiles. Installation does not sign in to Codex.
+Node `26.8.2` is a current, non-LTS release selected deliberately for the newest stable toolchain. The project installs Harbor `0.23.0`, Codex CLI `0.154.0`, and all formatting, linting, type-checking, and test tools from committed lockfiles. Installation does not sign in to Codex.
 
 Vite+ is a global CLI rather than a project dependency. In an isolated environment where `vp` is unavailable, install the exact required version with the official installer:
 

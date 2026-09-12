@@ -583,7 +583,7 @@ function tombstoneRecord(
   return v.parse(RunTombstoneV1Schema, {
     document_type: 'run_tombstone',
     schema_version: 1,
-    normalization_revision: '1',
+    normalization_revision: normalizationResult.record.normalization_revision,
     record_type: 'tombstone',
     created_at: now.toISOString(),
     identity,

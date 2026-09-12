@@ -108,7 +108,7 @@ describe('normalizeRun', () => {
       await readFile(
         resolve(
           import.meta.dirname,
-          '../../../tests/fixtures/results/harbor-0.22.0/provenance.json'
+          '../../../tests/fixtures/results/harbor-0.23.0/provenance.json'
         ),
         'utf8'
       )
@@ -116,8 +116,8 @@ describe('normalizeRun', () => {
 
     expect(provenance).toEqual({
       fixture_kind: 'deterministic-fake-codex-integration',
-      harbor_version: '0.22.0',
-      harbor_source_revision: '4407eb5227a2ff4f0d3f16b2eb48849382fdf276',
+      harbor_version: '0.23.0',
+      harbor_source_revision: '1e5c5c6db929a10a140d05e606882c671ae20729',
       provider_calls: 0,
       contains_subscription_trajectory: false
     })
@@ -170,7 +170,7 @@ describe('normalizeRun', () => {
     })
   })
 
-  it('normalizes sealed Harbor 0.22.0 evidence without changing source bytes or modes', async () => {
+  it('normalizes sealed Harbor 0.23.0 evidence without changing source bytes or modes', async () => {
     const fixture = await createResultFixture(testRoot)
     const before = await sourceSnapshot(fixture.runDirectory)
     const result = await normalizeRun(fixture.runDirectory)
@@ -184,7 +184,7 @@ describe('normalizeRun', () => {
     }
 
     expect(result.record).toMatchObject({
-      normalization_revision: '1',
+      normalization_revision: '2',
 
       outcome: {
         classification: 'task_success',
@@ -411,13 +411,13 @@ describe('normalizeRun', () => {
   })
 
   it.each([
-    ['Harbor version', { harborVersion: '0.23.0' }],
+    ['Harbor version', { harborVersion: '0.22.0' }],
     ['ATIF version', {
       rawMutator: async (rawRoot: string) => {
         await rewriteJson(
           resolve(rawRoot, 'harbor/job/trial-fixture/agent/trajectory.json'),
           (value) => {
-            value.schema_version = 'ATIF-v2.0'
+            value.schema_version = 'ATIF-v1.8'
           }
         )
       }
@@ -432,7 +432,7 @@ describe('normalizeRun', () => {
 
   it.each([
     ['name', 'another-agent'],
-    ['version', '0.154.0'],
+    ['version', '0.154.1'],
     ['model_name', 'different-model']
   ] as const)('rejects ATIF agent %s drift', async (field, value) => {
     const fixture = await createResultFixture(testRoot, {

@@ -49,7 +49,7 @@ async function preflightFixture(): Promise<{
 
   const rawFixture = resolve(
     import.meta.dirname,
-    '../../../tests/fixtures/results/harbor-0.22.0/raw'
+    '../../../tests/fixtures/results/harbor-0.23.0/raw'
   )
 
   await cp(rawFixture, resolve(sourceRunDirectory, 'raw'), { recursive: true })

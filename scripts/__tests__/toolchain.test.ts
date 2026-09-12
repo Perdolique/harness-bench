@@ -12,7 +12,7 @@ describe('toolchain version contract', () => {
 
   it('rejects a substituted patch version', () => {
     expect(() => assertExactVersion('node', 'v26.8.0')).toThrow(
-      'node version mismatch: expected 26.8.1, received 26.8.0'
+      'node version mismatch: expected 26.8.2, received 26.8.0'
     )
   })
 
@@ -22,17 +22,17 @@ describe('toolchain version contract', () => {
     )
   })
 
-  it.each(['codex-cli 0.153.2-beta.1', 'codex-cli 0.153.2+local.1'])(
+  it.each(['codex-cli 0.154.0-beta.1', 'codex-cli 0.154.0+local.1'])(
     'rejects a non-stable exact version in %s',
     (output) => {
       expect(() => assertExactVersion('codex', output)).toThrow(
-        'codex version mismatch: expected 0.153.2'
+        'codex version mismatch: expected 0.154.0'
       )
     }
   )
 
   it('rejects ambiguous output containing multiple semantic versions', () => {
-    const output = 'warning: expected 0.153.2; codex-cli 0.152.0'
+    const output = 'warning: expected 0.154.0; codex-cli 0.153.0'
 
     expect(() => extractSemanticVersion(output)).toThrow(
       'Version output contained multiple semantic versions'
@@ -42,8 +42,8 @@ describe('toolchain version contract', () => {
   it('reads the vp version from its first diagnostic line', () => {
     const output = [
       'vp v0.3.0',
-      'Package manager  pnpm v11.25.0',
-      'Node.js          v26.8.1 (.node-version)'
+      'Package manager  pnpm v12.4.1',
+      'Node.js          v26.8.2 (.node-version)'
     ].join('\n')
 
     expect(() => assertExactVersion('vp', output)).not.toThrow()

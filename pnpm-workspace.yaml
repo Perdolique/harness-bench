@@ -5,7 +5,10 @@ packages:
 disallowWorkspaceCycles: true
 engineStrict: true
 minimumReleaseAgeExclude:
-  - "@openai/codex@0.153.2-darwin-arm64 || 0.153.2-darwin-x64 || 0.153.2-linux-arm64 || 0.153.2-linux-x64 || 0.153.2-win32-arm64 || 0.153.2-win32-x64 || 0.153.2"
+  - "@openai/codex@0.154.0-darwin-arm64 || 0.154.0-darwin-x64 || 0.154.0-linux-arm64 || 0.154.0-linux-x64 || 0.154.0-win32-arm64 || 0.154.0-win32-x64 || 0.154.0"
+  - "@valibot/to-json-schema@1.8.0"
+  - "valibot@1.5.0"
+  - "yaml@2.9.1"
   - "@vitest/mocker@5.0.0"
   - "@vitest/spy@5.0.0"
   - vitest@5.0.0
@@ -18,5 +21,7 @@ minimumReleaseAgeExclude:
   - worsier-win32-arm64-msvc@3.5.0
   - worsier-win32-x64-msvc@3.5.0
   - worsier@3.5.0
+overrides:
+  smol-toml: 1.8.0
 savePrefix: ""
 strictPeerDependencies: true

@@ -306,7 +306,7 @@ export async function exportSanitizedResult(
       const candidate = {
         document_type: 'sanitized_run_export',
         schema_version: 1,
-        normalization_revision: '1',
+        normalization_revision: normalized.record.normalization_revision,
         record_type: 'sanitized_export',
         created_at: exportTimestamp(options.now),
         source_normalized_digest: normalized.digest,

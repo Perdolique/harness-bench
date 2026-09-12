@@ -9,7 +9,7 @@ const digest = (character: string): string => `sha256:${character.repeat(64)}`
 async function regradedRecord(): Promise<Record<string, unknown>> {
   const score = JSON.parse(await readFile(resolve(
     import.meta.dirname,
-    '../../../tests/fixtures/results/harbor-0.22.0/raw/harbor/job/trial-fixture/verifier/score.json'
+    '../../../tests/fixtures/results/harbor-0.23.0/raw/harbor/job/trial-fixture/verifier/score.json'
   ), 'utf8'))
 
   score.run_id = 'fixture-run'
@@ -79,7 +79,7 @@ async function regradedRecord(): Promise<Record<string, unknown>> {
     },
 
     provenance: {
-      harbor_version: '0.22.0',
+      harbor_version: '0.23.0',
       action: 'regrade',
       source_trial_id: 'trial-fixture',
       source_task_digest: digest('7'),

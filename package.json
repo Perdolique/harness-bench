@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.25.0",
+  "packageManager": "pnpm@12.4.1",
   "engines": {
-    "node": "26.8.1",
-    "pnpm": "11.25.0"
+    "node": "26.8.2",
+    "pnpm": "12.4.1"
   },
   "scripts": {
     "benchctl": "node apps/benchctl/src/cli.ts",
@@ -29,10 +29,10 @@
     "doctor:integration:check": "node scripts/doctor-integration-check.ts"
   },
   "devDependencies": {
-    "@openai/codex": "0.153.2",
+    "@openai/codex": "0.154.0",
     "@types/node": "26.4.1",
     "markdownlint-cli2": "0.23.2",
-    "oxlint": "1.81.0",
+    "oxlint": "1.82.0",
     "typescript": "7.0.2",
     "vitest": "5.0.0",
     "worsier": "3.5.0"

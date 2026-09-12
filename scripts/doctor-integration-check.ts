@@ -18,7 +18,7 @@ import { prepareDoctorFixture } from '../tests/fixtures/doctor/fixture.ts'
 import { inspectTaskSource } from '../packages/core/src/task.ts'
 
 const repository = resolve(import.meta.dirname, '..')
-const imageBase = 'mcr.microsoft.com/playwright:v1.62.1-noble@sha256:941cc91e5022880ac1d14ae90b476b624deb6399dbbc28d612d5d5bd7928fcbd'
+const imageBase = 'mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27'
 const root = await mkdtemp('/tmp/harness-bench-doctor-integration-')
 const preparation = resolve(root, 'preparation')
 
@@ -50,7 +50,7 @@ for (const kind of ['agent', 'collector', 'verifier'] as const) {
 
   let recipe = `FROM ${imageBase}\n`
 
-  if (kind === 'agent') recipe += 'RUN npm install --global pnpm@11.25.0\nCOPY source/ /app/\nRUN chown -R pwuser:pwuser /app\nUSER pwuser\nWORKDIR /app\n'
+  if (kind === 'agent') recipe += 'RUN npm install --global --allow-scripts=pnpm pnpm@12.4.1\nCOPY source/ /app/\nRUN chown -R pwuser:pwuser /app\nUSER pwuser\nWORKDIR /app\n'
 
   if (kind === 'collector') {
     await cp(resolve(repository, 'benchmark/tasks/order-receipt/collector/container-collector.ts'), resolve(context, 'container-collector.ts'))

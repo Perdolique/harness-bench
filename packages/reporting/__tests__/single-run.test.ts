@@ -77,7 +77,7 @@ describe(renderSingleRunReport, () => {
         arm_id: a
         block_id: fixture-block
         replicate: 1
-        Normalization revision: 1
+        Normalization revision: 2
         Record digest: <normalized-digest>
         Record path: <fixture>/runs/.results/fixture-run/normalized/<normalized-address>/record.json
 
@@ -98,13 +98,13 @@ describe(renderSingleRunReport, () => {
         harness.digest: sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
         Benchmark commit: 1111111111111111111111111111111111111111
         Agent: codex
-        CLI version: 0.153.2
+        CLI version: 0.154.0
         Requested model: gpt-5.6-luna
         Effort: low
         Auth mode: chatgpt_subscription
         Observed provider: unknown (Provider identity is hidden)
         runner_name: harbor
-        runner_version: 0.22.0
+        runner_version: 0.23.0
         runner_config_digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         collector_revision: fixture-collector-v1
         collector_image_digest: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -158,7 +158,7 @@ describe(renderSingleRunReport, () => {
         Output tokens: 5
         Subscription money: not applicable (Subscription money is not derived from token usage)
         API-price estimate, not subscription spend: 0.25 USD
-        Estimate provenance: Harbor 0.22.0 Codex ATIF metrics backed by upstream LiteLLM API-price estimation
+        Estimate provenance: Harbor 0.23.0 Codex ATIF metrics backed by upstream LiteLLM API-price estimation
 
       Evidence paths
         Raw manifest: <fixture>/runs/fixture-run/raw-manifest.json

@@ -1,11 +1,11 @@
 export const EXPECTED_TOOLCHAIN = {
-  node: '26.8.1',
-  pnpm: '11.25.0',
+  node: '26.8.2',
+  pnpm: '12.4.1',
   vp: '0.3.0',
   python: '3.14.7',
-  uv: '0.12.9',
-  harbor: '0.22.0',
-  codex: '0.153.2'
+  uv: '0.12.13',
+  harbor: '0.23.0',
+  codex: '0.154.0'
 } as const
 
 export type ToolName = keyof typeof EXPECTED_TOOLCHAIN

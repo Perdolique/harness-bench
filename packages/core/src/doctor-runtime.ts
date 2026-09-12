@@ -123,7 +123,7 @@ const cleanGit = git(['rev-parse','HEAD']) === ${JSON.stringify(baseCommit)} && 
 const manifest = JSON.parse(fs.readFileSync('/app/package.json','utf8'));
 const dependencies = Object.assign({}, manifest.dependencies, manifest.devDependencies, manifest.optionalDependencies);
 const installed = Object.entries(dependencies).every(([name, version]) => JSON.parse(fs.readFileSync('/app/node_modules/'+name+'/package.json','utf8')).version === version);
-const manager = cp.execFileSync('pnpm',['--version'],{encoding:'utf8',env:{PATH:process.env.PATH,HOME:'/tmp',COREPACK_ENABLE_NETWORK:'0'}}).trim();
+const manager = cp.execFileSync('pnpm',['--version'],{cwd:'/tmp',encoding:'utf8',env:{PATH:process.env.PATH,HOME:'/tmp',COREPACK_ENABLE_NETWORK:'0'}}).trim();
 const dependenciesPinned = installed && manifest.packageManager === 'pnpm@'+manager;
 const result = {version:1, dependencies_pinned:dependenciesPinned, hidden_material_absent:absent, credentials_absent:credentialNames.length === 0, git_isolated:cleanGit};
 fs.writeFileSync('/logs/agent/doctor-probe.json', JSON.stringify(result));
