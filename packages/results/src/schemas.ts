@@ -1,5 +1,6 @@
 import * as v from 'valibot'
 import { ScoreDocumentSchema } from '@harness-bench/schemas'
+import { CREDENTIAL_PATTERN_SCANNER_REVISION } from '@harness-bench/core'
 
 const NonEmptyStringSchema = v.pipe(v.string(), v.nonEmpty())
 
@@ -678,7 +679,7 @@ const SanitizedRunExportV1StructureSchema = v.strictObject({
   })),
 
   redaction_report: v.strictObject({
-    scanner_revision: v.literal('credential-patterns-v2'),
+    scanner_revision: v.literal(CREDENTIAL_PATTERN_SCANNER_REVISION),
     credential_findings: v.literal(0),
     content_bytes_included: v.literal(false),
     local_paths_included: v.literal(false),

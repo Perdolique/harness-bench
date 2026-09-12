@@ -18,7 +18,6 @@ const IGNORED_WORKSPACE_NAMES = new Set([
 ])
 
 const RESERVED_PATCH_SEGMENTS = new Set([
-  'auth',
   'credentials',
   'logs',
   'sha256-manifest.json',
@@ -204,6 +203,7 @@ function assertSafePatchPath(path: string): void {
     path === '' ||
     path.startsWith('/') ||
     path.includes('\\') ||
+    segments[0]?.toLowerCase() === 'auth' ||
     segments.some((segment) => segment === '' || segment === '.' || segment === '..') ||
     segments.some((segment) => RESERVED_PATCH_SEGMENTS.has(segment.toLowerCase()))
   ) {

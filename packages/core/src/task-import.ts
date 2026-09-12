@@ -649,7 +649,14 @@ async function readCommitTree(repository: string, commit: string): Promise<reado
     })
   }
 
-  entries.sort((left, right) => compareText(left.entry.path, right.entry.path))
+  entries.sort((left, right) => {
+    // NUL makes each directory boundary sort before sibling filename continuations,
+    // matching the source walker's recursive directory-first order.
+    const leftWalkerSortKey = left.entry.path.replaceAll('/', '\0')
+    const rightWalkerSortKey = right.entry.path.replaceAll('/', '\0')
+
+    return compareText(leftWalkerSortKey, rightWalkerSortKey)
+  })
 
   if (entries.length === 0) {
     throw new TaskImportError('INELIGIBLE_SOURCE', 'Git tree must contain at least one regular file')

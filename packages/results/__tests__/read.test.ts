@@ -65,6 +65,26 @@ async function expectBlockedWithoutEcho(recordPath: string, sentinel: string): P
 }
 
 describe(readNormalizedRunRecord, () => {
+  it('accepts equivalent raw inventories with different entry orders', async () => {
+    const fixture = await createResultFixture(root, {
+      rawMutator: async (rawRoot) => {
+        // The walker enters alpha before visiting its alpha.json sibling, while
+        // the fixture manifest sorts the complete paths in the opposite order.
+        await mkdir(resolve(rawRoot, 'alpha'))
+        await writeFile(resolve(rawRoot, 'alpha/file.txt'), 'nested\n')
+        await writeFile(resolve(rawRoot, 'alpha.json'), '{}\n')
+      }
+    })
+
+    const normalized = await normalizeRun(fixture.runDirectory)
+
+    if (normalized.kind !== 'normalized') throw new Error('Expected normalized fixture')
+
+    const result = await readNormalizedRunRecord(normalized.recordPath)
+
+    expect(result.record).toStrictEqual(normalized.record)
+  })
+
   it('resolves verifier logs from the manifest and rejects tampered log bytes', async () => {
     const fixture = await createResultFixture(root, {
       rawMutator: async (rawRoot) => {

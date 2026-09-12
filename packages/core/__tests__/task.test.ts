@@ -15,6 +15,18 @@ import {
 let testRoot: string
 let fixtureSequence: number
 
+const UNSAFE_WORKSPACE_ROOTS = [
+  'auth',
+  'credentials',
+  'logs',
+  'sha256-manifest.json',
+  'solution',
+  'tests-hidden',
+  'trusted-base',
+  'trusted-tools',
+  'verifier'
+] as const
+
 function sha256(contents: Uint8Array | string): string {
   return `sha256:${createHash('sha256').update(contents).digest('hex')}`
 }
@@ -242,6 +254,48 @@ describe('trusted workspace artifacts', () => {
     expect(metadata.result_tree.some(({ path }) => path === 'src/added.ts')).toBe(true)
   })
 
+  it('replays ordinary source files in a nested auth directory', async () => {
+    const source = resolve(testRoot, 'auth-source')
+
+    await createSource(source)
+    await mkdir(resolve(source, 'src/auth'))
+    await writeFile(resolve(source, 'src/auth/form.ts'), 'export const title = "Sign in"\n')
+
+    const sourceDigest = (await inspectTaskSource(source)).digest
+
+    const materialized = await materializeTaskWorkspace({
+      destination: resolve(testRoot, 'auth-workspace'),
+      expectedSourceDigest: sourceDigest,
+      source
+    })
+
+    const updated = 'export const title = "Welcome"\n'
+
+    await writeFile(resolve(materialized.workspace, 'src/auth/form.ts'), updated)
+
+    const artifacts = resolve(testRoot, 'auth-artifacts')
+
+    await captureWorkspaceArtifacts({
+      artifacts,
+      baseCommit: materialized.baseCommit,
+      expectedSourceDigest: sourceDigest,
+      source,
+      workspace: materialized.workspace
+    })
+
+    const destination = resolve(testRoot, 'auth-replay')
+
+    await verifyWorkspaceArtifacts({
+      artifacts,
+      destination,
+      expectedBaseCommit: materialized.baseCommit,
+      expectedSourceDigest: sourceDigest,
+      source
+    })
+
+    expect(await readFile(resolve(destination, 'src/auth/form.ts'), 'utf8')).toBe(updated)
+  })
+
   it('accepts an empty patch for a pristine workspace', async () => {
     const source = resolve(testRoot, 'pristine-source')
     const sourceDigest = await createSource(source)
@@ -297,10 +351,39 @@ describe('trusted workspace artifacts', () => {
   })
 
   it.each([
-    ['/absolute.ts', 'absolute'],
-    ['../escape.ts', 'traversal'],
-    ['verifier/hidden.ts', 'trusted overlap']
-  ])('rejects a %s patch path', async (unsafePath, _name) => {
+    {
+      name: 'empty',
+      unsafePath: ''
+    },
+    {
+      name: 'absolute',
+      unsafePath: '/absolute.ts'
+    },
+    {
+      name: 'backslash',
+      unsafePath: 'src\\escape.ts'
+    },
+    {
+      name: 'empty segment',
+      unsafePath: 'src//escape.ts'
+    },
+    {
+      name: 'dot segment',
+      unsafePath: 'src/./escape.ts'
+    },
+    {
+      name: 'traversal',
+      unsafePath: '../escape.ts'
+    },
+    {
+      name: 'nested traversal',
+      unsafePath: 'src/../escape.ts'
+    },
+    ...UNSAFE_WORKSPACE_ROOTS.map((root) => ({
+      name: `reserved ${root}`,
+      unsafePath: `${root}/hidden.ts`
+    }))
+  ])('rejects a $name patch path', async ({ unsafePath }) => {
     const fixture = await captureFixture()
     const patchPath = resolve(fixture.artifacts, 'workspace.patch')
     const metadataPath = resolve(fixture.artifacts, 'workspace-metadata.json')
@@ -376,7 +459,7 @@ describe('trusted workspace artifacts', () => {
     ).rejects.toThrow('regular file')
   })
 
-  it('rejects a rename-only patch into a reserved verifier path', async () => {
+  it.each(UNSAFE_WORKSPACE_ROOTS)('rejects a rename-only patch into a reserved %s root', async (reserved) => {
     const source = resolve(testRoot, 'rename-source')
     const sourceDigest = await createSource(source)
 
@@ -386,11 +469,11 @@ describe('trusted workspace artifacts', () => {
       source
     })
 
-    await mkdir(resolve(materialized.workspace, 'verifier'))
+    await mkdir(resolve(materialized.workspace, reserved))
 
     await rename(
       resolve(materialized.workspace, 'src', 'main.ts'),
-      resolve(materialized.workspace, 'verifier', 'hidden.ts')
+      resolve(materialized.workspace, reserved, 'hidden.ts')
     )
 
     const artifacts = resolve(testRoot, 'rename-artifacts')
