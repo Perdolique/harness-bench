@@ -35,7 +35,7 @@ GitHub issue 45 is closed as not planned. Its diagnosis is retained; the unsuppo
 
 The current v1 run command requires an experiment with at least two distinct harness/stack arms even for one assignment. The accepted single canary kept its second schema-control arm non-executable and outside the authorized budget. This existing format limitation does not justify a prerequisite refactor; a real three-arm development comparison uses the normal matrix without that placeholder.
 
-Issue 15 changed the canonical task, verifier, scoring, rubric, and doctor identities, so the older smoke card stayed immutable and stale. The replacement card bound task/environment/collector/verifier/scoring/rubric revisions v3/v2/v3/v4/v2/v3 on commit `e611f8f2baa9abf4605d2a686bb4044fcb7954e5`. The owner authorized exactly one native invocation and accepted its technical evidence as `GO` on 2026-09-12. Raw evidence remains in the external private run root; the repository records only this safe summary. That canary did not authorize private-data access or issue 16 invocations. The first-stage source permission and pending budget are recorded above.
+Issue 15 changed the canonical task, verifier, scoring, rubric, and doctor identities, so the older smoke card stayed immutable and stale. The replacement card bound task/environment/collector/verifier/scoring/rubric revisions v3/v2/v3/v4/v2/v3 on commit `e611f8f2baa9abf4605d2a686bb4044fcb7954e5`. The owner authorized exactly one native invocation and accepted its technical evidence as `GO` on 2026-09-12. Raw evidence remains in the external private run root; the repository records only this safe summary. That canary did not authorize private-data access or issue 16 invocations. The later first-stage source permission and three-call exploratory budget were used in full as recorded above; neither authorization carries forward.
 
 ## Milestones
 
@@ -121,7 +121,7 @@ Issues 1–15 and the post-13 technical smoke gate are complete; do not rebuild 
 | After 2, accepted | Subscription feasibility, native fidelity, independent collection and separate verification. Revisit only if relevant assumptions change. |
 | After 6, accepted | Canonical task realism and fair grading. Ordinary calibration remains an implementation check. |
 | After 13, accepted | The 2026-09-12 `GO` accepts the one-call technical evidence. Private-data use and later provider budgets remain separate owner decisions. |
-| During 16 | Authorize the concrete three-call exploratory plan if desired; inspect the first real task before expanding authoring. |
+| During 16 | The first-stage source permission and three-call exploratory budget are exhausted. Review each additional private source and the frozen five-task suite; no authorization carries forward. |
 | Before 17 | Review the five-task suite and 45-call pilot plan together; this freezes comparative inputs and authorizes only the stated budget. |
 | After 17 | Inspect per-task evidence and accept or reject conclusions. Authorize M4 only for a demonstrated need. |
 
@@ -137,4 +137,4 @@ M4 item dependencies are in the table rather than speculative parallel tracks. I
 
 ## Current boundary
 
-M0–M2, the issue 15 executable-rubric implementation, and the refreshed technical canary are complete. Issue 16 real-task authoring and its separately authorized exploratory budget are next. The 2026-09-12 canary `GO` accepts the technical measurement path only; it does not approve private-data access or any issue 16 or 17 invocation budget.
+M0–M2, the issue 15 executable-rubric implementation, the refreshed technical canary, and the issue 16 first-stage smoke are complete. Issue 16 second-stage authoring is next. Each additional private source still requires owner permission, and the 45-call issue 17 budget remains unapproved.

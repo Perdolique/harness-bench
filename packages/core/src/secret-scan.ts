@@ -1,7 +1,7 @@
 import { lstat, readFile, readdir } from 'node:fs/promises'
 import { relative, resolve } from 'node:path'
 
-export const CREDENTIAL_PATTERN_SCANNER_REVISION = 'credential-patterns-v3'
+export const CREDENTIAL_PATTERN_SCANNER_REVISION = 'credential-patterns-v4'
 
 const PROVIDER_TOKEN_PATTERNS = [
   /\bsk-[A-Za-z0-9_-]{20,}\b/,
@@ -10,6 +10,13 @@ const PROVIDER_TOKEN_PATTERNS = [
   /\bAIza[A-Za-z0-9_-]{30,}\b/,
   /\bxox[baprs]-[A-Za-z0-9-]{20,}\b/
 ] as const
+
+const CREDENTIAL_ASSIGNMENT_PATTERN = /(?<![\w$])(?<keyQuote>["']?)(?<key>api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password)\k<keyQuote>\s*(?<separator>[:=])\s*/giu
+const MEMBER_EXPRESSION_PATTERN = /^[$\p{ID_Start}][$\p{ID_Continue}]*(?:(?:\?\.|\.)[$\p{ID_Start}][$\p{ID_Continue}]*)+$/u
+const CALL_EXPRESSION_PATTERN = /^[$\p{ID_Start}][$\p{ID_Continue}]*(?:(?:\?\.|\.)[$\p{ID_Start}][$\p{ID_Continue}]*)*(?:\s*<[^<>{}=;\r\n]+>)?\s*\(/u
+const REGEXP_EXPRESSION_PATTERN = /^\/(?:\\.|[^/\\\r\n])+\/[dgimsuvy]*/u
+const TYPE_ATOM_PATTERN = /^(?:string|number|boolean|bigint|symbol|object|unknown|never|void|any|null|undefined|[A-Z][$\w]*(?:\s*<[^<>{}=;\r\n]+>)?)(?:\[\])*$/u
+const QUOTED_VALUE_PATTERN = /^(?<valueQuote>["'`])(?<value>(?:\\.|(?!\k<valueQuote>)[^\r\n\\])*)\k<valueQuote>/u
 
 export const CREDENTIAL_PATTERN_CATEGORIES = [
   'exact_credential_bytes',
@@ -54,20 +61,80 @@ function includesBytes(contents: Buffer, value: Uint8Array): boolean {
   return value.byteLength > 0 && contents.includes(Buffer.from(value))
 }
 
-function hasCredentialAssignment(source: string): boolean {
-  const assignments = /(?<![\w$])(["']?)(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password)\1\s*([:=])\s*/giu
+function isTypeExpression(value: string): boolean {
+  const typeParts = value.split(/\s*[|&]\s*/u)
 
-  for (const match of source.matchAll(assignments)) {
+  return typeParts.length > 0 && typeParts.every((part) => TYPE_ATOM_PATTERN.test(part.trim()))
+}
+
+function readTypedInitializer(source: string): string | undefined {
+  const match = /^(?<annotation>[^=\r\n;{}]+?)\s*=\s*(?!=)/u.exec(source)
+  const annotation = match?.groups?.annotation?.trim()
+
+  if (match === null || annotation === undefined || !isTypeExpression(annotation)) {
+    return
+  }
+
+  return source.slice(match[0].length)
+}
+
+function isEnvironmentStyleAssignment(
+  source: string,
+  assignmentStart: number,
+  keyQuote: string,
+  separator: ':' | '='
+): boolean {
+  if (keyQuote !== '' || separator !== '=') return false
+
+  const lineStart = source.lastIndexOf('\n', assignmentStart - 1) + 1
+  const prefix = source.slice(lineStart, assignmentStart).trim()
+
+  return prefix === '' || prefix === 'export'
+}
+
+function isProgrammaticExpression(value: string, separator: ':' | '='): boolean {
+  if (/^(?:undefined|null|false|true)$/u.test(value)) return true
+
+  if (/^(?:await|new|typeof|void)\s+/u.test(value)) return true
+
+  if (MEMBER_EXPRESSION_PATTERN.test(value)) return true
+
+  if (CALL_EXPRESSION_PATTERN.test(value)) return true
+
+  if (REGEXP_EXPRESSION_PATTERN.test(value)) return true
+
+  if (/^[([{]/u.test(value)) return true
+
+  return separator === ':' && isTypeExpression(value)
+}
+
+function hasCredentialAssignment(source: string): boolean {
+  for (const match of source.matchAll(CREDENTIAL_ASSIGNMENT_PATTERN)) {
+    const keyQuote = match.groups?.keyQuote ?? ''
+    const key = match.groups?.key ?? ''
+    const separator = match.groups?.separator
+
+    if (separator !== ':' && separator !== '=') continue
+
     const valueStart = match.index + match[0].length
     const remaining = source.slice(valueStart)
-    const quoted = /^(["'`])((?:\\.|(?!\1)[^\r\n\\])*)\1/u.exec(remaining)
+
+    const typedInitializer = separator === ':'
+      ? readTypedInitializer(remaining)
+      : undefined
+
+    const valueSource = typedInitializer ?? remaining
+    const valueSeparator = typedInitializer === undefined ? separator : '='
+    const quoted = QUOTED_VALUE_PATTERN.exec(valueSource)
 
     if (quoted !== null) {
-      const value = quoted[2] ?? ''
-      const suffix = remaining.slice(quoted[0].length)
+      const valueQuote = quoted.groups?.valueQuote ?? ''
+      const value = quoted.groups?.value ?? ''
+      const suffix = valueSource.slice(quoted[0].length)
 
-      const isJsonLabel = match[1] === '"' && match[2] === 'password' &&
-        match[3] === ':' && quoted[1] === '"' && value === 'Password' &&
+      const isJsonLabel = typedInitializer === undefined &&
+        keyQuote === '"' && key === 'password' && separator === ':' &&
+        valueQuote === '"' && value === 'Password' &&
         /^\s*(?:[,}]|$)/u.test(suffix)
 
       if (!isJsonLabel && value.length >= 8) return true
@@ -75,13 +142,19 @@ function hasCredentialAssignment(source: string): boolean {
       continue
     }
 
-    const bare = /^[^\s"'`,;}\]]+/u.exec(remaining)?.[0] ?? ''
-    const isMemberExpression = /^[$\p{ID_Start}][$\p{ID_Continue}]*(?:\??\.[$\p{ID_Start}][$\p{ID_Continue}]*)+$/u.test(bare)
-    const isCallOrType = /^[$\p{ID_Start}][$\p{ID_Continue}]*(?:\s*\(|<)/u.test(bare)
-    const isEmptyValue = /^(?:undefined|null|false|true)$/u.test(bare)
-    const startsExpression = /^[([{/]/u.test(bare)
+    const bare = /^[^\r\n"'`,;)}\]]+/u.exec(valueSource)?.[0].trim() ?? ''
 
-    if (bare.length >= 8 && !isMemberExpression && !isCallOrType && !isEmptyValue && !startsExpression) {
+    const environmentStyle = isEnvironmentStyleAssignment(
+      source,
+      match.index,
+      keyQuote,
+      separator
+    )
+
+    if (
+      bare.length >= 8 &&
+      (environmentStyle || !isProgrammaticExpression(bare, valueSeparator))
+    ) {
       return true
     }
   }

@@ -65,9 +65,11 @@ async function expectBlockedWithoutEcho(recordPath: string, sentinel: string): P
 }
 
 describe(readNormalizedRunRecord, () => {
-  it('accepts the canonical depth-first raw manifest order', async () => {
+  it('accepts equivalent raw inventories with different entry orders', async () => {
     const fixture = await createResultFixture(root, {
       rawMutator: async (rawRoot) => {
+        // The walker enters alpha before visiting its alpha.json sibling, while
+        // the fixture manifest sorts the complete paths in the opposite order.
         await mkdir(resolve(rawRoot, 'alpha'))
         await writeFile(resolve(rawRoot, 'alpha/file.txt'), 'nested\n')
         await writeFile(resolve(rawRoot, 'alpha.json'), '{}\n')

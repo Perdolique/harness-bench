@@ -15,6 +15,18 @@ import {
 let testRoot: string
 let fixtureSequence: number
 
+const UNSAFE_WORKSPACE_ROOTS = [
+  'auth',
+  'credentials',
+  'logs',
+  'sha256-manifest.json',
+  'solution',
+  'tests-hidden',
+  'trusted-base',
+  'trusted-tools',
+  'verifier'
+] as const
+
 function sha256(contents: Uint8Array | string): string {
   return `sha256:${createHash('sha256').update(contents).digest('hex')}`
 }
@@ -339,10 +351,39 @@ describe('trusted workspace artifacts', () => {
   })
 
   it.each([
-    ['/absolute.ts', 'absolute'],
-    ['../escape.ts', 'traversal'],
-    ['verifier/hidden.ts', 'trusted overlap']
-  ])('rejects a %s patch path', async (unsafePath, _name) => {
+    {
+      name: 'empty',
+      unsafePath: ''
+    },
+    {
+      name: 'absolute',
+      unsafePath: '/absolute.ts'
+    },
+    {
+      name: 'backslash',
+      unsafePath: 'src\\escape.ts'
+    },
+    {
+      name: 'empty segment',
+      unsafePath: 'src//escape.ts'
+    },
+    {
+      name: 'dot segment',
+      unsafePath: 'src/./escape.ts'
+    },
+    {
+      name: 'traversal',
+      unsafePath: '../escape.ts'
+    },
+    {
+      name: 'nested traversal',
+      unsafePath: 'src/../escape.ts'
+    },
+    ...UNSAFE_WORKSPACE_ROOTS.map((root) => ({
+      name: `reserved ${root}`,
+      unsafePath: `${root}/hidden.ts`
+    }))
+  ])('rejects a $name patch path', async ({ unsafePath }) => {
     const fixture = await captureFixture()
     const patchPath = resolve(fixture.artifacts, 'workspace.patch')
     const metadataPath = resolve(fixture.artifacts, 'workspace-metadata.json')
@@ -418,7 +459,7 @@ describe('trusted workspace artifacts', () => {
     ).rejects.toThrow('regular file')
   })
 
-  it.each(['verifier', 'auth'])('rejects a rename-only patch into a reserved %s root', async (reserved) => {
+  it.each(UNSAFE_WORKSPACE_ROOTS)('rejects a rename-only patch into a reserved %s root', async (reserved) => {
     const source = resolve(testRoot, 'rename-source')
     const sourceDigest = await createSource(source)
 

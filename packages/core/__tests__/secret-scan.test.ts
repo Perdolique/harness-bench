@@ -22,8 +22,17 @@ describe('shared credential pattern scanner', () => {
     'const passwordHint = "Use a long password"',
     'password: source.password',
     'password: source?.password',
+    'const password = source.password',
+    'password: validator.string()',
+    'password: service.getSecret()',
     'const accessToken = (/#access_token=(?<value>.*)/u).exec(location.hash)',
     'interface Form { password: string; accessToken: string | null }',
+    'interface Form { password: PasswordValue }',
+    'interface Form { accessToken: AccessToken | null }',
+    'function accept(accessToken: string) {}',
+    'type Callback = (accessToken: string) => void',
+    'const accessToken = await client.authenticate()',
+    'password: /secret-pattern/u',
     'password: undefined',
     '"password": "Password"',
     '"password": "Password",\n"heading": "Sign in"'
@@ -49,7 +58,11 @@ describe('shared credential pattern scanner', () => {
     'refresh-token = long-test-secret',
     'CLIENT_SECRET=long-test-secret',
     'password=12345678',
-    'password=literal.with.dots!'
+    'password=literal.with.dots!',
+    'PASSWORD=correct.horse.battery.staple',
+    'password=/a-very-long-secret',
+    'password=longsecret<suffix',
+    'const password: string = "long-test-secret"'
   ])('detects a concrete credential assignment: %s', (source) => {
     const result = scanCredentialBytes(Buffer.from(source), { path: 'sample.txt' })
 
@@ -85,6 +98,30 @@ describe('shared credential pattern scanner', () => {
     })
 
     expect(JSON.stringify(result)).not.toContain(sentinel)
+  })
+
+  it.each([
+    '"password": "Password",',
+    'password: source.password'
+  ])('scans exact credential bytes beside an excluded assignment: %s', (safeAssignment) => {
+    const sentinel = Buffer.from('selected credential bytes')
+
+    const contents = Buffer.concat([
+      Buffer.from(`${safeAssignment}\n`),
+      sentinel
+    ])
+
+    const result = scanCredentialBytes(contents, {
+      exactBytes: [sentinel],
+      path: 'agent/output.txt'
+    })
+
+    expect(result).toEqual([{
+      category: 'exact_credential_bytes',
+      path: 'agent/output.txt'
+    }])
+
+    expect(JSON.stringify(result)).not.toContain(sentinel.toString())
   })
 
   it('returns only safe categories and relative paths', async () => {
