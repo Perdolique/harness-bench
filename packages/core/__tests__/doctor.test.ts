@@ -41,7 +41,7 @@ function fakeRuntime(root: string, fault?: Fault): DoctorRuntime {
   const command = vi.fn(async (executable: string, args: readonly string[]): Promise<string> => {
     if (executable === 'uname') return args[0] === '-s' ? 'Darwin' : 'arm64'
 
-    if (executable === DOCTOR_HARBOR) return fault === 'host' ? '0.21.0' : '0.22.0'
+    if (executable === DOCTOR_HARBOR) return fault === 'host' ? '0.24.0' : '0.23.0'
 
     if (executable === 'docker') {
       if (args[0] === 'version') return JSON.stringify({
@@ -708,7 +708,7 @@ describe('doctor', { timeout: 15_000 }, () => {
     const input = await fixture()
     const source = resolve(input.root, 'source')
 
-    await writeFile(resolve(source, 'package.json'), '{"name":"doctor-fixture","packageManager":"pnpm@11.25.0","dependencies":{"example":"^1.0.0"}}\n')
+    await writeFile(resolve(source, 'package.json'), '{"name":"doctor-fixture","packageManager":"pnpm@12.4.1","dependencies":{"example":"^1.0.0"}}\n')
     await writeFile(resolve(source, 'pnpm-lock.yaml'), 'lockfileVersion: \'9.0\'\nimporters:\n  .:\n    dependencies:\n      example:\n        specifier: ^1.0.0\n        version: 1.0.0\n')
 
     const snapshot = await inspectTaskSource(source)
@@ -725,6 +725,29 @@ describe('doctor', { timeout: 15_000 }, () => {
     }, fakeRuntime(input.root))
 
     expect(report.checks.find((check) => check.code === 'TASK_SOURCE')?.failure_code).toBe('DEPENDENCY_PINS')
+  })
+
+  it('parses pnpm 12 multi-document lockfiles before validating the regenerated base', async () => {
+    const input = await fixture()
+    const source = resolve(input.root, 'source')
+    const lock = await readFile(resolve(source, 'pnpm-lock.yaml'), 'utf8')
+
+    await writeFile(resolve(source, 'pnpm-lock.yaml'), `---\nlockfileVersion: '9.0'\nimporters:\n  .:\n    packageManagerDependencies:\n      pnpm:\n        specifier: 12.4.1\n        version: 12.4.1\n\n---\n${lock}`)
+
+    const snapshot = await inspectTaskSource(source)
+    const taskPath = resolve(input.root, 'task.json')
+    const task = JSON.parse(await readFile(taskPath, 'utf8'))
+
+    task.source_digest = snapshot.digest
+
+    await writeFile(taskPath, JSON.stringify(task))
+
+    const report = await runDoctor({
+      ...input,
+      purpose: 'smoke'
+    }, fakeRuntime(input.root))
+
+    expect(report.checks.find((check) => check.code === 'TASK_SOURCE')?.failure_code).toBe('BASE_MISMATCH')
   })
 
   it('rejects earlier raw evidence changed after its successful verification', async () => {

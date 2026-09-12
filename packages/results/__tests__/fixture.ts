@@ -5,7 +5,7 @@ import type { CompletionRunRecord, InitialRunRecord } from '@harness-bench/schem
 
 const fixtureRoot = resolve(
   import.meta.dirname,
-  '../../../tests/fixtures/results/harbor-0.22.0'
+  '../../../tests/fixtures/results/harbor-0.23.0'
 )
 
 const digestA = `sha256:${'a'.repeat(64)}`
@@ -185,7 +185,7 @@ function initialRecord(
 
     runner: {
       name: 'harbor',
-      version: options.harborVersion ?? '0.22.0',
+      version: options.harborVersion ?? '0.23.0',
       config_digest: digestA,
       telemetry: 'off',
       requested_concurrency: 1,
@@ -200,7 +200,7 @@ function initialRecord(
 
     agent: {
       product: 'codex',
-      cli_version: '0.153.2',
+      cli_version: '0.154.0',
       requested_model: options.requestedModel ?? 'gpt-5.6-luna',
 
       observed_provider_identity: {

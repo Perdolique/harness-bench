@@ -41,7 +41,7 @@
   "scoring_revision": "1",
   "runner": {
     "name": "harbor",
-    "version": "0.22.0",
+    "version": "0.23.0",
     "config_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "telemetry": "off",
     "requested_concurrency": 1,
@@ -50,7 +50,7 @@
   },
   "agent": {
     "product": "codex",
-    "cli_version": "0.153.2",
+    "cli_version": "0.154.0",
     "requested_model": "gpt-5.6-luna",
     "observed_provider_identity": {
       "status": "unknown",

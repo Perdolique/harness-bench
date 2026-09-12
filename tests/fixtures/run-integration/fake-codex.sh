@@ -7,7 +7,7 @@ if [ "${1:-}" = "--version" ]; then
     exit 23
   fi
 
-  printf 'codex-cli 0.153.2\n'
+  printf 'codex-cli 0.154.0\n'
   exit 0
 fi
 
@@ -55,7 +55,7 @@ case "${FAKE_CODEX_MODE:-success}" in
     session_path="$session_dir/rollout-2026-09-06T12-00-00-provider-free-fixture.jsonl"
     mkdir -p "$session_dir"
     printf '%s\n' \
-      '{"type":"session_meta","payload":{"id":"provider-free-fixture","timestamp":"2026-09-06T12:00:00.000Z","cli_version":"0.153.2","originator":"codex_exec","source":"exec","model_provider":"openai"}}' \
+      '{"type":"session_meta","payload":{"id":"provider-free-fixture","timestamp":"2026-09-06T12:00:00.000Z","cli_version":"0.154.0","originator":"codex_exec","source":"exec","model_provider":"openai"}}' \
       '{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"fixture complete"}]}}' \
       '{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":0,"cached_input_tokens":0,"output_tokens":0,"reasoning_output_tokens":0,"total_tokens":0}}}}' \
       > "$session_path"

@@ -3,7 +3,7 @@ import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, 
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
 import { TaskDocumentSchema, type TaskDocument, type ScoreDocument } from '@harness-bench/schemas'
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml'
-import { parse as parseYaml } from 'yaml'
+import { parseAllDocuments as parseYamlDocuments } from 'yaml'
 import * as v from 'valibot'
 import { inspectHarnessBundleForRun } from './harness.ts'
 import { inspectRunTree, readStableRunFile, type RunTreeSnapshot } from './run.ts'
@@ -77,10 +77,15 @@ function assertDependencyPins(snapshot: RunTreeSnapshot): void {
 
   const manifest = requireRecord(JSON.parse(manifestSource.toString('utf8')))
 
-  const lock = requireRecord(parseYaml(lockSource.toString('utf8'), {
-    uniqueKeys: true,
-    maxAliasCount: 0
-  }))
+  const documents = parseYamlDocuments(lockSource.toString('utf8'), {
+    uniqueKeys: true
+  })
+
+  if (documents.length === 0 || documents.some((document) => document.errors.length > 0)) {
+    throw new DoctorError('DEPENDENCY_PINS', 'Task lockfile is not valid YAML')
+  }
+
+  const lock = requireRecord(documents.at(-1)?.toJS({ maxAliasCount: 0 }))
 
   if (typeof manifest.packageManager !== 'string' || !/^pnpm@\d+\.\d+\.\d+$/.test(manifest.packageManager)) {
     throw new DoctorError('DEPENDENCY_PINS', 'Task package manager must use an exact version')
@@ -488,8 +493,8 @@ export async function runDoctor(options: DoctorOptions, suppliedRuntime: DoctorR
       const kernel = await runtime.command('docker', ['info', '--format={{.KernelVersion}}'], hostHome)
       const desktop = await runtime.command('docker', ['desktop', 'version'], hostHome)
 
-      if (os !== 'Darwin' || arch !== 'arm64' || harbor !== '0.22.0' || docker.Os !== 'linux' || docker.Arch !== 'arm64' || !kernel.toLowerCase().includes('linuxkit')) {
-        throw new DoctorError('HOST_COMMAND_FAILED', 'Doctor requires the supported macOS Apple Silicon Docker Desktop target and Harbor 0.22.0')
+      if (os !== 'Darwin' || arch !== 'arm64' || harbor !== '0.23.0' || docker.Os !== 'linux' || docker.Arch !== 'arm64' || !kernel.toLowerCase().includes('linuxkit')) {
+        throw new DoctorError('HOST_COMMAND_FAILED', 'Doctor requires the supported macOS Apple Silicon Docker Desktop target and Harbor 0.23.0')
       }
 
       const images = packageInspection!.imageReferences

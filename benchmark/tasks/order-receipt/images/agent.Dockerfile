@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright:v1.62.1-noble@sha256:941cc91e5022880ac1d14ae90b476b624deb6399dbbc28d612d5d5bd7928fcbd
+FROM mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
 
 ARG TASK_BASE_COMMIT
 ARG RIPGREP_VERSION=14.1.0-1
@@ -6,7 +6,7 @@ ARG RIPGREP_VERSION=14.1.0-1
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
       ripgrep="${RIPGREP_VERSION}" \
-    && npm install --global --ignore-scripts=false pnpm@11.25.0 \
+    && npm install --global --allow-scripts=pnpm pnpm@12.4.1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY source/ /app/

@@ -175,7 +175,7 @@ async function sealRunRegrade(
 
   const score = JSON.parse(await readFile(resolve(
     import.meta.dirname,
-    '../../../tests/fixtures/results/harbor-0.22.0/raw/harbor/job/trial-fixture/verifier/score.json'
+    '../../../tests/fixtures/results/harbor-0.23.0/raw/harbor/job/trial-fixture/verifier/score.json'
   ), 'utf8'))
 
   const verifierResultDigest = sha256(verifierResult)
@@ -250,7 +250,7 @@ async function sealRunRegrade(
     },
 
     provenance: {
-      harbor_version: '0.22.0',
+      harbor_version: '0.23.0',
       action: 'regrade',
       source_trial_id: 'trial-fixture',
       source_task_digest: digest('7'),

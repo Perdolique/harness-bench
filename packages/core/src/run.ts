@@ -26,8 +26,8 @@ import { RunError } from './run-errors.ts'
 import { inspectTaskSource, type TaskTreeEntry } from './task.ts'
 import { assertRubricEvidencePaths } from './task-rubric.ts'
 
-const PINNED_CODEX_VERSION = '0.153.2'
-const PINNED_HARBOR_VERSION = '0.22.0'
+const PINNED_CODEX_VERSION = '0.154.0'
+const PINNED_HARBOR_VERSION = '0.23.0'
 const SHA256_PREFIX = 'sha256:'
 
 interface InputFile {
@@ -78,7 +78,7 @@ interface ResolvedRunnerControls {
   readonly concurrency: 1;
   readonly max_retries: 0;
   readonly telemetry: 'off';
-  readonly version: '0.22.0';
+  readonly version: '0.23.0';
 }
 
 export interface RunHostIdentity {

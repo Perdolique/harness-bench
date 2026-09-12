@@ -101,7 +101,7 @@ const RegradedRunRecordV1StructureSchema = v.strictObject({
   target: RegradedTargetSchema,
 
   provenance: v.strictObject({
-    harbor_version: v.literal('0.22.0'),
+    harbor_version: v.literal('0.23.0'),
     action: v.literal('regrade'),
     source_trial_id: IdentifierSchema,
     source_task_digest: Sha256Schema,

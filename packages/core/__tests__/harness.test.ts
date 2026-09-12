@@ -140,7 +140,7 @@ async function makeReadOnly(path: string): Promise<void> {
 async function writeFakeCodex(
   options: FakeCodexOptions = {}
 ): Promise<void> {
-  const version = options.version ?? '0.153.2'
+  const version = options.version ?? '0.154.0'
 
   const markerCommand =
     options.doctorMarker === undefined
@@ -413,7 +413,7 @@ describe(captureHarnessBundle, () => {
     const source = resolve(testRoot, 'source')
 
     await createHarnessSource(source)
-    await writeFakeCodex({ version: '0.153.20' })
+    await writeFakeCodex({ version: '0.154.10' })
 
     try {
       await expectHarnessError(

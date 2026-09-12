@@ -231,7 +231,7 @@ function regradedRecord(
     },
 
     provenance: {
-      harbor_version: '0.22.0',
+      harbor_version: source.record.revisions.runner_version,
       action: 'regrade',
       source_trial_id: evidence.sourceTrial.trialId,
       source_task_digest: evidence.sourceTrial.taskDigest,

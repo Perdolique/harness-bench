@@ -3,7 +3,7 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { HarnessError } from './errors.ts'
 
-const PINNED_CODEX_VERSION = '0.153.2'
+const PINNED_CODEX_VERSION = '0.154.0'
 const MAX_COMMAND_OUTPUT_BYTES = 4 * 1024 * 1024
 const COMMAND_TIMEOUT_MS = 60_000
 

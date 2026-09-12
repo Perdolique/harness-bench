@@ -31,7 +31,7 @@ const coreRoot = resolve(repositoryRoot, 'packages/core/src')
 const harborBinary = resolve(repositoryRoot, '.venv/bin/harbor')
 
 const baseImage =
-  'mcr.microsoft.com/playwright:v1.62.1-noble@sha256:941cc91e5022880ac1d14ae90b476b624deb6399dbbc28d612d5d5bd7928fcbd'
+  'mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27'
 
 const imageTags = {
   agent: 'harness-bench-run-integration-agent:issue-7',
@@ -550,13 +550,13 @@ async function makeHarness(
 function runnerDigest(): string {
   return sha256(JSON.stringify({
     agent: 'codex',
-    agent_cli_version: '0.153.2',
+    agent_cli_version: '0.154.0',
     agent_timeout_seconds: 30,
     concurrency: 1,
     cpu_count: 2,
     cpu_enforcement_policy: 'limit',
     environment: 'docker',
-    harbor_version: '0.22.0',
+    harbor_version: '0.23.0',
     max_retries: 0,
     memory_megabytes: 2048,
     memory_enforcement_policy: 'limit',
@@ -631,7 +631,7 @@ async function main(): Promise<void> {
 
     agent: {
       product: 'codex',
-      cli_version: '0.153.2',
+      cli_version: '0.154.0',
       requested_model: 'provider-free-fixture',
 
       observed_provider_identity: {
@@ -649,7 +649,7 @@ async function main(): Promise<void> {
 
     runner: {
       name: 'harbor',
-      version: '0.22.0',
+      version: '0.23.0',
       config_digest: runnerDigest(),
 
       telemetry: {
@@ -1171,7 +1171,7 @@ async function main(): Promise<void> {
       config.agents?.length !== 1 ||
       config.tasks?.length !== 1 ||
       config.agents[0]?.n_concurrent !== 1 ||
-      config.agents[0]?.kwargs?.version !== '0.153.2' ||
+      config.agents[0]?.kwargs?.version !== '0.154.0' ||
       config.environment?.cpu_enforcement_policy !== 'limit' ||
       config.environment?.memory_enforcement_policy !== 'limit' ||
       config.environment?.override_cpus !== budget.cpu_count ||

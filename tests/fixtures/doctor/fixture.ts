@@ -19,7 +19,7 @@ export async function prepareDoctorFixture(root: string, images = fixtureImages)
   await writeFile(resolve(source, 'README.md'), 'A small deterministic calibration task.\n')
   await writeFile(resolve(source, 'regression.txt'), 'enabled\n')
   await writeFile(resolve(source, 'forbidden.txt'), 'unchanged\n')
-  await writeFile(resolve(source, 'package.json'), '{"name":"doctor-fixture","version":"1.0.0","packageManager":"pnpm@11.25.0"}\n')
+  await writeFile(resolve(source, 'package.json'), '{"name":"doctor-fixture","version":"1.0.0","packageManager":"pnpm@12.4.1"}\n')
   await writeFile(resolve(source, 'pnpm-lock.yaml'), 'lockfileVersion: \'9.0\'\nimporters:\n  .: {}\n')
 
   const snapshot = await inspectTaskSource(source)

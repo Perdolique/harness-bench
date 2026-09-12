@@ -109,7 +109,7 @@ beforeAll(async () => {
     fakeCodex,
     `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf 'codex-cli 0.153.2\\n'
+  printf 'codex-cli 0.154.0\\n'
 elif [ "$1" = "--strict-config" ] && [ "$2" = "doctor" ]; then
   printf '{"checks":{"config.load":{"status":"ok"}}}\\n'
 elif [ "$1" = "exec" ] && [ "$2" = "--strict-config" ]; then

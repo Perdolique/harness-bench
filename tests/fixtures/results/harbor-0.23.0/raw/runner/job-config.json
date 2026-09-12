@@ -10,7 +10,7 @@
       "name": "codex",
       "n_concurrent": 1,
       "kwargs": {
-        "version": "0.153.2"
+        "version": "0.154.0"
       }
     }
   ]

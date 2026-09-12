@@ -78,7 +78,7 @@ beforeAll(async () => {
     `#!/bin/sh
 printf '%s\\n' "$*" >> ${fakeCodexAuditPath}
 if [ "$1" = "--version" ]; then
-  printf 'codex-cli 0.153.2\\n'
+  printf 'codex-cli 0.154.0\\n'
 elif [ "$1" = "--strict-config" ] && [ "$2" = "doctor" ]; then
   printf '{"checks":{"config.load":{"status":"ok"}}}\\n'
 elif [ "$1" = "exec" ] && [ "$2" = "--strict-config" ]; then
@@ -210,7 +210,7 @@ describe(resolveRunPlan, () => {
       const stack = JSON.parse(await readFile(test.selectedStackPath, 'utf8')) as Record<string, unknown>
       const agent = stack.agent as Record<string, unknown>
 
-      agent.cli_version = '0.154.0'
+      agent.cli_version = '0.154.1'
 
       await writeJson(test.selectedStackPath, stack)
       await expect(resolveRunPlan(test.options)).rejects.toMatchObject({ code: 'PIN_MISMATCH' })
@@ -1170,7 +1170,7 @@ describe(executeRunPlanWithRuntime, () => {
 
             kwargs: {
               reasoning_effort: plan.stack.agent.effort,
-              version: '0.153.2'
+              version: '0.154.0'
             }
           })
 
