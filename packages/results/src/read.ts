@@ -94,11 +94,13 @@ async function assertRawInventory(
     )
   }
 
-  const expectedEntries = [...manifest].sort((left, right) =>
-    left.path.localeCompare(right.path)
-  )
+  const compareEntries = (left: ManifestEntry, right: ManifestEntry): number =>
+    left.path < right.path ? -1 : left.path > right.path ? 1 : 0
 
-  if (!isDeepStrictEqual(actual.entries, expectedEntries)) {
+  const actualEntries = [...actual.entries].sort(compareEntries)
+  const expectedEntries = [...manifest].sort(compareEntries)
+
+  if (!isDeepStrictEqual(actualEntries, expectedEntries)) {
     throw new ResultError(
       'INTEGRITY_MISMATCH',
       'Raw evidence differs from the complete retained manifest'

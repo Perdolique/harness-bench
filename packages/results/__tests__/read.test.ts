@@ -65,6 +65,24 @@ async function expectBlockedWithoutEcho(recordPath: string, sentinel: string): P
 }
 
 describe(readNormalizedRunRecord, () => {
+  it('accepts the canonical depth-first raw manifest order', async () => {
+    const fixture = await createResultFixture(root, {
+      rawMutator: async (rawRoot) => {
+        await mkdir(resolve(rawRoot, 'alpha'))
+        await writeFile(resolve(rawRoot, 'alpha/file.txt'), 'nested\n')
+        await writeFile(resolve(rawRoot, 'alpha.json'), '{}\n')
+      }
+    })
+
+    const normalized = await normalizeRun(fixture.runDirectory)
+
+    if (normalized.kind !== 'normalized') throw new Error('Expected normalized fixture')
+
+    const result = await readNormalizedRunRecord(normalized.recordPath)
+
+    expect(result.record).toStrictEqual(normalized.record)
+  })
+
   it('resolves verifier logs from the manifest and rejects tampered log bytes', async () => {
     const fixture = await createResultFixture(root, {
       rawMutator: async (rawRoot) => {
