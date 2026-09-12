@@ -15,6 +15,14 @@ The 2026-09-11 owner-requested revision keeps the implemented engine and brings 
 
 Keep the existing issue IDs and dependency edges. A useful stage may be delivered before an entire issue closes, and a larger issue may span several focused PRs or sessions. Small fixes required for the authorized outcome belong with that work. A new issue is for independent out-of-scope work, not every failed check or changed digest.
 
+### Issue 16 first-stage preparation
+
+On 2026-09-12, the owner authorized one private frontend smoke case. Its prepared source, preparation patch and provenance, solutions, hidden checks, build contexts, dependency archives, and raw evidence remain in an external owner-only store. No private source was added to this checkout. The source has one isolated base commit, fixed dependencies, and a 90-day retention deadline. The disposal inventory also covers local images and build caches, which import disposal does not manage.
+
+Provider-free preparation passed the complete smoke doctor: pristine, reference, alternate, six negative controls, and the reference repeat. Both implementations passed the full rubric; the repeat preserved checks and scores. The controls detected early persistence, timer-based completion, broken storage handling, test deletion, disabled regression checks, and an unrelated edit. Image-layer visibility, independent collection, separate offline verification, credential checks, evidence stability, and cleanup passed. Three complete skill-disabled/v1/v2 harnesses passed capture, validation, configuration checks, and content diffing.
+
+The completed behavior is reachable in public application assets. This case is explicitly ineligible for skill-quality claims and does not count toward the final five-task suite. Issue 16 remains open. The concrete dry-run proposes one repeat across three arms, concurrency one, and zero automatic retries. No native provider call was made; its three-call budget still requires owner approval after review of the private run card. This source permission does not authorize other private tasks.
+
 ### Post-#13 checkpoint and image policy
 
 On commit `bcf3141f58991ccffbb98d80a5e82ae55d1dff24`, the v3 preparation passed ordinary checks, doctor integration, all canonical controls, interruption/resume, normalization, and verifier-only regrade `1 -> 0.875`, with zero provider calls. Upstream Harbor setup also reached `codex-cli 0.153.2` without auth. That historical preparation stopped before dry-run or canary because a fresh image differed from the digest in its run card. It was later superseded by the accepted current-input canary below.
@@ -27,7 +35,7 @@ GitHub issue 45 is closed as not planned. Its diagnosis is retained; the unsuppo
 
 The current v1 run command requires an experiment with at least two distinct harness/stack arms even for one assignment. The accepted single canary kept its second schema-control arm non-executable and outside the authorized budget. This existing format limitation does not justify a prerequisite refactor; a real three-arm development comparison uses the normal matrix without that placeholder.
 
-Issue 15 changed the canonical task, verifier, scoring, rubric, and doctor identities, so the older smoke card stayed immutable and stale. The replacement card bound task/environment/collector/verifier/scoring/rubric revisions v3/v2/v3/v4/v2/v3 on commit `e611f8f2baa9abf4605d2a686bb4044fcb7954e5`. The owner authorized exactly one native invocation and accepted its technical evidence as `GO` on 2026-09-12. Raw evidence remains in the external private run root; the repository records only this safe summary. Private-data access and issue 16 invocations still require separate authorization.
+Issue 15 changed the canonical task, verifier, scoring, rubric, and doctor identities, so the older smoke card stayed immutable and stale. The replacement card bound task/environment/collector/verifier/scoring/rubric revisions v3/v2/v3/v4/v2/v3 on commit `e611f8f2baa9abf4605d2a686bb4044fcb7954e5`. The owner authorized exactly one native invocation and accepted its technical evidence as `GO` on 2026-09-12. Raw evidence remains in the external private run root; the repository records only this safe summary. That canary did not authorize private-data access or issue 16 invocations. The first-stage source permission and pending budget are recorded above.
 
 ## Milestones
 

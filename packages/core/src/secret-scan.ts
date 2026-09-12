@@ -1,7 +1,7 @@
 import { lstat, readFile, readdir } from 'node:fs/promises'
 import { relative, resolve } from 'node:path'
 
-export const CREDENTIAL_PATTERN_SCANNER_REVISION = 'credential-patterns-v2'
+export const CREDENTIAL_PATTERN_SCANNER_REVISION = 'credential-patterns-v3'
 
 const PROVIDER_TOKEN_PATTERNS = [
   /\bsk-[A-Za-z0-9_-]{20,}\b/,
@@ -54,6 +54,41 @@ function includesBytes(contents: Buffer, value: Uint8Array): boolean {
   return value.byteLength > 0 && contents.includes(Buffer.from(value))
 }
 
+function hasCredentialAssignment(source: string): boolean {
+  const assignments = /(?<![\w$])(["']?)(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password)\1\s*([:=])\s*/giu
+
+  for (const match of source.matchAll(assignments)) {
+    const valueStart = match.index + match[0].length
+    const remaining = source.slice(valueStart)
+    const quoted = /^(["'`])((?:\\.|(?!\1)[^\r\n\\])*)\1/u.exec(remaining)
+
+    if (quoted !== null) {
+      const value = quoted[2] ?? ''
+      const suffix = remaining.slice(quoted[0].length)
+
+      const isJsonLabel = match[1] === '"' && match[2] === 'password' &&
+        match[3] === ':' && quoted[1] === '"' && value === 'Password' &&
+        /^\s*(?:[,}]|$)/u.test(suffix)
+
+      if (!isJsonLabel && value.length >= 8) return true
+
+      continue
+    }
+
+    const bare = /^[^\s"'`,;}\]]+/u.exec(remaining)?.[0] ?? ''
+    const isMemberExpression = /^[$\p{ID_Start}][$\p{ID_Continue}]*(?:\??\.[$\p{ID_Start}][$\p{ID_Continue}]*)+$/u.test(bare)
+    const isCallOrType = /^[$\p{ID_Start}][$\p{ID_Continue}]*(?:\s*\(|<)/u.test(bare)
+    const isEmptyValue = /^(?:undefined|null|false|true)$/u.test(bare)
+    const startsExpression = /^[([{/]/u.test(bare)
+
+    if (bare.length >= 8 && !isMemberExpression && !isCallOrType && !isEmptyValue && !startsExpression) {
+      return true
+    }
+  }
+
+  return false
+}
+
 export function scanCredentialBytes(
   contents: Uint8Array,
   options: ScanCredentialBytesOptions
@@ -90,11 +125,7 @@ export function scanCredentialBytes(
     categories.add('jwt')
   }
 
-  if (
-    /["']?(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password)["']?\s*[:=]\s*["']?[^\s"']{8,}/i.test(
-      source
-    )
-  ) {
+  if (hasCredentialAssignment(source)) {
     categories.add('credential_assignment')
   }
 

@@ -210,7 +210,7 @@ describe('exportSanitizedResult', () => {
       },
 
       redaction_report: {
-        scanner_revision: 'credential-patterns-v2',
+        scanner_revision: 'credential-patterns-v3',
         credential_findings: 0,
         content_bytes_included: false,
         local_paths_included: false,

@@ -17,6 +17,76 @@ afterEach(async () => {
 })
 
 describe('shared credential pattern scanner', () => {
+  it.each([
+    'hasPassword: account.hasPassword',
+    'const passwordHint = "Use a long password"',
+    'password: source.password',
+    'password: source?.password',
+    'const accessToken = (/#access_token=(?<value>.*)/u).exec(location.hash)',
+    'interface Form { password: string; accessToken: string | null }',
+    'password: undefined',
+    '"password": "Password"',
+    '"password": "Password",\n"heading": "Sign in"'
+  ])('ignores a non-secret expression or exact JSON label: %s', (source) => {
+    const result = scanCredentialBytes(Buffer.from(source), { path: 'sample.txt' })
+
+    expect(result).toEqual([])
+  })
+
+  it.each([
+    'password=long-test-secret',
+    'PASSWORD = long-test-secret',
+    '"password": "long-test-secret"',
+    'password: \'long-test-secret\'',
+    'const password = "long-test-secret"',
+    'config.password = "long-test-secret"',
+    'password: "two words"',
+    'password: "Password"',
+    '"password" = "Password"',
+    '"password": "Password123"',
+    'api_key=long-test-secret',
+    'accessToken: "long-test-secret"',
+    'refresh-token = long-test-secret',
+    'CLIENT_SECRET=long-test-secret',
+    'password=12345678',
+    'password=literal.with.dots!'
+  ])('detects a concrete credential assignment: %s', (source) => {
+    const result = scanCredentialBytes(Buffer.from(source), { path: 'sample.txt' })
+
+    expect(result).toEqual([{
+      category: 'credential_assignment',
+      path: 'sample.txt'
+    }])
+
+    expect(JSON.stringify(result)).not.toContain('long-test-secret')
+  })
+
+  it('continues scanning after a safe expression and a JSON label', () => {
+    const source = 'password: source.password\n"password": "Password",\napi_key="long-test-secret"'
+    const result = scanCredentialBytes(Buffer.from(source), { path: 'sample.txt' })
+
+    expect(result).toEqual([{
+      category: 'credential_assignment',
+      path: 'sample.txt'
+    }])
+  })
+
+  it.each([
+    ['private_key', '-----BEGIN PRIVATE KEY-----'],
+    ['provider_token', 'sk-isolatedTestSentinel1234567890'],
+    ['jwt', 'eyJhbGciOiJub25lIn0.eyJzdWIiOiJzZW50aW5lbCJ9.c2ltdWxhdGVkU2lnbmF0dXJl']
+  ])('scans %s independently of assignment exclusions', (category, sentinel) => {
+    const source = `"password": "Password"\nhasPassword: "${sentinel}"`
+    const result = scanCredentialBytes(Buffer.from(source), { path: 'sample.txt' })
+
+    expect(result).toContainEqual({
+      category,
+      path: 'sample.txt'
+    })
+
+    expect(JSON.stringify(result)).not.toContain(sentinel)
+  })
+
   it('returns only safe categories and relative paths', async () => {
     const sentinel = 'sk-sharedCredentialSentinel1234567890'
 

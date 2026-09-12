@@ -186,6 +186,57 @@ afterEach(async () => {
 })
 
 describe('task source import', () => {
+  it('imports shared filename prefixes in the source walker order', async () => {
+    const repository = resolve(testRoot, 'prefix-repository')
+
+    const paths = [
+      'src/widget.ts',
+      'src/widget-view.ts',
+      'src/widget/view.ts',
+      'src/widget/view-extra.ts',
+      'src/widget/view/part.ts'
+    ]
+
+    for (const path of paths) {
+      const target = resolve(repository, path)
+
+      await mkdir(dirname(target), { recursive: true })
+      await writeFile(target, `// Fixture: ${path}\n`)
+    }
+
+    git(repository, ['init', '--quiet', '--initial-branch=main'])
+    git(repository, ['add', '--all'])
+    git(repository, ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '--quiet', '-m', 'base'])
+
+    const baseCommit = git(repository, ['rev-parse', 'HEAD'])
+    const definitionPath = await writeDefinition(definition(repository, baseCommit))
+
+    const imported = await importTaskSource({
+      definition: definitionPath,
+      now: fixedNow,
+      store: resolve(testRoot, 'prefix-store')
+    })
+
+    expect(imported.manifest.inventory.map((entry) => entry.path)).toEqual([
+      'src/widget/view/part.ts',
+      'src/widget/view-extra.ts',
+      'src/widget/view.ts',
+      'src/widget-view.ts',
+      'src/widget.ts'
+    ])
+
+    const materialized = await materializeTaskImport({
+      importPath: imported.importPath,
+      destination: resolve(testRoot, 'prefix-workspace')
+    })
+
+    expect(materialized.sourceDigest).toBe(imported.manifest.source_digest)
+
+    for (const path of paths) {
+      expect(await readFile(resolve(materialized.workspace, path), 'utf8')).toBe(`// Fixture: ${path}\n`)
+    }
+  })
+
   it('freezes only the selected commit and creates deterministic isolated materialization', async () => {
     const first = await importFixture()
     const source = resolve(first.result.importPath, 'source')

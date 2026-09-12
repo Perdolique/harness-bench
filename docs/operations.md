@@ -164,6 +164,10 @@ Definitions and retained metadata are bounded and scanned before storage. Task a
 
 An active address contains only `manifest.json` and `source/`. The manifest contains safe provenance and hashes, not the repository path, remote URL, Git config, prompt, or source bytes. Its `materialized_base_commit`, `source_digest`, reachability, and retention map directly into the existing `TaskDocument`; pass its `source/` to `task_source`. Image building, verifier authoring, and package preparation remain explicit existing steps.
 
+Import inventories use the same sorted recursive traversal as source inspection, including directories that share a prefix with sibling filenames. If task preparation removes prohibited files or an embedded treatment skill, retain its patch and manifest outside this checkout. Import the prepared commit and keep its identity distinct from the original commit.
+
+Keep private authoring inputs, dependency archives, build contexts, solutions, hidden checks, and calibration evidence outside public checkouts, including ignored directories. Pin dependencies from the selected base lockfile and preinstall them in local images. Any registry credential needed during preparation must use temporary transport outside the build context and must not remain in an image layer or retained log. Record the actual checked image digests and the private retention deadline. Inventory those images, build caches, and authoring materials separately: import disposal does not manage them or run an automatic expiry sweep.
+
 Dispose one private import only after inspecting the exact address and digest:
 
 ```sh
