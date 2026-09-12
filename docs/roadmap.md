@@ -6,8 +6,8 @@ The current backlog is defined by `.planning/backlog.json`, the complete local i
 
 The 2026-09-11 owner-requested revision keeps the implemented engine and brings real-task feedback forward. This is pre-release development. No provider budget or private-data permission is granted by this roadmap.
 
-1. **Finish the technical smoke check.** Reuse the checked post-#43 environment and provider-free evidence while their relevant inputs and toolchain still match. Prepare the exact current inputs, run assignment-level dry-run, and show the owner one redacted card for one native Codex invocation. Review collection, separate offline verification, native records, normalization, and cleanup. A valid task failure can pass this technical check; missing or untrusted evidence cannot. The check precedes owner private-data use, but does not block provider-free code work on sanitized fixtures.
-2. **Issue 14: import one fixed source — implemented.** The provider-free path imports an exact local commit with explicit provenance, one-commit materialization, secret checks, external content-addressed storage, private retention, disposal, and a redacted tombstone. Sanitized fixtures cover it end to end. Owner private-data use still requires the technical check and source permission. Repository discovery and reproducible Docker rebuilds remain out of scope.
+1. **Technical smoke check — accepted.** On 2026-09-12, the owner accepted `post13-canary-20260912-01` as `GO`. Its one native Codex invocation ended in an honest `task_failure` with `valid_grade: true`; independent collection, separate offline verification, native records, normalization, credential scanning, and cleanup all passed. This accepts the measurement path, not the candidate solution quality, private-data use, or an issue 16 budget.
+2. **Issue 14: import one fixed source — implemented.** The provider-free path imports an exact local commit with explicit provenance, one-commit materialization, secret checks, external content-addressed storage, private retention, disposal, and a redacted tombstone. Sanitized fixtures cover it end to end. Owner private-data use still requires separate source permission. Repository discovery and reproducible Docker rebuilds remain out of scope.
 3. **Issue 15: support the first real rubric — implemented.** Task obligations now bind pristine evidence, doctor controls, strict verifier checks, weighted facet credit, applicability, and required behavior gates. The canonical task and sanitized `notification-retry` example calibrate the contract without a generalized rule engine or model call.
 4. **Issue 16, first stage: finish one real task end to end.** Calibrate the task, then prepare skill-disabled/v1/v2 with one repeat each: three explicitly authorized exploratory invocations in one block. Inspect the report and changes before spending time on the remaining tasks. This is development feedback, not a reliable skill ranking or part of the final 45-run pilot. If the budget is not authorized, the calibrated task and concrete dry-run plan remain a useful milestone; provider-free authoring can continue.
 5. **Issue 16, second stage: finish the five-task suite.** Reuse the proven authoring path. Freeze the task definitions, checked images, verifier, scoring, and harnesses before final comparison. Disclose exploratory use and outcome-driven tuning; exclude a task tuned from observed arm outcomes from final comparative claims and replace it if needed. Review task fairness and the final budget together.
@@ -17,17 +17,17 @@ Keep the existing issue IDs and dependency edges. A useful stage may be delivere
 
 ### Post-#13 checkpoint and image policy
 
-On commit `bcf3141f58991ccffbb98d80a5e82ae55d1dff24`, the v3 preparation passed ordinary checks, doctor integration, all canonical controls, interruption/resume, normalization, and verifier-only regrade `1 -> 0.875`, with zero provider calls. Upstream Harbor setup also reached `codex-cli 0.153.2` without auth. Preparation stopped before dry-run or canary because a fresh image differed from the historical digest in its run card. No owner canary verdict has been recorded.
+On commit `bcf3141f58991ccffbb98d80a5e82ae55d1dff24`, the v3 preparation passed ordinary checks, doctor integration, all canonical controls, interruption/resume, normalization, and verifier-only regrade `1 -> 0.875`, with zero provider calls. Upstream Harbor setup also reached `codex-cli 0.153.2` without auth. That historical preparation stopped before dry-run or canary because a fresh image differed from the digest in its run card. It was later superseded by the accepted current-input canary below.
 
-The fresh agent image was `sha256:fc05cb893da7ffea0f4455c6107daf7781cd75c244908a309b11a6bc60b2158e`. Inspection found the same source, base commit, dependency content, and built output; timestamps changed the image identity. This does not prove all image behavior equivalent, but the fresh image passed its own calibration. Use its retained calibration and verify its identity before any new run plan. If relevant inputs change or evidence is unavailable, repeat affected checks and record the actual artifact.
+The fresh agent image was `sha256:fc05cb893da7ffea0f4455c6107daf7781cd75c244908a309b11a6bc60b2158e`. Inspection found the same source, base commit, dependency content, and built output; timestamps changed the image identity. This does not prove all image behavior equivalent, but the fresh image passed its own calibration. That image remains bound to the superseded preparation and is not a default for later plans. For each new run plan, validate and freeze the actual task-specific image. If relevant inputs change or evidence is unavailable, repeat affected checks and record the actual artifact.
 
 [Issue 45](https://github.com/Perdolique/harness-bench/issues/45) is withdrawn from the critical path: reproducible image rebuilds are not a pilot requirement. Build, check, freeze, and reuse an image by digest. Do not replace an image inside a frozen plan or reuse a historical approval for changed runtime controls. A revised preflight card may use a newly checked artifact; preserving v1/v2/v3 evidence does not require implementing a new image builder. Later records must identify the superseded preparation and must not rewrite it.
 
 GitHub issue 45 is closed as not planned. Its diagnosis is retained; the unsupported prerequisite is withdrawn, not implemented.
 
-The current v1 run command requires an experiment with at least two distinct harness/stack arms even for one assignment. For the pending single canary, keep the second schema-control arm non-executable and outside the authorized budget. This existing format limitation does not justify a prerequisite refactor; a real three-arm development comparison uses the normal matrix without that placeholder.
+The current v1 run command requires an experiment with at least two distinct harness/stack arms even for one assignment. The accepted single canary kept its second schema-control arm non-executable and outside the authorized budget. This existing format limitation does not justify a prerequisite refactor; a real three-arm development comparison uses the normal matrix without that placeholder.
 
-Issue 15 changed the canonical task, verifier, scoring, rubric, and doctor identities. The older pending smoke-canary card is therefore stale and must be regenerated against the v3/v4/v2/v3/v2 identities before owner review. This does not authorize the canary, private-data access, or provider spend.
+Issue 15 changed the canonical task, verifier, scoring, rubric, and doctor identities, so the older smoke card stayed immutable and stale. The replacement card bound task/environment/collector/verifier/scoring/rubric revisions v3/v2/v3/v4/v2/v3 on commit `e611f8f2baa9abf4605d2a686bb4044fcb7954e5`. The owner authorized exactly one native invocation and accepted its technical evidence as `GO` on 2026-09-12. Raw evidence remains in the external private run root; the repository records only this safe summary. Private-data access and issue 16 invocations still require separate authorization.
 
 ## Milestones
 
@@ -35,7 +35,7 @@ Issue 15 changed the canonical task, verifier, scoring, rubric, and doctor ident
 | --- | --- |
 | M0 Feasibility | Issues 1–3: pinned development skeleton, end-to-end subscription feasibility, then evidence-based decisions. Owner gate after issue 2. |
 | M1 Vertical-slice MVP | Issues 4–9: schemas, immutable harness, canonical task, one-run execution, normalization and terminal evidence. Owner calibration gate after issue 6. |
-| M2 Controlled experiments | Issues 10–13 are implemented: execution, analysis, integrity and regrade. Technical canary remains pending before owner private-data use. |
+| M2 Controlled experiments | Issues 10–13 are implemented: execution, analysis, integrity and regrade. The post-13 technical canary received owner `GO` on 2026-09-12. |
 | M3 Pilot benchmark | Issues 14–17: import, concrete rubric, one real development comparison, then five calibrated tasks and a frozen pilot. |
 | M4 Hardening and expansion | Issues 18–27: optional evidence-justified work after the pilot, outside the v1 critical path. Metered schedules are a separate opt-in issue. |
 
@@ -72,7 +72,7 @@ flowchart TD
 
 ## Recommended execution order
 
-Issues 1–15 are implemented; do not rebuild that platform or repeat accepted historical reviews. Follow the current development plan above: regenerate and review the pending technical canary card against the current rubric identities, then get early one-task feedback within 16 and run the frozen pilot in 17. Technical prerequisites remain enforced by the graph. User-authorized work can continue across useful stages; a session boundary is not an acceptance criterion.
+Issues 1–15 and the post-13 technical smoke gate are complete; do not rebuild that platform or repeat accepted historical reviews. Follow the current development plan above: get early one-task feedback within 16, finish and freeze the five-task suite, then run the pilot in 17. Technical prerequisites remain enforced by the graph. User-authorized work can continue across useful stages; a session boundary is not an acceptance criterion.
 
 ## Complete issue index
 
@@ -112,14 +112,14 @@ Issues 1–15 are implemented; do not rebuild that platform or repeat accepted h
 | --- | --- |
 | After 2, accepted | Subscription feasibility, native fidelity, independent collection and separate verification. Revisit only if relevant assumptions change. |
 | After 6, accepted | Canonical task realism and fair grading. Ordinary calibration remains an implementation check. |
-| After 13, pending | Approve the one-call card and review the resulting technical evidence before owner private-data use. Provider-free fixture work can continue. |
+| After 13, accepted | The 2026-09-12 `GO` accepts the one-call technical evidence. Private-data use and later provider budgets remain separate owner decisions. |
 | During 16 | Authorize the concrete three-call exploratory plan if desired; inspect the first real task before expanding authoring. |
 | Before 17 | Review the five-task suite and 45-call pilot plan together; this freezes comparative inputs and authorizes only the stated budget. |
 | After 17 | Inspect per-task evidence and accept or reject conclusions. Authorize M4 only for a demonstrated need. |
 
 The issue 2 owner gate was accepted on 2026-09-05 with explicit qualifications: the public-network medium and low runs passed. A separately authorized additional low run then passed, completing the matching-input low pair; issue 3 accepted the architecture with a future one-base-commit Git workspace, fail-closed owner login for unproved auth refresh, and native stream-merging, public-network, and platform limitations. See the [evidence report](spikes/harbor-codex-subscription.md) and [accepted ADRs](adr/README.md).
 
-The 2026-09-05 corrective review sets conservative v1 defaults unless a later issue and ADR deliberately change them: loss of trustworthy collection or separate verification is fail-closed; subscription concurrency is exactly one; both arms of a block finish within 24 hours and are invalidated by a known stack/provider change; private task/run records declare an expiry and default to 90 days. The issue 6 realism and fairness gate was accepted in [PR #34](https://github.com/Perdolique/harness-bench/pull/34); later gates remain pending. GitHub's native issue dependencies enforce prerequisite closure, but closing a dependency does not silently satisfy its owner gate. The `decision-required` label identifies owner decisions, including deferred M4 candidate/budget choices.
+The 2026-09-05 corrective review sets conservative v1 defaults unless a later issue and ADR deliberately change them: loss of trustworthy collection or separate verification is fail-closed; subscription concurrency is exactly one; both arms of a block finish within 24 hours and are invalidated by a known stack/provider change; private task/run records declare an expiry and default to 90 days. The issue 6 realism and fairness gate was accepted in [PR #34](https://github.com/Perdolique/harness-bench/pull/34), and the post-13 technical smoke gate was accepted on 2026-09-12; later gates remain pending. GitHub's native issue dependencies enforce prerequisite closure, but closing a dependency does not silently satisfy its owner gate. The `decision-required` label identifies owner decisions, including deferred M4 candidate/budget choices.
 
 ## M4 scope and split rationale
 
@@ -129,4 +129,4 @@ M4 item dependencies are in the table rather than speculative parallel tracks. I
 
 ## Current boundary
 
-M0–M2 and the issue 15 executable-rubric implementation are complete. The refreshed technical canary and real-task authoring remain. The 2026-09-11 planning revision changes development sequencing, compatibility obligations, and workflow rules; it does not authorize native execution, approve private-data access, or claim that the pending canary passed.
+M0–M2, the issue 15 executable-rubric implementation, and the refreshed technical canary are complete. Issue 16 real-task authoring and its separately authorized exploratory budget are next. The 2026-09-12 canary `GO` accepts the technical measurement path only; it does not approve private-data access or any issue 16 or 17 invocation budget.

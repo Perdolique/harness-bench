@@ -17,9 +17,11 @@ Latest complete local calibration on 2026-09-11 (Europe/Tallinn), with `order-re
 | Source digest | `sha256:177fde56566127fe7f1bf4551b7a6fec3821da53eaf254777954154cecd9ac86` |
 | Prompt digest | `sha256:c033e4b5443b824263b30be28ddb82a46a7c162de61997a299d73e56922419c9` |
 | Deterministic base commit | `5b560875fc44347d19762c1205ce908384ab39b0` |
-| Agent image | `sha256:aba01c7363ac0643f5e3652aceb801cd6da6110520efa2767dee97b2e7717ca4` |
+| Task document | `sha256:0e1f30b609ad2c10178d6dcb6a56337a726a81df1d9767bed226e1514d45a69d` |
+| Task package | `sha256:8e56f506cf20a371b70c06b25f0355ff843679321c8405f4fa082b158d2eaa1d` |
+| Agent image | `sha256:49812a787aebbcde7b29bd4869287e5c3ef1d01ee3503bafcfec5ca50fdce760` |
 | Collector image | `sha256:513cbccf96af18f3adcdfd2e0d9c98cf22c69b4fd58aa85c0d21e143a442685b` |
-| Verifier image | `sha256:3c96991781c51898434f936d3f21262b3803c9264738f90a2168c871c6bed8b4` |
+| Verifier image | `sha256:21c36b4e8bc6414318f354dbe041f6202a5452def0b4ffb603a8955bed601358` |
 | Playwright base image | `sha256:941cc91e5022880ac1d14ae90b476b624deb6399dbbc28d612d5d5bd7928fcbd` |
 
 The generated document uses `TaskDocument` v1 with independent `order-receipt-task-v3`, `order-receipt-environment-v2`, `order-receipt-collector-v3`, `order-receipt-verifier-v4`, `order-receipt-scoring-v2`, and `order-receipt-rubric-v3` revisions. Verifier v4 emits strict rubric checks with explicit credit, scoring v2 binds weighted credit, and rubric v3 uses the same `direct-receipt` obligation ID from declaration through evidence. Environment v2 pins Ubuntu Noble `ripgrep=14.1.0-1`, preserving the Playwright image's existing Node/npm installation while satisfying Harbor 0.22.0's complete Codex system-command prerequisite check. Canonical preparation proves `curl`, `bash`, `node`, `npm`, and `rg` are all present from a network-disabled container before Harbor starts. Codex remains installed by Harbor so agent CLI and task-environment identities stay independent. The public synthetic fixture is explicitly `online_reachability.status: ineligible`; it cannot support a claim that checks or future solutions were hidden from an internet-enabled agent.
@@ -68,7 +70,15 @@ All thirteen controls completed their oracle script and failed the intended chec
 
 Doctor completed all 17 controls with exit `0` and `allowed_use: smoke`. The repeated reference produced identical patch/metadata hashes and semantic checks, facets, gates, scope violations, four numeric rewards, and composite. Canonical score assertions independently required the exact numeric matrix above, with composite `0` for pristine and `1` for all three positive runs. The nop-only probe confirmed the pristine source, one-commit Git, installed dependency pins, and declared hidden-material/credential absences; every agent image layer passed the declared forbidden-path inspection. Input/tooling stability and complete evidence inventory passed. Cleanup inspected containers, volumes, and networks for all 34 exact main/verifier Compose projects and found no remaining resources. Every untrusted test stage used a fresh candidate or trusted workspace and home, and the verifier cleanup control proved that a detached candidate child process could not survive into a later stage. Hidden tests and localization probes were root-owned and read-only before candidate code ran. Every verifier container exposed only loopback interfaces, received no credentials, and rejected unexpected conventional Harbor artifacts. The complete run used one concurrent job, one attempt, zero retries, zero model/provider calls, and Harbor telemetry off.
 
-The issue 15 calibration is retained locally at `/tmp/harness-bench-issue-14-WHRCoN/doctor/`. Its evidence-manifest digest is `sha256:da7f69c45f0d6deb0e417bedd624384858b2e7f40f527a534a8b2d88a16f693c`; the core tooling digest is `sha256:478932a3c0494ecc56c9a0eed2b2869cab8d5e2305cc4a9498cde4b002cc9d90`; and the adjacent `canonical-score-checks.json` digest is `sha256:55d4c6ec37fb2e5fd472f2fc971d1d8bd42f8db3dc5c6a5a42cc8d303b8325c2`.
+The issue 15 calibration is retained locally at `/tmp/harness-bench-issue-14-4EdT9S/doctor/`. Its evidence-manifest digest is `sha256:7031d1c2044264ef71a1d9d11236ee35e07b7a48585ad488da2b42803d88da40`; the core tooling digest is `sha256:6f70ce3874b1d1ec36a873c0e4669677eb710af8d5acb25ad8ece99063c6fc28`; and the adjacent `canonical-score-checks.json` digest is `sha256:2457e09c8ba98dd750def219fc6518081dbce0d208d6107934738f1f2e775d21`.
+
+## Post-13 technical smoke gate
+
+The owner accepted run `post13-canary-20260912-01` as `GO` on 2026-09-12. The run used benchmark commit `e611f8f2baa9abf4605d2a686bb4044fcb7954e5`, Codex `0.153.2`, `gpt-5.6-luna` at low effort, Harbor `0.22.0`, and the current identities above. It made one native invocation with one Harbor trial, zero retries, zero fallback invocations, and no schema-control execution.
+
+The candidate ended in `task_failure` with `valid_grade: true` and composite `0`: direct behavior `0`, repository contracts `1/3`, regression `0`, and scope integrity `0`. Independent collection, quiescence, exact-manifest and hash checks passed. The separate verifier ran without network or credentials and passed its integrity checks. Native JSONL, ATIF, merged agent output, trusted collector patch and metadata, normalization, local report, and metadata-only export were all present. Exact credential-byte and JSON-leaf scanning passed, the source credential file stayed unchanged, no `auth.json` or quarantine was retained, and no scoped Docker resources remained.
+
+The redacted evidence-card digest is `sha256:db7893a97ebb883eff21a31d3f37afa2a6820e9eecf5034fb7308f6c50e1b7a3`; the security and cleanup record digest is `sha256:ef3cbfc331a4d642e3023f76c77ff6852dd3fb672dcfdc5f6ff9f2fe53ba802b`. Raw evidence remains in the external private run root. The `GO` accepts the technical measurement path, not the failed candidate's quality, private-data use, or any issue 16 or 17 provider budget.
 
 ## Commands
 
