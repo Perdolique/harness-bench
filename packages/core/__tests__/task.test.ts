@@ -189,6 +189,47 @@ describe('task workspace materialization', () => {
       }
     }
   })
+
+  it('disables automatic Git maintenance during materialization', async () => {
+    const source = resolve(testRoot, 'source')
+    const expectedSourceDigest = await createSource(source)
+    const binaryDirectory = resolve(testRoot, 'bin')
+    const gitWrapper = resolve(binaryDirectory, 'git')
+    const realGit = execFileSync('which', ['git'], { encoding: 'utf8' }).trim()
+
+    await mkdir(binaryDirectory)
+
+    await writeFile(
+      gitWrapper,
+      `#!/bin/sh
+set -eu
+
+if [ "$1" != "-c" ] || [ "$2" != "gc.auto=0" ] || [ "$3" != "-c" ] || [ "$4" != "maintenance.auto=false" ]; then
+  exit 91
+fi
+
+exec ${JSON.stringify(realGit)} "$@"
+`
+    )
+
+    await chmod(gitWrapper, 0o755)
+
+    const previousPath = process.env.PATH
+
+    process.env.PATH = `${binaryDirectory}:${previousPath}`
+
+    try {
+      const materialized = await materializeTaskWorkspace({
+        destination: resolve(testRoot, 'materialized'),
+        expectedSourceDigest,
+        source
+      })
+
+      expect((await inspectMaterializedTaskWorkspace(materialized.workspace)).status).toBe('')
+    } finally {
+      process.env.PATH = previousPath
+    }
+  })
 })
 
 describe('trusted workspace artifacts', () => {
