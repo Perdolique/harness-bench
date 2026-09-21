@@ -4,16 +4,18 @@ The current backlog is defined by `.planning/backlog.json`, the complete local i
 
 ## Current development plan
 
-The 2026-09-11 owner-requested revision keeps the implemented engine and brings real-task feedback forward. This is pre-release development. No provider budget or private-data permission is granted by this roadmap.
+The current path keeps the implemented engine and brings real-task feedback forward.
 
-1. **Technical smoke check — accepted.** On 2026-09-12, the owner accepted `post13-canary-20260912-01` as `GO`. Its one native Codex invocation ended in an honest `task_failure` with `valid_grade: true`; independent collection, separate offline verification, native records, normalization, credential scanning, and cleanup all passed. This accepts the measurement path, not the candidate solution quality, private-data use, or an issue 16 budget.
-2. **Issue 14: import one fixed source — implemented.** The provider-free path imports an exact local commit with explicit provenance, one-commit materialization, secret checks, external content-addressed storage, private retention, disposal, and a redacted tombstone. Sanitized fixtures cover it end to end. Owner private-data use still requires separate source permission. Repository discovery and reproducible Docker rebuilds remain out of scope.
-3. **Issue 15: support the first real rubric — implemented.** Task obligations now bind pristine evidence, doctor controls, strict verifier checks, weighted facet credit, applicability, and required behavior gates. The canonical task and sanitized `notification-retry` example calibrate the contract without a generalized rule engine or model call.
-4. **Issue 16, first stage: native smoke complete.** Provider-free calibration and three explicitly authorized exploratory skill-disabled/v1/v2 invocations completed. A generic raw-manifest reader ordering defect interrupted the original controller block after the first valid result; that result was recovered without another provider call, and the two remaining arms completed in a separate continuation block. Treat the records as development feedback, not one paired comparison, a reliable skill ranking, or part of the final 45-run pilot. Inspect the retained reports and changes before spending time on the remaining tasks.
-5. **Issue 16, second stage: finish the five-task suite.** Reuse the proven authoring path. A provider-free derived selection now freezes five tasks from the prepared [exploratory web suite](exploratory-web-suite.md), with two immutable standbys for technical artifact corruption and one task excluded after observed native outcomes. The selection reuses the calibrated task, source, import, doctor, scoring, solution, and checked-image identities; it required no new import, image, check, doctor run, or provider call. Known public reachability remains `ineligible`, so the selection is smoke/exploratory material and cannot support secrecy-dependent quality claims. This artifact freeze does not close issue 16, freeze an issue 17 experiment plan or harness set, or authorize a provider budget. Review task fairness and the final budget together before any comparison.
-6. **Issue 17: run the frozen pilot.** Five tasks, three arms, at least three repeats: 45 initial invocations under a separate explicit authorization. Keep paired blocks, unchanged checked inputs, raw evidence, and failure classifications. Inspect per-task results before accepting findings. M4 stays optional until a real need is shown.
+| Stage | Status |
+| --- | --- |
+| Technical smoke | Accepted on 2026-09-12. It proved the measurement path, not task quality or private-data use. |
+| Issue 14 import | Implemented with one-commit materialization, secret checks, private retention and disposal. |
+| Issue 15 rubric | Implemented with executable obligations, doctor controls and strict verifier evidence. |
+| Issue 16 early smoke | Complete. The three calls are development feedback, not a paired ranking. |
+| Personal five-task matrix | Suite frozen and 45-call ceiling authorized. Execution is paused for the collector replay fix. |
+| Formal issue 17 pilot | Not started. It still needs eligible tasks before secrecy-dependent claims. |
 
-Keep the existing issue IDs and dependency edges. A useful stage may be delivered before an entire issue closes, and a larger issue may span several focused PRs or sessions. Small fixes required for the authorized outcome belong with that work. A new issue is for independent out-of-scope work, not every failed check or changed digest.
+Keep existing issue IDs and dependency edges. Put small fixes in the authorized work. Create a new issue only for independent work outside that scope.
 
 ### Issue 16 first-stage preparation
 
@@ -21,7 +23,9 @@ On 2026-09-12, the owner authorized one private frontend smoke case. Its prepare
 
 Provider-free preparation passed the complete smoke doctor: pristine, reference, alternate, six negative controls, and the reference repeat. Both implementations passed the full rubric; the repeat preserved checks and scores. The controls detected early persistence, timer-based completion, broken storage handling, test deletion, disabled regression checks, and an unrelated edit. Image-layer visibility, independent collection, separate offline verification, credential checks, evidence stability, and cleanup passed. Three complete skill-disabled/v1/v2 harnesses passed capture, validation, configuration checks, and content diffing.
 
-The completed behavior is reachable in public application assets. This case is explicitly ineligible for skill-quality claims and does not count toward the final five-task suite. Issue 16 remains open. The owner authorized three native calls; all three retained valid task-failure grades with passing regression, scope, verifier-integrity, credential, and cleanup evidence. Concurrency stayed at one and no provider retry occurred. Both skill harnesses were read through normal discovery, while the disabled arm had no target skill. Because the recovered first result and the two-arm continuation belong to different blocks, no combined comparison is valid. This source permission does not authorize other private tasks.
+The completed behavior is reachable in public application assets. This case is explicitly ineligible for skill-quality claims and does not count toward the final five-task suite. Issue 16 remains open. The owner authorized three native calls; all three retained valid task-failure grades with passing regression, scope, verifier-integrity, credential, and cleanup evidence. Concurrency stayed at one and no provider retry occurred.
+
+Both skill harnesses were read through normal discovery, while the disabled arm had no target skill. Because the recovered first result and the two-arm continuation belong to different blocks, no combined comparison is valid. This source permission does not authorize other private tasks.
 
 ### Post-#13 checkpoint and image policy
 
@@ -29,7 +33,7 @@ On commit `bcf3141f58991ccffbb98d80a5e82ae55d1dff24`, the v3 preparation passed 
 
 The fresh agent image was `sha256:fc05cb893da7ffea0f4455c6107daf7781cd75c244908a309b11a6bc60b2158e`. Inspection found the same source, base commit, dependency content, and built output; timestamps changed the image identity. This does not prove all image behavior equivalent, but the fresh image passed its own calibration. That image remains bound to the superseded preparation and is not a default for later plans. For each new run plan, validate and freeze the actual task-specific image. If relevant inputs change or evidence is unavailable, repeat affected checks and record the actual artifact.
 
-[Issue 45](https://github.com/Perdolique/harness-bench/issues/45) is withdrawn from the critical path: reproducible image rebuilds are not a pilot requirement. Build, check, freeze, and reuse an image by digest. Do not replace an image inside a frozen plan or reuse a historical approval for changed runtime controls. A revised preflight card may use a newly checked artifact; preserving v1/v2/v3 evidence does not require implementing a new image builder. Later records must identify the superseded preparation and must not rewrite it.
+[Issue 45](https://github.com/Perdolique/harness-bench/issues/45) is withdrawn from the critical path: reproducible image rebuilds are not a pilot requirement. Build, check, freeze, and reuse an image by digest. Do not replace an image inside a frozen plan or reuse a historical approval for changed runtime controls. A new plan may use a newly checked artifact; preserving v1/v2/v3 evidence does not require implementing a new image builder. Later records must identify the superseded preparation and must not rewrite it.
 
 GitHub issue 45 is closed as not planned. Its diagnosis is retained; the unsupported prerequisite is withdrawn, not implemented.
 
@@ -80,7 +84,7 @@ flowchart TD
 
 ## Recommended execution order
 
-Issues 1–15 and the post-13 technical smoke gate are complete; do not rebuild that platform or repeat accepted historical reviews. Follow the current development plan above: get early one-task feedback within 16, finish and freeze the five-task suite, then run the pilot in 17. Technical prerequisites remain enforced by the graph. User-authorized work can continue across useful stages; a session boundary is not an acceptance criterion.
+Issues 1–15, the post-13 technical smoke, the issue 16 early feedback, and the exploratory five-task freeze are complete. Do not rebuild that platform or repeat accepted historical reviews. Follow the current development plan above: fix the collector replay defect, refresh only affected physical inputs, and continue the personal matrix within its fixed ceiling. The formal issue 17 pilot still needs an eligible suite. Technical prerequisites remain enforced by the graph; a session boundary is not an acceptance criterion.
 
 ## Complete issue index
 
@@ -121,13 +125,17 @@ Issues 1–15 and the post-13 technical smoke gate are complete; do not rebuild 
 | After 2, accepted | Subscription feasibility, native fidelity, independent collection and separate verification. Revisit only if relevant assumptions change. |
 | After 6, accepted | Canonical task realism and fair grading. Ordinary calibration remains an implementation check. |
 | After 13, accepted | The 2026-09-12 `GO` accepts the one-call technical evidence. Private-data use and later provider budgets remain separate owner decisions. |
-| During 16 | The first-stage source permission and three-call exploratory budget are exhausted. Review each additional private source and the frozen five-task suite; no authorization carries forward. |
-| Before 17 | Review the five-task suite and 45-call pilot plan together; this freezes comparative inputs and authorizes only the stated budget. |
+| During 16 | The first-stage source permission and three-call exploratory budget are exhausted. The current personal matrix has its own 45-call ceiling; any other private source still needs owner review. |
+| Before 17 | Review an eligible five-task suite and its formal 45-call pilot plan together; this freezes comparative inputs and authorizes only the stated budget. |
 | After 17 | Inspect per-task evidence and accept or reject conclusions. Authorize M4 only for a demonstrated need. |
+
+These gates govern formal benchmark claims. Owner-only exploratory work follows [the development instructions](../AGENTS.md#owner-decisions).
 
 The issue 2 owner gate was accepted on 2026-09-05 with explicit qualifications: the public-network medium and low runs passed. A separately authorized additional low run then passed, completing the matching-input low pair; issue 3 accepted the architecture with a future one-base-commit Git workspace, fail-closed owner login for unproved auth refresh, and native stream-merging, public-network, and platform limitations. See the [evidence report](spikes/harbor-codex-subscription.md) and [accepted ADRs](adr/README.md).
 
-The 2026-09-05 corrective review sets conservative v1 defaults unless a later issue and ADR deliberately change them: loss of trustworthy collection or separate verification is fail-closed; subscription concurrency is exactly one; both arms of a block finish within 24 hours and are invalidated by a known stack/provider change; private task/run records declare an expiry and default to 90 days. The issue 6 realism and fairness gate was accepted in [PR #34](https://github.com/Perdolique/harness-bench/pull/34), and the post-13 technical smoke gate was accepted on 2026-09-12; later gates remain pending. GitHub's native issue dependencies enforce prerequisite closure, but closing a dependency does not silently satisfy its owner gate. The `decision-required` label identifies owner decisions, including deferred M4 candidate/budget choices.
+The 2026-09-05 corrective review sets conservative v1 defaults unless a later issue and ADR deliberately change them. Loss of trustworthy collection or separate verification is fail-closed. Subscription concurrency is one. Both arms of a block finish within 24 hours and are invalidated by a known stack or provider change. Private task and run records declare an expiry that defaults to 90 days.
+
+The issue 6 realism and fairness gate was accepted in [PR #34](https://github.com/Perdolique/harness-bench/pull/34), and the post-13 technical smoke gate was accepted on 2026-09-12; later gates remain pending. GitHub's native issue dependencies enforce prerequisite closure, but closing a dependency does not silently satisfy its owner gate. The `decision-required` label identifies owner decisions, including deferred M4 candidate/budget choices.
 
 ## M4 scope and split rationale
 
@@ -137,4 +145,4 @@ M4 item dependencies are in the table rather than speculative parallel tracks. I
 
 ## Current boundary
 
-M0–M2, the issue 15 executable-rubric implementation, the refreshed technical canary, and the issue 16 first-stage smoke are complete. The provider-free personal exploratory web catalog is prepared, its smoke doctor calibration passed, and a five-task derived selection is frozen without changing the existing artifacts or making a provider call. Public reachability remains `ineligible`, and issue 16 remains open because this suite cannot support secrecy-dependent comparative claims. Issue 17 has not started. Each additional private source still requires owner permission, and no new provider budget, including the 45-call issue 17 budget, is approved.
+M0–M2, the issue 15 executable-rubric implementation, the refreshed technical canary, and the issue 16 first-stage smoke are complete. The personal exploratory web catalog is prepared, its smoke doctor calibration passed, and a five-task derived selection is frozen. Public reachability remains `ineligible`, and issue 16 remains open because this suite cannot support secrecy-dependent comparative claims. Issue 17 has not started. The owner separately authorized a fixed 45-call ceiling for the personal exploratory matrix; this does not increase that ceiling or turn it into the formal issue 17 pilot. Each additional private source still requires owner permission.

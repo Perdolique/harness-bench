@@ -284,7 +284,9 @@ export async function captureWorkspaceArtifacts(
     }
 
     await replaceWorktree(trustedWorkspace, secondCandidate)
-    await runGit(trustedWorkspace, ['add', '--all'])
+
+    // Preserve repository-specific ignored files already accepted into the filtered snapshot.
+    await runGit(trustedWorkspace, ['add', '--all', '--force'])
 
     const patch = await runGit(trustedWorkspace, [
       'diff',

@@ -295,6 +295,59 @@ describe('trusted workspace artifacts', () => {
     expect(metadata.result_tree.some(({ path }) => path === 'src/added.ts')).toBe(true)
   })
 
+  it('captures and replays Git-ignored workspace files', async () => {
+    const source = resolve(testRoot, 'ignored-source')
+
+    await createSource(source)
+    await writeFile(resolve(source, '.gitignore'), 'generated/\n')
+
+    const sourceDigest = (await inspectTaskSource(source)).digest
+
+    const materialized = await materializeTaskWorkspace({
+      destination: resolve(testRoot, 'ignored-workspace'),
+      expectedSourceDigest: sourceDigest,
+      source
+    })
+
+    const ignoredFile = resolve(materialized.workspace, 'generated', 'result.json')
+
+    await mkdir(resolve(ignoredFile, '..'))
+    await writeFile(ignoredFile, '{"captured":true}\n')
+
+    expect(
+      execFileSync('git', ['check-ignore', 'generated/result.json'], {
+        cwd: materialized.workspace,
+        encoding: 'utf8'
+      }).trim()
+    ).toBe('generated/result.json')
+
+    const artifacts = resolve(testRoot, 'ignored-artifacts')
+
+    await captureWorkspaceArtifacts({
+      artifacts,
+      baseCommit: materialized.baseCommit,
+      expectedSourceDigest: sourceDigest,
+      source,
+      workspace: materialized.workspace
+    })
+
+    const replay = resolve(testRoot, 'ignored-replay')
+
+    const metadata = await verifyWorkspaceArtifacts({
+      artifacts,
+      destination: replay,
+      expectedBaseCommit: materialized.baseCommit,
+      expectedSourceDigest: sourceDigest,
+      source
+    })
+
+    expect(metadata.result_tree.some(({ path }) => path === 'generated/result.json')).toBe(true)
+
+    await expect(readFile(resolve(replay, 'generated', 'result.json'), 'utf8')).resolves.toBe(
+      '{"captured":true}\n'
+    )
+  })
+
   it('replays ordinary source files in a nested auth directory', async () => {
     const source = resolve(testRoot, 'auth-source')
 

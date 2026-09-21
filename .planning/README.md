@@ -41,7 +41,7 @@ If GitHub CLI/access is unavailable, all drafts and definitions remain usable. N
 
 ## Publication scope
 
-The original bootstrap authorized initial labels, milestones, issues, and a local planning commit. It is complete. Later owner-requested plan revisions may update the existing issue bodies and this checkout without recreating the issue graph. Preserve completed issue bodies as historical evidence and apply current workflow rules from CONTRIBUTING.md and the roadmap. Planning edits do not authorize provider calls, private-data access, Git commits, or runtime implementation.
+The original bootstrap authorized initial labels, milestones, issues, and a local planning commit. It is complete. Later owner-requested plan revisions may update the existing issue bodies and this checkout without recreating the issue graph. Preserve completed issue bodies as historical evidence and apply current workflow rules from CONTRIBUTING.md and the roadmap. Planning files do not expand the active owner request. Provider calls and access to a new private source follow [the owner-decision rules](../AGENTS.md#owner-decisions).
 
 For an approved revision, edit the relevant local bodies, inspect their diff, then run the publisher. It verifies remote bodies against the previous published hashes before updating them and records the new hashes after publication. Local validation requires publication hashes to match, so run it after synchronization. Do not hand-update those hashes to claim unpublished work is already on GitHub. New issues are not required just to record a plan correction.
 

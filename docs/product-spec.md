@@ -12,19 +12,21 @@ Report requested behavior, justified repository contracts, regressions, harmful 
 
 The pilot succeeds when the owner can inspect a paired comparison of a skill disabled, v1, and v2 on five frozen real tasks, with at least three repeats per arm, and trace every finding back to retained patches, trajectories, and verifier evidence. Success is a defensible decision, not a guaranteed winning harness.
 
-Get feedback earlier: after the technical canary and minimal import/rubric work, calibrate one real task and inspect a separately authorized exploratory comparison before authoring the full suite. One task with one repeat per arm checks usefulness and exposes authoring problems; it cannot establish a reliable skill ranking. The existing engine stays in place while this path guides remaining development.
+The development sequence brought feedback forward. After the technical canary and minimal import/rubric work, it calibrated one real task and inspected one repeat per arm. That small comparison checked usefulness and exposed authoring problems, but it did not establish a reliable skill ranking. The existing engine remains in place for the current five-task exploratory work.
 
 ## V1 product boundary
 
 macOS on Apple Silicon with Docker Desktop Linux/arm64 containers is the v1 execution target. Intel Mac, WSL2, and arbitrary Docker hosts are not compatibility claims. The control plane is TypeScript; Harbor runs pinned native Codex with subscription auth and owns environment lifecycle. Python exists only for locked Harbor/tooling.
 
-V1 includes one synthetic frontend task before three to five real tasks (the pilot backlog commits to five), immutable harness capture, Harbor-compatible task packages, separate deterministic verification, complete manifests, raw retention, terminal reports, interleaved repeated experiments, task integrity checks, and verifier-only regrade. Each agent-visible task snapshot is a new local repository with one base commit. It does not copy the source object database, refs, remotes, hooks, credentials, or future history and retains only objects reachable from the new commit. V1 subscription concurrency is exactly one. Both arms of each task/replicate block complete within 24 hours and remain valid only while no known model, CLI, provider, runner, Harbor-configuration, or harness revision changes.
+V1 includes one synthetic frontend task before three to five real tasks (the pilot backlog commits to five), immutable harness capture, Harbor-compatible task packages, separate deterministic verification, complete manifests, raw retention, terminal reports, interleaved repeated experiments, task integrity checks, and verifier-only regrade. Each agent-visible task snapshot is a new local repository with one base commit.
+
+It does not copy the source object database, refs, remotes, hooks, credentials, or future history and retains only objects reachable from the new commit. V1 subscription concurrency is exactly one. Both arms of each task/replicate block complete within 24 hours and remain valid only while no known model, CLI, provider, runner, Harbor-configuration, or harness revision changes.
 
 V1 excludes bare models, dashboards, cloud/distributed execution, multiple providers, generic plugins, LLM judges, public registries, full mutation frameworks, multi-step tasks, code-review tasks, and ordinary metered CI. No automated credit purchases or resets are part of the product. Pier is a conditional fallback; Coder Eval is excluded.
 
 ## Feasibility decision
 
-The first implementation establishes toolchains and governance. The first meaningful execution is a disposable spike: subscription Codex edits a fixed synthetic snapshot under an explicit harness and unrestricted agent internet; independent collection transfers a declared patch to a fresh offline verifier; negative and positive controls and two repeated native-agent runs are retained.
+The first implementation establishes toolchains and governance. The first meaningful execution is a disposable spike. Subscription Codex edits a fixed synthetic snapshot under an explicit harness and unrestricted agent internet. Independent collection transfers a declared patch to a fresh offline verifier. The project retains negative and positive controls plus two repeated native-agent runs.
 
 The completed `public-1` spike used unrestricted internet without a discovery phase, hostname allowlist, or packet observer. The earlier restricted-network failure and owner no-go remain historical evidence and are not compared with this revision. The recorded stack used Harbor 0.22.0, Codex 0.153.2, `gpt-5.6-luna`, concurrency one, and no automatic retry or fallback model.
 
@@ -34,4 +36,8 @@ The green spike, owner acceptance, and evidence-based ADR review now permit the 
 
 ## Product acceptance gates
 
-The issue 2 feasibility, issue 6 task-fairness, and post-13 technical smoke decisions are accepted history. The post-13 check used a local dry run and one explicitly authorized subscription canary; its technical `GO` does not authorize private-data use, which still needs separate source permission. Issue 16 starts with one real task and separately authorized exploratory feedback, then freezes five calibrated tasks. The suite review and issue 17 invocation budget can be approved together. Inspect per-task evidence before accepting final findings or expanding the product. [The roadmap](roadmap.md) owns current dependencies and decisions; [methodology](methodology.md) separates development evidence from comparative results.
+The issue 2 feasibility, issue 6 task-fairness, and post-13 technical smoke decisions are accepted history. The post-13 check used a local dry run and one explicitly authorized subscription canary; its technical `GO` does not authorize private-data use, which still needs separate source permission.
+
+Issue 16 began with one real task and exploratory feedback. It now has a frozen five-task owner-only suite, but that suite is not eligible for secrecy-dependent claims. An eligible suite review and the formal issue 17 invocation budget may be approved together later.
+
+Inspect per-task evidence before accepting final findings or expanding the product. [The roadmap](roadmap.md) owns current dependencies and decisions; [methodology](methodology.md) separates development evidence from comparative results.
