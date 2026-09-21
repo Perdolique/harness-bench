@@ -2,7 +2,7 @@
 
 Use [the roadmap](docs/roadmap.md) to choose work that advances the user-authorized outcome. Native GitHub dependencies describe prerequisites; the roadmap distinguishes technical checks from owner decisions. Historical bootstrap gates do not add approval steps to routine development.
 
-Keep a branch and PR focused on one reviewable outcome. Link existing issues when applicable; a planning correction or small required fix does not need a new issue. A larger issue may take several useful PRs or sessions. Read [AGENTS.md](AGENTS.md), inspect the checkout, and map the plan to acceptance criteria. Create a linked follow-up for independently useful work outside the authorized outcome. Do not silently change accepted contracts or start unrelated backlog work.
+Keep each change focused on one reviewable outcome. Use a branch and PR when review or publication is requested; owner-directed local work may stay in the current checkout. Link existing issues when applicable, but a planning correction or small required fix does not need a new issue. Read [AGENTS.md](AGENTS.md), inspect the checkout, and map the plan to acceptance criteria. Create a linked follow-up only for independently useful work outside the authorized outcome. Do not silently change accepted contracts or start unrelated backlog work.
 
 ## Definition of Done
 
@@ -10,7 +10,7 @@ Keep a branch and PR focused on one reviewable outcome. Link existing issues whe
 - [ ] Tool versions, image digests, and stable model identifiers are pinned where available; unknown values are explicit.
 - [ ] Meaningful deterministic tests cover changed behavior, including negative controls that fail when the protected contract is removed.
 - [ ] Operational documentation and relevant ADRs reflect actual behavior.
-- [ ] The PR records exact commands, results, and any unverified criteria.
+- [ ] The change record or final handoff states the commands, results, and any unverified criteria.
 - [ ] Ordinary tests and CI consume no subscription quota and make no provider calls.
 - [ ] No credentials or private source code are committed or published.
 - [ ] Agent visibility excludes hidden tests, reference solutions, and future history.
@@ -24,9 +24,11 @@ Keep a branch and PR focused on one reviewable outcome. Link existing issues whe
 
 Before the first reviewed pilot, formats and workflows may evolve. Preserve old raw evidence and its producing commit; follow the [schema policy](docs/architecture.md#versioned-document-boundary) instead of adding speculative compatibility. Run IDs, content digests, contract revisions, and product releases have different purposes. Do not bump every revision or open an issue just because one artifact changes.
 
-Verification follows the change. Documentation and planning edits need relevant lint, links, backlog checks, and diff inspection. Code changes need focused tests plus the applicable repository checks; changes to schemas, collection, credentials, or shared execution need broader coverage. Full Docker calibration is needed when task or execution changes affect its evidence, not after every prose edit. Existing green evidence can be reused while its relevant inputs and toolchain match. A provider-backed canary always needs an explicit invocation budget; ordinary CI remains provider-free.
+Verification follows the change. Documentation edits need the relevant lint, links and diff checks. Code changes need focused tests and the applicable repository checks. Changes to schemas, collection, credentials or shared execution need broader coverage.
 
-Use the [PR template](.github/pull_request_template.md) and [ADR format](docs/adr/README.md).
+Run full Docker calibration only when task or execution changes affect its evidence. Reuse green evidence while its inputs and toolchain still match. Provider authorization follows [the owner-decision rules](AGENTS.md#owner-decisions). Ordinary CI remains provider-free.
+
+When opening a PR or ADR, use the [PR template](.github/pull_request_template.md) or [ADR format](docs/adr/README.md).
 
 ## Development prerequisites
 

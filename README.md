@@ -2,7 +2,7 @@
 
 Evaluate complete coding-agent stacks on repository-native engineering tasks. A stack includes the native agent and version, model and effort, authentication mode, harness, tools, permissions, repository snapshot, prompt, budget, and runner. A result is evidence about that stack on those tasks, never a bare-model score.
 
-**Status: pre-release development; the engine is implemented through issue 15.** It supports pinned toolchains, provider-free CI, seven v1 schemas, immutable harnesses, a calibrated synthetic task, Harbor execution, result retention and reports, repeated comparisons, integrity checks, verifier-only regrade, content-addressed import of one exact Git task source, and an executable evidence-backed rubric contract. The first real task and pilot authoring remain ahead. The next useful outcome is one real task with an inspected exploratory comparison, before expanding to five tasks. See the [current development plan](docs/roadmap.md#current-development-plan).
+**Status: pre-release development; the engine is implemented through issue 15.** It supports pinned toolchains, provider-free CI, seven v1 schemas, immutable harnesses, a calibrated synthetic task, Harbor execution, result retention and reports, repeated comparisons, integrity checks, verifier-only regrade, content-addressed task imports, and executable evidence-backed rubrics. An owner-only issue 16 smoke and a five-task exploratory suite are prepared. The formal issue 17 pilot has not started because the current tasks are not eligible for secrecy-dependent claims. See the [current development plan](docs/roadmap.md#current-development-plan).
 
 Three accepted native feasibility runs prove only the recorded synthetic path. Token refresh was not exercised and an auth failure requires owner login. Harbor irreversibly merged native stdout and stderr. The agent had unrestricted network access, including possible access to remote content, host services, and its temporary credentials. The result applies only to the recorded macOS Apple Silicon and Docker Desktop Linux/arm64 environment.
 
@@ -15,7 +15,7 @@ The first useful question is whether a changed harness improves the owner's subs
 - Pinned native Codex using a dedicated, external ChatGPT login.
 - Immutable harnesses and one-base-commit task snapshots, unrestricted agent internet, and fresh, credential-free, network-disabled deterministic verifiers.
 - A trusted collector independent of agent-controlled Git, with fail-closed proof of quiescence, complete collection, an exact manifest, and verified hashes before any grade is valid.
-- One synthetic frontend task, one real development task with early feedback, then five frozen real tasks, repeated interleaved comparisons, raw evidence retention, and terminal reports.
+- One synthetic frontend task, early private-task feedback, then five frozen eligible tasks, repeated interleaved comparisons, raw evidence retention, and terminal reports.
 
 Harbor 0.22.0, Codex 0.153.2, and `gpt-5.6-luna` passed the synthetic spike at `medium` and owner-requested `low` effort. [Issue 2](.planning/issues/02-feasibility-spike.md) records the qualified owner go; [issue 3](.planning/issues/03-evidence-based-decisions.md) and the [accepted ADRs](docs/adr/README.md) record what that evidence does and does not support.
 
