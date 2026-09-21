@@ -182,7 +182,13 @@ async function runGit(
   args: readonly string[],
   environment: NodeJS.ProcessEnv = {}
 ): Promise<string> {
-  const { stdout } = await execFileAsync('git', args, {
+  const { stdout } = await execFileAsync('git', [
+    '-c',
+    'gc.auto=0',
+    '-c',
+    'maintenance.auto=false',
+    ...args
+  ], {
     cwd,
     encoding: 'utf8',
     env: isolatedGitEnvironment(environment),
